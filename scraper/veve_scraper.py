@@ -71,14 +71,20 @@ def _get(session: requests.Session, params: Dict[str, Any]) -> Dict[str, Any]:
     raise RuntimeError(f"Gave up fetching {params}: {last_err}")
 
 
-def _veve_url(category: Optional[str], external_ref: Optional[str]) -> str:
-    if not external_ref:
-        return ""
+def build_veve_url(category: Optional[str], external_ref: Optional[str],
+                   series_uuid: Optional[str] = None) -> str:
+    """Direct link to the VeVe product page.
+
+    Comics live at /collection/comic/<COMIC id>, and the comic id equals the tracker's
+    series.externalReference (our series_uuid) — NOT the per-rarity externalReference.
+    Collectibles/artworks use their own externalReference.
+    """
     key = (category or "").strip().lower()
-    tmpl = VEVE_URL_BY_CATEGORY.get(key)
-    if not tmpl:
-        tmpl = VEVE_URL_BY_CATEGORY["collectible"]
-    return tmpl.format(uuid=external_ref)
+    uuid = series_uuid if key == "comic" else external_ref
+    if not uuid:
+        return ""
+    tmpl = VEVE_URL_BY_CATEGORY.get(key) or VEVE_URL_BY_CATEGORY["collectible"]
+    return tmpl.format(uuid=uuid)
 
 
 def _image_url(image_link: Optional[str]) -> str:
@@ -122,7 +128,6 @@ def _flatten_product(p: Dict[str, Any]) -> Dict[str, Any]:
         # --- supply ---
         "releaseAmount": p.get("releaseAmount"),
         "availableAmount": p.get("availableAmount"),
-        "isEcl": p.get("isEcl"),
         # --- pricing (current snapshot) ---
         "storePrice": p.get("storePrice"),
         "market_lowestOffer": latest.get("lowestOffer"),
@@ -136,18 +141,16 @@ def _flatten_product(p: Dict[str, Any]) -> Dict[str, Any]:
         "noMarketListing": stats.get("noMarketListing") if isinstance(stats, dict) else None,
         # --- relationships ---
         "series_name": series.get("seriesName"),
-        "series_edition": series.get("edition"),
         "series_uuid": series.get("externalReference") or series.get("uuid"),
         "brand_name": brand.get("name"),
         "brand_uuid": brand.get("uuid"),
         "licensor_name": licensor.get("name"),
-        "licensor_fee": licensor.get("fee"),
         "licensor_uuid": licensor.get("uuid"),
-        "provider": p.get("provider"),
         # --- links ---
-        "veve_url": _veve_url(category, external_ref),
-        "image_url": _image_url(p.get("imageLink")),
-        "image_cloudflare": p.get("imageLinkCloudflare"),
+        "veve_url": build_veve_url(category, external_ref,
+                                   series.get("externalReference") or series.get("uuid")),
+        # image_url is owned by the VeVe enrichment (CloudFront); not set here so daily
+        # runs never wipe an already-enriched image.
         # --- ids for reference/joining ---
         "tracker_uuid": p.get("uuid"),
     }

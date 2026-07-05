@@ -24,18 +24,20 @@ from typing import Any, Dict, List, Optional
 import gspread
 from google.oauth2.service_account import Credentials
 
+from scraper.veve_scraper import build_veve_url
+
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 PREFERRED_ORDER = [
     "veve_uuid", "name", "category", "edition", "rarity", "releaseDate",
-    "releaseAmount", "availableAmount", "isEcl",
+    "releaseAmount", "availableAmount",
     "storePrice", "market_lowestOffer", "market_totalListings",
     "allTimeLow", "allTimeHigh", "change_1d_pct", "change_7d_pct", "change_30d_pct",
     "gemsPerMcp", "noMarketListing",
-    "series_name", "series_edition", "series_uuid",
-    "brand_name", "brand_uuid", "licensor_name", "licensor_fee", "licensor_uuid",
-    "provider", "veve_url", "image_url", "image_cloudflare", "tracker_uuid",
-    "description", "special_edition", "edition_type", "is_blindbox", "season",
+    "series_name", "series_uuid",
+    "brand_name", "brand_uuid", "licensor_name", "licensor_uuid",
+    "veve_url", "image_url", "tracker_uuid",
+    "description", "special_edition", "edition_type", "is_blindbox",
     "drop_method", "drop_date", "daily_mcp_points", "market_fee", "veve_store_price",
     "rarity_editions", "editions_in_circulation", "sold_editions", "burned_editions",
     "withheld_editions", "store_allocation", "first_available_edition",
@@ -47,6 +49,9 @@ PREFERRED_ORDER = [
 FIRST_SEEN = "first_seen"
 LAST_SEEN = "last_seen"
 KEY_COLUMN = "veve_uuid"
+# Columns removed from the sheet (empty/useless)
+DROP_COLUMNS = {"provider", "series_edition", "licensor_fee", "isEcl",
+                "image_cloudflare", "season"}
 FLOOR_COLUMN = "market_lowestOffer"
 
 DYNAMIC_FIELDS = [
@@ -67,6 +72,20 @@ BLUE = {"red": 0.82, "green": 0.90, "blue": 1.0}
 GREEN = {"red": 0.83, "green": 0.96, "blue": 0.83}
 WHITE = {"red": 1.0, "green": 1.0, "blue": 1.0}
 UPCOMING_DAYS = 7
+
+# Rarity background colours (hex -> rgb 0..1), white text for contrast.
+def _hex(h):
+    h = h.lstrip("#")
+    return {"red": int(h[0:2], 16) / 255, "green": int(h[2:4], 16) / 255, "blue": int(h[4:6], 16) / 255}
+
+RARITY_COLOURS = {
+    "COMMON": _hex("1A7431"),
+    "UNCOMMON": _hex("5F3072"),
+    "RARE": _hex("0466C8"),
+    "ULTRA_RARE": _hex("FD9E02"),
+    "SECRET_RARE": _hex("A1160E"),
+    "ARTIST_PROOF": _hex("D801D8"),
+}
 
 
 def _client() -> gspread.Client:
@@ -245,6 +264,13 @@ def sync_products(products: List[Dict[str, Any]], spreadsheet_id: str,
             elif cat == "comic":
                 new_comics.append(str(prod.get("name", "")) or pid)
 
+    # Fix veve_url for every row (comics use series_uuid) + strip dead columns
+    for rec in merged.values():
+        for dc in DROP_COLUMNS:
+            rec.pop(dc, None)
+        rec["veve_url"] = build_veve_url(rec.get("category"), rec.get("veve_uuid"),
+                                         rec.get("series_uuid"))
+
     all_keys: set = set()
     for rec in merged.values():
         all_keys.update(rec.keys())
@@ -275,6 +301,7 @@ def sync_products(products: List[Dict[str, Any]], spreadsheet_id: str,
         pass
 
     _apply_formatting(sh, ws, len(grid), len(columns), upcoming_blue, upcoming_green)
+    _apply_rarity_colours(sh, ws, columns, len(grid))
 
     ph = _append_rows(sh, "PriceHistory", PRICE_HISTORY_HEADER, price_rows)
     eh = _append_rows(sh, "EditionsHistory", EDITIONS_HISTORY_HEADER, edition_rows)
@@ -323,6 +350,48 @@ def _apply_formatting(sh, ws, n_rows: int, n_cols: int,
         sh.batch_update({"requests": reqs})
     except Exception as e:
         print(f"    formatting warning: {e}", flush=True)
+
+
+def _apply_rarity_colours(sh, ws, columns: List[str], n_rows: int) -> None:
+    """Colour the `rarity` cells by rarity via persistent conditional-format rules
+    (white text on the requested background). Rules are cleared & re-added each run
+    so they always match the current rarity column position."""
+    if "rarity" not in columns or n_rows <= 1:
+        return
+    sid = ws.id
+    col = columns.index("rarity")
+    rng = {"sheetId": sid, "startRowIndex": 1, "endRowIndex": n_rows,
+           "startColumnIndex": col, "endColumnIndex": col + 1}
+
+    # Count existing conditional-format rules on this sheet, to delete them first.
+    try:
+        meta = sh.fetch_sheet_metadata()
+        existing = 0
+        for sheet in meta.get("sheets", []):
+            if sheet.get("properties", {}).get("sheetId") == sid:
+                existing = len(sheet.get("conditionalFormats", []) or [])
+                break
+    except Exception:
+        existing = 0
+
+    reqs = []
+    for _ in range(existing):
+        reqs.append({"deleteConditionalFormatRule": {"sheetId": sid, "index": 0}})
+    for rarity, colour in RARITY_COLOURS.items():
+        reqs.append({"addConditionalFormatRule": {"index": 0, "rule": {
+            "ranges": [rng],
+            "booleanRule": {
+                "condition": {"type": "TEXT_EQ",
+                              "values": [{"userEnteredValue": rarity}]},
+                "format": {"backgroundColor": colour,
+                           "textFormat": {"foregroundColor": {"red": 1, "green": 1, "blue": 1},
+                                          "bold": True}},
+            },
+        }}})
+    try:
+        sh.batch_update({"requests": reqs})
+    except Exception as e:
+        print(f"    rarity colouring warning: {e}", flush=True)
 
 
 def _append_rows(sh, tab: str, header: List[str], rows: List[List[Any]]) -> int:

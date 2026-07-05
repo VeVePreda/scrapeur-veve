@@ -50,7 +50,8 @@ QUERY = (
     "editionsBurnt withheldEditions editionsInCirculation availableReservations "
     "firstAvailableEdition isTotalAvailableVisible "
     "series{ id name season isBlindbox } "
-    "brand{ id name licensor{ name } } } }"
+    "brand{ id name licensor{ name } } "
+    "image{ url webpUrl } } }"
 )
 
 
@@ -63,7 +64,8 @@ COMIC_QUERY = (
     "publicComicType(id:$id){ "
     "id name description storePrice marketFee dailyMcpPoints dropMethod dropDate "
     "startYear totalIssued totalAvailable soldEditions editionsBurnt "
-    "editionsInCirculation withheldEditions firstAvailableEdition } }"
+    "editionsInCirculation withheldEditions firstAvailableEdition "
+    "media{ edges{ node{ url } } } } }"
 )
 
 # Slim queries used for the DAILY refresh of variable fields (editions counts).
@@ -196,8 +198,10 @@ def _map_node(n: Dict[str, Any], uuid: str) -> Dict[str, Any]:
     series = n.get("series") or {}
     brand = n.get("brand") or {}
     licensor = (brand.get("licensor") or {}) if isinstance(brand, dict) else {}
+    img = n.get("image") or {}
     return {
         "veve_uuid": uuid,
+        "image_url": img.get("webpUrl") or img.get("url"),
         "special_edition": n.get("isSpecialEdition"),
         "edition_type": n.get("editionType"),
         "description": n.get("description"),
@@ -250,8 +254,14 @@ def fetch_comic(comic_id: str) -> Optional[Dict[str, Any]]:
 
 
 def _map_comic(n: Dict[str, Any], comic_id: str) -> Dict[str, Any]:
+    media = ((n.get("media") or {}).get("edges") or []) if isinstance(n.get("media"), dict) else []
+    image_url = ""
+    if media:
+        node = (media[0] or {}).get("node") or {}
+        image_url = node.get("url") or ""
     return {
         "comic_id": comic_id,
+        "image_url": image_url,
         "description": n.get("description"),
         "veve_store_price": _num(n.get("storePrice")),
         "market_fee": _num(n.get("marketFee")),
