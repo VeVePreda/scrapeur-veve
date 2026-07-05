@@ -2,7 +2,9 @@ name: VeVe daily catalogue sync
 
 on:
   schedule:
-    - cron: "30 5 * * *"          # 05:30 UTC daily
+    # 04:00 UTC = 06:00 in France in summer (CEST). In winter (CET) it is 05:00 France
+    # — GitHub cron only supports UTC, so it cannot follow daylight-saving automatically.
+    - cron: "0 4 * * *"
   workflow_dispatch: {}
 
 concurrency:
@@ -12,7 +14,7 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,11 +24,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Scrape + enrich new collectibles + sync sheet
+      - name: Scrape + enrich new + refresh variable fields + sync sheet
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           SHEET_ID: ${{ secrets.SHEET_ID }}
           SHEET_TAB: Catalogue
           ENRICH_MODE: new
+          REFRESH_DYNAMIC: "true"
           APIFY_PROXY_PASSWORD: ${{ secrets.APIFY_PROXY_PASSWORD }}
         run: python -m scraper.run

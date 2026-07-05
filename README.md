@@ -147,3 +147,37 @@ variantes par rareté), `market_fee`, `daily_mcp_points`, `drop_method`, `drop_d
 ### Blind Box Odds
 Non exposé comme champ par l'API VeVe. Pour les comics, la `description` mentionne
 souvent les variantes/raretés en texte libre.
+
+---
+
+## Confort & robustesse (mise à jour)
+
+### Horaire
+Le job tourne à **04:00 UTC = 06:00 en France l'été** (CEST). En hiver (CET) ce sera 05:00
+en France — GitHub ne gère que l'UTC, il ne suit pas le changement d'heure automatiquement.
+Pour forcer 06:00 en hiver, mets `cron: "0 5 * * *"`.
+
+### Onglet `RunLog` — confirmation quotidienne
+Chaque run ajoute une ligne : date, **statut**, nombre de lignes, **nouveaux produits**
+(collectibles / comics), drops à venir cette semaine, lignes d'historique ajoutées, et les
+**noms des nouveautés**. C'est ta confirmation que tout a fonctionné et ce qui a changé.
+GitHub t'envoie aussi un e-mail automatiquement si un run **échoue**.
+
+### Protection de tes données
+- Le Sheet repart **toujours** des lignes existantes : rien n'est jamais supprimé, même si
+  un produit disparaît du tracker ou si l'enrichissement échoue.
+- Si my-nft-tracker est **en panne** (0 produit) ou renvoie une récolte **anormalement
+  petite** (< 50 % de l'existant), le run **s'arrête sans réécrire** le Sheet et le note
+  dans `RunLog` (`FAILED_NO_DATA` / `ABORTED_LOW_COUNT`). Tu ne perds rien.
+
+### Onglet `EditionsHistory` — suivi des données variables
+Les champs qui **évoluent** (`sold_editions`, `editions_in_circulation`, `burned_editions`,
+`withheld_editions`, `veve_total_available`) sont rafraîchis **chaque jour** pour tout le
+catalogue et historisés dans `EditionsHistory` **uniquement quand une valeur change**
+(collectibles par produit, comics une fois par comic). Tu peux ainsi suivre et comparer
+l'évolution dans le temps. Réglable via `REFRESH_DYNAMIC` (`true` par défaut).
+
+### Surlignage des drops à venir (7 prochains jours)
+Dans `Catalogue`, les produits qui sortent dans les 7 prochains jours sont surlignés :
+**bleu clair = collectibles**, **vert clair = comics**. Le reste est remis en blanc à
+chaque run.

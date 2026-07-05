@@ -66,6 +66,18 @@ COMIC_QUERY = (
     "editionsInCirculation withheldEditions firstAvailableEdition } }"
 )
 
+# Slim queries used for the DAILY refresh of variable fields (editions counts).
+DYN_COLLECTIBLE_QUERY = (
+    "query publicStoreCollectibleEditionsQuery($id: ID!){ "
+    "publicCollectibleType(id:$id){ id soldEditions totalAvailable "
+    "editionsBurnt editionsInCirculation withheldEditions } }"
+)
+DYN_COMIC_QUERY = (
+    "query publicStoreCollectibleEditionsQuery($id: ID!){ "
+    "publicComicType(id:$id){ id soldEditions totalAvailable "
+    "editionsBurnt editionsInCirculation withheldEditions } }"
+)
+
 REQUEST_TIMEOUT = 30
 MAX_RETRIES = 3
 RETRY_BACKOFF = 2
@@ -324,3 +336,65 @@ if __name__ == "__main__":
     ids = sys.argv[1:] or ["8648d886-ed81-4ea1-bae7-cb1a0bc975bd"]
     res = enrich(ids)
     print(json.dumps(res, indent=2, ensure_ascii=False))
+
+
+def _map_dynamic(n: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "sold_editions": _num(n.get("soldEditions")),
+        "editions_in_circulation": _num(n.get("editionsInCirculation")),
+        "burned_editions": _num(n.get("editionsBurnt")),
+        "withheld_editions": _num(n.get("withheldEditions")),
+        "veve_total_available": _num(n.get("totalAvailable")),
+    }
+
+
+def fetch_dynamic(item_id: str, is_comic: bool) -> Optional[Dict[str, Any]]:
+    """Fetch only the variable (edition-count) fields for one item."""
+    query = DYN_COMIC_QUERY if is_comic else DYN_COLLECTIBLE_QUERY
+    root = "publicComicType" if is_comic else "publicCollectibleType"
+    payload = {"operationName": "publicStoreCollectibleEditionsQuery",
+               "variables": {"id": item_id}, "query": query}
+    last_err = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            r = _session().post(GRAPHQL_URL, json=payload, timeout=REQUEST_TIMEOUT)
+            if r.status_code == 200:
+                node = (r.json().get("data") or {}).get(root)
+                return _map_dynamic(node) if node else None
+            last_err = f"HTTP {r.status_code}"
+        except Exception as e:
+            last_err = str(e)
+            _maybe_disable_proxy(e)
+        time.sleep(RETRY_BACKOFF * attempt)
+    return None
+
+
+def enrich_dynamic(item_ids: List[str], is_comic: bool,
+                   workers: int = DEFAULT_WORKERS) -> Dict[str, Dict[str, Any]]:
+    """Refresh variable fields for many items. Returns {id: dynamic_cols}."""
+    item_ids = [i for i in dict.fromkeys(item_ids) if i]
+    total = len(item_ids)
+    if not total:
+        return {}
+    _decide_egress()
+    kind = "comics" if is_comic else "collectibles"
+    via = "Apify residential proxy" if _use_proxy else "direct connection"
+    print(f"Refreshing variable fields for {total} {kind} ({via})...", flush=True)
+    out: Dict[str, Dict[str, Any]] = {}
+    done = 0
+
+    def task(i: str):
+        time.sleep(PAUSE)
+        return i, fetch_dynamic(i, is_comic)
+
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        futures = [ex.submit(task, i) for i in item_ids]
+        for fut in as_completed(futures):
+            i, cols = fut.result()
+            done += 1
+            if cols:
+                out[i] = cols
+            if done % 500 == 0:
+                print(f"    ... {done}/{total} {kind} refreshed", flush=True)
+    print(f"Variable-field refresh done: {len(out)}/{total} {kind}.", flush=True)
+    return out
