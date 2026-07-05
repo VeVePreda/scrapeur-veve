@@ -37,26 +37,53 @@ def main() -> int:
         print("No products harvested — aborting sheet write to avoid clearing data.", file=sys.stderr)
         return 1
 
-    # ---- VeVe enrichment (collectibles only) ----
+    # ---- VeVe enrichment (collectibles + comics) ----
     if enrich_mode != "none":
-        collectibles = [
-            p for p in products
-            if str(p.get("category", "")).lower() == "collectible" and p.get("veve_uuid")
+        already = sheets.get_enriched_ids(sheet_id, tab) if enrich_mode != "all" else set()
+
+        def cat(p):
+            return str(p.get("category", "")).lower()
+
+        # Collectibles: enrich by the VeVe collectible id (== veve_uuid).
+        collectibles = [p for p in products if cat(p) == "collectible" and p.get("veve_uuid")]
+        coll_targets = [
+            p["veve_uuid"] for p in collectibles
+            if enrich_mode == "all" or p["veve_uuid"] not in already
         ]
-        if enrich_mode == "all":
-            targets = [p["veve_uuid"] for p in collectibles]
-        else:  # "new": skip those already enriched in the sheet
-            already = sheets.get_enriched_ids(sheet_id, tab)
-            targets = [p["veve_uuid"] for p in collectibles if p["veve_uuid"] not in already]
-        print(f"Enrichment mode={enrich_mode}: {len(targets)} collectibles to enrich "
-              f"(of {len(collectibles)} total collectibles).", flush=True)
-        if targets:
-            enrich_map = veve_detail.enrich(targets)
-            by_uuid = {p.get("veve_uuid"): p for p in products}
-            for uid, cols in enrich_map.items():
+
+        # Comics: the VeVe comic id == tracker series.externalReference (our series_uuid).
+        # One comic groups all its rarity rows, so we enrich per unique comic id and
+        # apply the comic-level fields to every rarity row sharing that id.
+        comics = [p for p in products if cat(p) == "comic" and p.get("series_uuid")]
+        comic_products_todo = [
+            p for p in comics
+            if enrich_mode == "all" or p.get("veve_uuid") not in already
+        ]
+        comic_ids = list(dict.fromkeys(p["series_uuid"] for p in comic_products_todo))
+
+        print(f"Enrichment mode={enrich_mode}: {len(coll_targets)} collectibles + "
+              f"{len(comic_ids)} unique comics to enrich "
+              f"(collectibles total={len(collectibles)}, comics total={len(comics)}).",
+              flush=True)
+
+        by_uuid = {p.get("veve_uuid"): p for p in products}
+
+        if coll_targets:
+            coll_map = veve_detail.enrich(coll_targets)
+            for uid, cols in coll_map.items():
                 prod = by_uuid.get(uid)
                 if prod:
                     prod.update({k: v for k, v in cols.items() if k != "veve_uuid"})
+
+        if comic_ids:
+            comic_map = veve_detail.enrich_comics(comic_ids)
+            applied = 0
+            for p in comics:
+                cols = comic_map.get(p.get("series_uuid"))
+                if cols:
+                    p.update({k: v for k, v in cols.items() if k != "comic_id"})
+                    applied += 1
+            print(f"Applied comic enrichment to {applied} rarity rows.", flush=True)
     else:
         print("Enrichment skipped (ENRICH_MODE=none).", flush=True)
 

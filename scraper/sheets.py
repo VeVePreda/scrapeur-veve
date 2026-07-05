@@ -77,6 +77,8 @@ PREFERRED_ORDER = [
     "store_allocation",
     "first_available_edition",
     "veve_total_available",
+    "start_year",
+    "veve_comic_name",
     "veve_series_name",
     "veve_brand",
     "veve_licensor",

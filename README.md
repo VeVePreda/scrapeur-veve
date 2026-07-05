@@ -107,7 +107,7 @@ python -m scraper.run
 ## Enrichissement VeVe (collectibles)
 
 En plus des données my-nft-tracker, le pipeline récupère des champs **directement depuis
-l'API GraphQL de VeVe** (`web.api.prod.veve.me`) pour les **collectibles**. Colonnes ajoutées :
+l'API GraphQL de VeVe** (`web.api.prod.veve.me`) pour les **collectibles et les comics**. Colonnes ajoutées :
 `description`, `special_edition`, `edition_type`, `is_blindbox`, `season`, `drop_method`,
 `drop_date`, `daily_mcp_points`, `market_fee`, `veve_store_price`, `rarity_editions`
 (totalIssued), `editions_in_circulation`, `sold_editions`, `burned_editions`,
@@ -129,12 +129,21 @@ les appels VeVe passent par le proxy résidentiel Apify (robustesse anti-blocage
 secret, les appels partent en direct (fonctionne aussi). Réglé par `ENRICH_MODE` /
 `APIFY_PROXY_PASSWORD`, aucun changement de code.
 
-### Comics : non enrichis (pour l'instant)
-Les comics (~16 000) utilisent un type VeVe distinct **et leurs identifiants côté
-my-nft-tracker ne correspondent pas aux identifiants VeVe** : impossible de faire la
-jointure directement. Ils gardent les infos du tracker. Un enrichissement des comics
-nécessiterait de reconstruire l'index VeVe des comics + un matching approximatif
-(nom/série/rareté/édition) — chantier séparé.
+### Comics — enrichis aussi ✅
+Les comics utilisent un type VeVe distinct (`publicComicType`). La clé du mapping :
+**l'id VeVe d'un comic = `series.externalReference` du tracker** (colonne `series_uuid`).
+Un comic regroupe toutes ses raretés sous un seul id ; on enrichit donc une fois par
+comic (~4 200 comics uniques) et on applique les champs au niveau comic à chaque ligne
+de rareté. Colonnes récupérées : `description` (synopsis complet, mentionne souvent les
+variantes par rareté), `market_fee`, `daily_mcp_points`, `drop_method`, `drop_date`,
+`start_year`, `rarity_editions` (total du comic), `editions_in_circulation`,
+`sold_editions`, `burned_editions`, `withheld_editions`, `first_available_edition`,
+`veve_comic_name`.
+
+> Note : pour les comics, les compteurs d'éditions sont au **niveau comic** (somme de
+> toutes les raretés). Le détail par rareté (release/available) reste fourni par le
+> tracker (`releaseAmount` / `availableAmount`).
 
 ### Blind Box Odds
-Non exposé par l'API VeVe (aucun champ disponible), donc non récupérable directement.
+Non exposé comme champ par l'API VeVe. Pour les comics, la `description` mentionne
+souvent les variantes/raretés en texte libre.

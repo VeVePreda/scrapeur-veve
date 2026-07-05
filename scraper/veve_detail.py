@@ -53,6 +53,19 @@ QUERY = (
     "brand{ id name licensor{ name } } } }"
 )
 
+
+# COMICS are a different VeVe type. The VeVe comic id equals the my-nft-tracker
+# `series.externalReference` (our `series_uuid`). Each comic groups all its rarities,
+# so the edition totals below are comic-level (sum across rarities). We apply the
+# comic-level fields to every tracker rarity-row that shares the same comic id.
+COMIC_QUERY = (
+    "query publicStoreCollectibleEditionsQuery($id: ID!){ "
+    "publicComicType(id:$id){ "
+    "id name description storePrice marketFee dailyMcpPoints dropMethod dropDate "
+    "startYear totalIssued totalAvailable soldEditions editionsBurnt "
+    "editionsInCirculation withheldEditions firstAvailableEdition } }"
+)
+
 REQUEST_TIMEOUT = 30
 MAX_RETRIES = 3
 RETRY_BACKOFF = 2
@@ -148,6 +161,81 @@ def _map_node(n: Dict[str, Any], uuid: str) -> Dict[str, Any]:
         "veve_licensor": licensor.get("name"),
         "veve_enriched_at": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
     }
+
+
+def fetch_comic(comic_id: str) -> Optional[Dict[str, Any]]:
+    """Return comic-level enrichment columns for one VeVe comic id, or None."""
+    payload = {
+        "operationName": "publicStoreCollectibleEditionsQuery",
+        "variables": {"id": comic_id},
+        "query": COMIC_QUERY,
+    }
+    last_err = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            r = _session().post(GRAPHQL_URL, json=payload, timeout=REQUEST_TIMEOUT)
+            if r.status_code == 200:
+                data = r.json()
+                node = (data.get("data") or {}).get("publicComicType")
+                if not node:
+                    return None
+                return _map_comic(node, comic_id)
+            last_err = f"HTTP {r.status_code}"
+        except Exception as e:
+            last_err = str(e)
+        time.sleep(RETRY_BACKOFF * attempt)
+    print(f"    comic enrich failed for {comic_id}: {last_err}", flush=True)
+    return None
+
+
+def _map_comic(n: Dict[str, Any], comic_id: str) -> Dict[str, Any]:
+    return {
+        "comic_id": comic_id,
+        "description": n.get("description"),
+        "veve_store_price": _num(n.get("storePrice")),
+        "market_fee": _num(n.get("marketFee")),
+        "daily_mcp_points": _num(n.get("dailyMcpPoints")),
+        "drop_method": n.get("dropMethod"),
+        "drop_date": n.get("dropDate"),
+        "start_year": _num(n.get("startYear")),
+        "rarity_editions": _num(n.get("totalIssued")),
+        "sold_editions": _num(n.get("soldEditions")),
+        "editions_in_circulation": _num(n.get("editionsInCirculation")),
+        "burned_editions": _num(n.get("editionsBurnt")),
+        "withheld_editions": _num(n.get("withheldEditions")),
+        "first_available_edition": _num(n.get("firstAvailableEdition")),
+        "veve_total_available": _num(n.get("totalAvailable")),
+        "veve_comic_name": n.get("name"),
+        "veve_enriched_at": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
+    }
+
+
+def enrich_comics(comic_ids: List[str], workers: int = DEFAULT_WORKERS) -> Dict[str, Dict[str, Any]]:
+    """Enrich many VeVe comic ids concurrently. Returns {comic_id: columns}."""
+    comic_ids = [c for c in dict.fromkeys(comic_ids) if c]
+    total = len(comic_ids)
+    if not total:
+        return {}
+    via = "Apify residential proxy" if _proxies() else "direct connection"
+    print(f"Enriching {total} comics via VeVe GraphQL ({via})...", flush=True)
+    out: Dict[str, Dict[str, Any]] = {}
+    done = 0
+
+    def task(c: str):
+        time.sleep(PAUSE)
+        return c, fetch_comic(c)
+
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        futures = [ex.submit(task, c) for c in comic_ids]
+        for fut in as_completed(futures):
+            c, cols = fut.result()
+            done += 1
+            if cols:
+                out[c] = cols
+            if done % 250 == 0:
+                print(f"    ... {done}/{total} comics processed ({len(out)} enriched)", flush=True)
+    print(f"Comic enrichment done: {len(out)}/{total} comics enriched.", flush=True)
+    return out
 
 
 def enrich(uuids: List[str], workers: int = DEFAULT_WORKERS) -> Dict[str, Dict[str, Any]]:
