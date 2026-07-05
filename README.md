@@ -101,3 +101,40 @@ python -m scraper.run
 - Source tierce (my-nft-tracker). Si son API change, ajuster `NFTS_URL` / le parsing.
 - Si un run ne récolte aucun produit (API down), le script s'arrête **sans vider** le Sheet.
 - Les prix sont indicatifs (fournis par le tracker), pas un conseil financier.
+
+---
+
+## Enrichissement VeVe (collectibles)
+
+En plus des données my-nft-tracker, le pipeline récupère des champs **directement depuis
+l'API GraphQL de VeVe** (`web.api.prod.veve.me`) pour les **collectibles**. Colonnes ajoutées :
+`description`, `special_edition`, `edition_type`, `is_blindbox`, `season`, `drop_method`,
+`drop_date`, `daily_mcp_points`, `market_fee`, `veve_store_price`, `rarity_editions`
+(totalIssued), `editions_in_circulation`, `sold_editions`, `burned_editions`,
+`withheld_editions`, `store_allocation`, `first_available_edition`, `veve_series_name`,
+`veve_brand`, `veve_licensor`, `veve_enriched_at`.
+
+**Comment :** l'API VeVe est appelable directement (en-têtes maison faisant office de jeton
+CSRF ; ni navigateur ni cookies). Par défaut le job quotidien enrichit seulement les
+**nouveaux** collectibles (`ENRICH_MODE=new`).
+
+### Premier remplissage (backfill) — à faire une fois
+Onglet **Actions → "VeVe enrichment backfill (manual)" → Run workflow** (mode `all`).
+Ça enrichit les ~2 630 collectibles existants (quelques minutes). Tu peux le relancer
+quand tu veux pour rafraîchir les compteurs dynamiques (sold/circulation/burned).
+
+### Egress via proxy résidentiel Apify (optionnel)
+Si tu ajoutes le secret **`APIFY_PROXY_PASSWORD`** (Apify Console → Proxy → mot de passe),
+les appels VeVe passent par le proxy résidentiel Apify (robustesse anti-blocage). Sans ce
+secret, les appels partent en direct (fonctionne aussi). Réglé par `ENRICH_MODE` /
+`APIFY_PROXY_PASSWORD`, aucun changement de code.
+
+### Comics : non enrichis (pour l'instant)
+Les comics (~16 000) utilisent un type VeVe distinct **et leurs identifiants côté
+my-nft-tracker ne correspondent pas aux identifiants VeVe** : impossible de faire la
+jointure directement. Ils gardent les infos du tracker. Un enrichissement des comics
+nécessiterait de reconstruire l'index VeVe des comics + un matching approximatif
+(nom/série/rareté/édition) — chantier séparé.
+
+### Blind Box Odds
+Non exposé par l'API VeVe (aucun champ disponible), donc non récupérable directement.

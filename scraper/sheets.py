@@ -58,6 +58,29 @@ PREFERRED_ORDER = [
     "image_url",
     "image_cloudflare",
     "tracker_uuid",
+    # --- VeVe enrichment (collectibles) ---
+    "description",
+    "special_edition",
+    "edition_type",
+    "is_blindbox",
+    "season",
+    "drop_method",
+    "drop_date",
+    "daily_mcp_points",
+    "market_fee",
+    "veve_store_price",
+    "rarity_editions",
+    "editions_in_circulation",
+    "sold_editions",
+    "burned_editions",
+    "withheld_editions",
+    "store_allocation",
+    "first_available_edition",
+    "veve_total_available",
+    "veve_series_name",
+    "veve_brand",
+    "veve_licensor",
+    "veve_enriched_at",
     "first_seen",
     "last_seen",
 ]
@@ -126,6 +149,26 @@ def _to_num(x: Any) -> Optional[float]:
         return float(x)
     except (ValueError, TypeError):
         return None
+
+
+def get_enriched_ids(spreadsheet_id: str, tab: str = "Catalogue") -> set:
+    """Return the set of veve_uuid values already enriched (have a veve_enriched_at)."""
+    gc = _client()
+    sh = gc.open_by_key(spreadsheet_id)
+    try:
+        ws = sh.worksheet(tab)
+    except gspread.WorksheetNotFound:
+        return set()
+    if ws.row_count <= 1:
+        return set()
+    rows = ws.get_all_records()
+    out = set()
+    for r in rows:
+        if str(r.get("veve_enriched_at", "")).strip():
+            uid = str(r.get(KEY_COLUMN, "")).strip()
+            if uid:
+                out.add(uid)
+    return out
 
 
 def sync_products(
