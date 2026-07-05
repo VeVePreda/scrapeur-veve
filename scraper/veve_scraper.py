@@ -30,13 +30,14 @@ import requests
 API_BASE = "https://my-nft-tracker-backend.azurewebsites.net"
 NFTS_URL = f"{API_BASE}/api/Nfts"
 
-# Page size to request. The API honours large pages; 250 keeps each response small
-# and the run resilient. If the API returns fewer than asked, we adapt to that.
-PAGE_SIZE = 250
+# IMPORTANT: the API misbehaves for large `limit` values (above ~24 it silently
+# corrupts the query and returns overlapping windows, causing an infinite dup loop).
+# 24 is the value the official site uses and is proven to paginate correctly.
+PAGE_SIZE = 24
 REQUEST_TIMEOUT = 60
 MAX_RETRIES = 4
 RETRY_BACKOFF = 3  # seconds, multiplied by attempt number
-PAUSE_BETWEEN_PAGES = 0.4  # be polite to the free community backend
+PAUSE_BETWEEN_PAGES = 0.25  # be polite to the free community backend
 
 USER_AGENT = "veve-catalogue-sync/1.0 (personal catalogue export)"
 
@@ -167,7 +168,7 @@ def scrape_catalogue(category: Optional[str] = None, limit_total: Optional[int] 
     if category:
         base_params["category"] = category
 
-    first = _get(session, {**base_params, "page": 1, "offset": 0, "limit": PAGE_SIZE})
+    first = _get(session, {**base_params, "offset": 0, "limit": PAGE_SIZE})
     meta = first.get("meta", {})
     total = int(meta.get("entries_TotalAvailable", 0))
     print(f"Catalogue size reported: {total} products (category={category or 'ALL'})", flush=True)
@@ -184,19 +185,19 @@ def scrape_catalogue(category: Optional[str] = None, limit_total: Optional[int] 
     ingest(first.get("resultEntries", []))
 
     offset = len(first.get("resultEntries", []))
-    page = 2
+    reqs = 1
     while offset < total:
         if limit_total and len(by_uuid) >= limit_total:
             break
-        data = _get(session, {**base_params, "page": page, "offset": offset, "limit": PAGE_SIZE})
+        data = _get(session, {**base_params, "offset": offset, "limit": PAGE_SIZE})
         entries = data.get("resultEntries", [])
         if not entries:
             print("    empty page — stopping.", flush=True)
             break
         ingest(entries)
         offset += len(entries)
-        page += 1
-        if page % 10 == 0:
+        reqs += 1
+        if reqs % 25 == 0:
             print(f"    ... {len(by_uuid)}/{total} products", flush=True)
         time.sleep(PAUSE_BETWEEN_PAGES)
 
