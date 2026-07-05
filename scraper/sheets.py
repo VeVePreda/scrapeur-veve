@@ -203,9 +203,10 @@ def sync_products(
         if not pid:
             continue
 
-        # ---- price-history: append only when the floor changed ----
+        # ---- price-history: collectibles only, append only when the floor changed ----
+        is_collectible = str(prod.get("category", "")).lower() == "collectible"
         new_floor = _to_num(prod.get(FLOOR_COLUMN))
-        if new_floor is not None and new_floor > 0:
+        if is_collectible and new_floor is not None and new_floor > 0:
             prev = existing_by_id.get(pid)
             prev_floor = _to_num(prev.get(FLOOR_COLUMN)) if prev else None
             if prev_floor is None or prev_floor != new_floor:
