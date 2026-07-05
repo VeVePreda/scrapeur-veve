@@ -73,6 +73,9 @@ DEFAULT_WORKERS = 6
 PAUSE = 0.05  # small politeness delay per request
 
 _thread_local = threading.local()
+_egress_lock = threading.Lock()
+_egress_checked = False
+_use_proxy = False  # decided at runtime by _decide_egress()
 
 
 def _proxies() -> Optional[Dict[str, str]]:
@@ -84,16 +87,60 @@ def _proxies() -> Optional[Dict[str, str]]:
     return {"http": url, "https": url}
 
 
+def _decide_egress() -> None:
+    """Decide once whether to use the Apify proxy. If it is configured but fails
+    (e.g. the plan has no residential proxy -> 403 tunnel), fall back to a DIRECT
+    connection, which works fine. This keeps the run from failing wholesale."""
+    global _egress_checked, _use_proxy
+    with _egress_lock:
+        if _egress_checked:
+            return
+        _egress_checked = True
+        px = _proxies()
+        if not px:
+            _use_proxy = False
+            print("Egress: direct connection (no APIFY_PROXY_PASSWORD set).", flush=True)
+            return
+        probe = {
+            "operationName": "publicStoreCollectibleEditionsQuery",
+            "variables": {"id": "8648d886-ed81-4ea1-bae7-cb1a0bc975bd"},
+            "query": QUERY,
+        }
+        try:
+            r = requests.post(GRAPHQL_URL, headers=HEADERS, json=probe,
+                              proxies=px, timeout=REQUEST_TIMEOUT)
+            if r.status_code == 200 and "data" in r.text:
+                _use_proxy = True
+                print("Egress: Apify residential proxy OK.", flush=True)
+                return
+            print(f"Egress: proxy returned HTTP {r.status_code}; falling back to DIRECT.", flush=True)
+        except Exception as e:
+            print(f"Egress: Apify proxy unavailable ({e.__class__.__name__}); "
+                  f"falling back to DIRECT connection.", flush=True)
+        _use_proxy = False
+
+
 def _session() -> requests.Session:
     s = getattr(_thread_local, "session", None)
     if s is None:
         s = requests.Session()
         s.headers.update(HEADERS)
-        px = _proxies()
-        if px:
-            s.proxies.update(px)
+        if _use_proxy:
+            px = _proxies()
+            if px:
+                s.proxies.update(px)
         _thread_local.session = s
     return s
+
+
+def _maybe_disable_proxy(exc: Exception) -> None:
+    """If a proxy/tunnel error occurs mid-run, drop the proxy and go direct."""
+    global _use_proxy
+    name = exc.__class__.__name__
+    if _use_proxy and ("Proxy" in name or "Tunnel" in str(exc) or "proxy" in str(exc).lower()):
+        _use_proxy = False
+        _thread_local.__dict__.pop("session", None)
+        print("Egress: proxy failed mid-run — switching to DIRECT for the rest.", flush=True)
 
 
 def _num(x: Any) -> Any:
@@ -127,6 +174,7 @@ def fetch_collectible(uuid: str) -> Optional[Dict[str, Any]]:
             last_err = f"HTTP {r.status_code}"
         except Exception as e:
             last_err = str(e)
+            _maybe_disable_proxy(e)
         time.sleep(RETRY_BACKOFF * attempt)
     print(f"    enrich failed for {uuid}: {last_err}", flush=True)
     return None
@@ -183,6 +231,7 @@ def fetch_comic(comic_id: str) -> Optional[Dict[str, Any]]:
             last_err = f"HTTP {r.status_code}"
         except Exception as e:
             last_err = str(e)
+            _maybe_disable_proxy(e)
         time.sleep(RETRY_BACKOFF * attempt)
     print(f"    comic enrich failed for {comic_id}: {last_err}", flush=True)
     return None
@@ -216,7 +265,8 @@ def enrich_comics(comic_ids: List[str], workers: int = DEFAULT_WORKERS) -> Dict[
     total = len(comic_ids)
     if not total:
         return {}
-    via = "Apify residential proxy" if _proxies() else "direct connection"
+    _decide_egress()
+    via = "Apify residential proxy" if _use_proxy else "direct connection"
     print(f"Enriching {total} comics via VeVe GraphQL ({via})...", flush=True)
     out: Dict[str, Dict[str, Any]] = {}
     done = 0
@@ -244,7 +294,8 @@ def enrich(uuids: List[str], workers: int = DEFAULT_WORKERS) -> Dict[str, Dict[s
     total = len(uuids)
     if not total:
         return {}
-    via = "Apify residential proxy" if _proxies() else "direct connection"
+    _decide_egress()
+    via = "Apify residential proxy" if _use_proxy else "direct connection"
     print(f"Enriching {total} collectibles via VeVe GraphQL ({via})...", flush=True)
 
     out: Dict[str, Dict[str, Any]] = {}
