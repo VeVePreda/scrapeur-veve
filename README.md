@@ -181,3 +181,37 @@ l'évolution dans le temps. Réglable via `REFRESH_DYNAMIC` (`true` par défaut)
 Dans `Catalogue`, les produits qui sortent dans les 7 prochains jours sont surlignés :
 **bleu clair = collectibles**, **vert clair = comics**. Le reste est remis en blanc à
 chaque run.
+
+---
+
+## Architecture quotidienne allégée (v2)
+
+Pour éviter de re-télécharger 18 680 fiches chaque jour (≈780 requêtes vers
+my-nft-tracker), le run quotidien est désormais **incrémental et discret** :
+
+1. **Fenêtre** : ne récupère que les **drops à venir + sortis dans les 8 derniers jours**
+   (tri par date décroissante, on s'arrête dès qu'on dépasse la fenêtre). ~30-40 requêtes.
+2. **Floor collectibles** : récupère le floor de **tous les collectibles** (~110 requêtes)
+   pour alimenter `PriceHistory`.
+3. **Nouveautés** : compare à ce qui est déjà dans le Sheet ; **seuls les nouveaux**
+   produits sont enrichis depuis VeVe (description, etc.).
+4. **Ventes / circulation** : rafraîchies **uniquement pour les items de leur première
+   semaine** (≤ 8 jours), historisées dans `EditionsHistory` quand ça change.
+
+Total : **~150 requêtes/jour** vers my-nft-tracker (au lieu de ~780), run de ~5-8 min.
+Le **catalogue complet reste intact** dans le Sheet (rien n'est supprimé, on part toujours
+des lignes existantes). Le **backfill complet** reste disponible à la demande
+(*Actions → VeVe enrichment backfill → mode `all`*).
+
+### Quotas GitHub
+Repo **privé** = 2 000 min/mois gratuites (Free plan). Le run allégé consomme
+~150-250 min/mois : large marge. Un repo **public** aurait des minutes **illimitées**.
+
+### Suivis
+- **`PriceHistory`** : floor, **collectibles uniquement**.
+- **`EditionsHistory`** : `sold_editions` / `editions_in_circulation` / etc., **items de la
+  première semaine uniquement** (collectibles + comics). `snapshot_date` inclut l'**heure**.
+
+### Surlignage
+Tous les **drops encore à venir** (date de sortie > maintenant) sont surlignés :
+**bleu = collectibles**, **vert = comics**. Une fois la date passée, plus de surlignage.

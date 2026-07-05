@@ -60,7 +60,7 @@ EDITIONS_HISTORY_HEADER = ["snapshot_date", "item_id", "name", "category",
                            "sold_editions", "editions_in_circulation",
                            "burned_editions", "withheld_editions", "veve_total_available"]
 RUNLOG_HEADER = ["run_at_utc", "status", "total_rows", "new_items", "updated_items",
-                 "new_collectibles", "new_comics", "upcoming_this_week",
+                 "new_collectibles", "new_comics", "upcoming_drops",
                  "price_history_added", "editions_history_added", "new_item_names"]
 
 BLUE = {"red": 0.82, "green": 0.90, "blue": 1.0}
@@ -130,10 +130,27 @@ def _parse_dt(x: Any) -> Optional[_dt.datetime]:
 
 
 def _is_upcoming(prod: Dict[str, Any], now: _dt.datetime) -> bool:
+    """Any drop still in the future (highlighted until its release date passes)."""
     dt = _parse_dt(prod.get("releaseDate")) or _parse_dt(prod.get("drop_date"))
-    if not dt:
-        return False
-    return now <= dt <= now + _dt.timedelta(days=UPCOMING_DAYS)
+    return bool(dt and dt > now)
+
+
+def _is_recent(prod: Dict[str, Any], now: _dt.datetime, days: int = 7) -> bool:
+    """Released within the last `days` days (its first week of existence)."""
+    dt = _parse_dt(prod.get("releaseDate")) or _parse_dt(prod.get("drop_date"))
+    return bool(dt and now - _dt.timedelta(days=days) <= dt <= now)
+
+
+def get_existing_ids(spreadsheet_id: str, tab: str = "Catalogue") -> set:
+    """All veve_uuid values already in the sheet (reads only column A -> fast)."""
+    gc = _client()
+    sh = gc.open_by_key(spreadsheet_id)
+    try:
+        ws = sh.worksheet(tab)
+    except gspread.WorksheetNotFound:
+        return set()
+    col = ws.col_values(1)  # veve_uuid is always the first column
+    return {c.strip() for c in col[1:] if c and c.strip()}
 
 
 def get_enriched_ids(spreadsheet_id: str, tab: str = "Catalogue") -> set:
@@ -169,20 +186,8 @@ def sync_products(products: List[Dict[str, Any]], spreadsheet_id: str,
 
     valid = [p for p in products if str(p.get(KEY_COLUMN, "")).strip()]
 
-    if existing_by_id and len(valid) < 0.5 * len(existing_by_id):
-        return {
-            "status": "ABORTED_LOW_COUNT",
-            "total_rows": len(existing_by_id),
-            "new_items": 0, "updated_items": 0,
-            "new_collectibles": 0, "new_comics": 0, "upcoming_this_week": 0,
-            "price_history_added": 0, "editions_history_added": 0,
-            "new_item_names": [],
-            "note": f"Only {len(valid)} products harvested vs {len(existing_by_id)} "
-                    f"existing - sheet NOT overwritten to protect your data.",
-        }
-
     now_dt = _dt.datetime.utcnow()
-    now, today = _now(), _today()
+    now = stamp = _now()
     added, updated = 0, 0
     new_collectibles: List[str] = []
     new_comics: List[str] = []
@@ -201,11 +206,12 @@ def sync_products(products: List[Dict[str, Any]], spreadsheet_id: str,
             if nf is not None and nf > 0:
                 pf = _to_num(prev.get(FLOOR_COLUMN)) if prev else None
                 if pf is None or pf != nf:
-                    price_rows.append([today, pid, prod.get("name", ""), prod.get("category", ""),
+                    price_rows.append([stamp, pid, prod.get("name", ""), prod.get("category", ""),
                                        nf, prod.get("storePrice", ""),
                                        prod.get("market_totalListings", "")])
 
-        if cat in ("collectible", "comic") and any(prod.get(f) not in (None, "") for f in DYNAMIC_FIELDS):
+        if cat in ("collectible", "comic") and _is_recent(prod, now_dt) \
+                and any(prod.get(f) not in (None, "") for f in DYNAMIC_FIELDS):
             item_id = pid if cat == "collectible" else str(prod.get("series_uuid", "")).strip()
             if item_id and not (cat == "comic" and item_id in seen_comic_edit):
                 if cat == "comic":
@@ -218,7 +224,7 @@ def sync_products(products: List[Dict[str, Any]], spreadsheet_id: str,
                         changed = True
                         break
                 if changed:
-                    edition_rows.append([today, item_id, prod.get("name", ""), prod.get("category", "")]
+                    edition_rows.append([stamp, item_id, prod.get("name", ""), prod.get("category", "")]
                                         + [prod.get(f, "") for f in DYNAMIC_FIELDS])
 
         record = {k: _cell(v) for k, v in prod.items()}
@@ -280,7 +286,7 @@ def sync_products(products: List[Dict[str, Any]], spreadsheet_id: str,
         "updated_items": updated,
         "new_collectibles": len(new_collectibles),
         "new_comics": len(new_comics),
-        "upcoming_this_week": len(upcoming_blue) + len(upcoming_green),
+        "upcoming_drops": len(upcoming_blue) + len(upcoming_green),
         "price_history_added": ph,
         "editions_history_added": eh,
         "new_item_names": (new_collectibles + new_comics)[:40],
@@ -353,7 +359,7 @@ def append_run_log(spreadsheet_id: str, summary: Dict[str, Any],
         _now(), summary.get("status", ""), summary.get("total_rows", ""),
         summary.get("new_items", ""), summary.get("updated_items", ""),
         summary.get("new_collectibles", ""), summary.get("new_comics", ""),
-        summary.get("upcoming_this_week", ""), summary.get("price_history_added", ""),
+        summary.get("upcoming_drops", ""), summary.get("price_history_added", ""),
         summary.get("editions_history_added", ""), names_str,
     ]
     ws.append_rows([row], value_input_option="RAW")

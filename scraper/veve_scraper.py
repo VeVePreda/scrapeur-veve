@@ -22,6 +22,7 @@ product URL and image URL, and returns the list. `sheets.py` handles the upsert.
 
 from __future__ import annotations
 
+import datetime as _dt
 import time
 from typing import Any, Dict, List, Optional
 
@@ -203,6 +204,61 @@ def scrape_catalogue(category: Optional[str] = None, limit_total: Optional[int] 
 
     products = list(by_uuid.values())
     print(f"TOTAL harvested: {len(products)} unique products", flush=True)
+    return products
+
+
+def _parse_release(x: Any) -> Optional[_dt.datetime]:
+    if not x:
+        return None
+    sx = str(x).strip().replace("Z", "")
+    try:
+        return _dt.datetime.fromisoformat(sx)
+    except Exception:
+        try:
+            return _dt.datetime.strptime(sx[:19], "%Y-%m-%dT%H:%M:%S")
+        except Exception:
+            return None
+
+
+def scrape_window(days_back: int = 8) -> List[Dict[str, Any]]:
+    """Light daily fetch: only UPCOMING drops + items released in the last `days_back`
+    days. Ordered by releaseDate DESC, so future drops come first, then recent ones;
+    we stop as soon as we pass the cutoff. Keeps requests to my-nft-tracker minimal.
+    """
+    cutoff = _dt.datetime.utcnow() - _dt.timedelta(days=days_back)
+    session = _session()
+    base_params = {"orderBy": "releaseDate", "orderAsc": "false", "showOnlyReleased": ""}
+
+    first = _get(session, {**base_params, "offset": 0, "limit": PAGE_SIZE})
+    total = int(first.get("meta", {}).get("entries_TotalAvailable", 0))
+    by_uuid: Dict[str, Dict[str, Any]] = {}
+
+    def ingest(entries) -> bool:
+        reached_old = False
+        for p in entries:
+            row = _flatten_product(p)
+            key = row.get("veve_uuid") or row.get("tracker_uuid")
+            if key:
+                by_uuid[key] = row
+            rd = _parse_release(row.get("releaseDate"))
+            if rd is not None and rd < cutoff:
+                reached_old = True
+        return reached_old
+
+    stop = ingest(first.get("resultEntries", []))
+    offset = len(first.get("resultEntries", []))
+    while not stop and offset < total:
+        data = _get(session, {**base_params, "offset": offset, "limit": PAGE_SIZE})
+        entries = data.get("resultEntries", [])
+        if not entries:
+            break
+        stop = ingest(entries)
+        offset += len(entries)
+        time.sleep(PAUSE_BETWEEN_PAGES)
+
+    products = list(by_uuid.values())
+    print(f"Window (upcoming + last {days_back}d): {len(products)} products, "
+          f"{offset} scanned.", flush=True)
     return products
 
 
