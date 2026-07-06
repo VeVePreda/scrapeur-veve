@@ -33,4 +33,5 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           SHEET_ID: ${{ secrets.SHEET_ID }}
           STACKR_MAX_LOOKUPS: ${{ github.event.inputs.max_lookups || '200' }}
+          STACKR_COOKIE: ${{ secrets.STACKR_COOKIE }}
         run: python -m scraper.stackr
