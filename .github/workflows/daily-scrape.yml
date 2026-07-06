@@ -2,9 +2,10 @@ name: VeVe daily catalogue sync
 
 on:
   schedule:
-    # 04:00 UTC = 06:00 in France in summer (CEST). In winter (CET) it is 05:00 France.
-    # GitHub cron only supports UTC, so it can't follow daylight-saving automatically.
-    - cron: "0 4 * * *"
+    # 04:11 UTC = 06:11 in France in summer (CEST), 05:11 in winter (CET).
+    # A few minutes PAST the hour avoids GitHub's heavy on-the-hour scheduling load:
+    # top-of-hour cron jobs are frequently delayed or skipped. GitHub cron is UTC-only.
+    - cron: "11 4 * * *"
   workflow_dispatch: {}
 
 concurrency:
