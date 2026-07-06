@@ -215,3 +215,58 @@ Repo **privé** = 2 000 min/mois gratuites (Free plan). Le run allégé consomme
 ### Surlignage
 Tous les **drops encore à venir** (date de sortie > maintenant) sont surlignés :
 **bleu = collectibles**, **vert = comics**. Une fois la date passée, plus de surlignage.
+
+---
+
+## Tracker on-chain CollectChain (collectscan.com)
+
+Les collectibles/comics VeVe sont mint sur la blockchain **CollectChain**, explorable
+via [collectscan.com](https://collectscan.com) (un Blockscout standard, API REST
+publique `/api/v2`). Tout vit sur **un seul contrat ERC-721** :
+`0xbcFEbA7A9dA14f5C9453bDA72E2098537867B3c7` (~706 000 holders).
+
+**Reconnaissance collectible vs comic** : chaque transfert renvoyé par l'API embarque
+les métadonnées du NFT (nom, rareté, série, brand, edition #) et une URL d'image
+`collectible_type_image.<UUID>…` ou `comic_cover.<UUID>…`. Le préfixe donne la
+catégorie, et l'UUID permet de **joindre le catalogue** du scraper (`veve_uuid`).
+
+**Types de transferts** : `from = 0x0000…` → **mint** (drop) ; `to = 0x0000…` →
+**burn** ; sinon → **marché** (wallet → wallet). Un compte est « actif » s'il a
+**envoyé OU reçu** un NFT dans la période.
+
+### Onglets ajoutés au Sheet
+
+| Onglet | Contenu |
+|---|---|
+| `ChainStats` | **Le résultat principal** : pour 24h / 7j / 30j × (tout / mints / marché) × (tout / collectibles / comics) : nb de transferts NFT, **comptes uniques actifs**, **tx par compte**. Réécrit à chaque run. |
+| `ChainTopAccounts` | Top 20 wallets les plus actifs par fenêtre, avec lien collectscan. |
+| `ChainActivity` | Détail : 1 ligne par (jour, compte) avec compteurs mint / marché-in / marché-out / burn, séparés collectibles vs comics. Fenêtre glissante ~35 jours (purge auto). |
+| `ChainItems` | **Quoi** exactement : 1 ligne par (jour, item) — nom, rareté, série, UUID — avec mints / ventes marché / burns et wallets uniques (minters, acheteurs, vendeurs). Fenêtre glissante ~35 jours. |
+| `DropRevenue` | **Revenus estimés par drop** : par item, mints 24h/7j/30j × prix store du Catalogue = revenu estimé, + activité marché. Trié par revenu 30j. Colonne `match` = comment l'item a été relié au catalogue (`uuid` / `image` / `name` / `none`). |
+| `RevenueSummary` | Totaux : mints et revenus estimés par fenêtre × catégorie. |
+| `ChainMeta` | Checkpoint (dernier bloc traité) + totaux globaux de la chaîne. |
+| `ChainRunLog` | Une ligne par run : confirmation que ça a marché. |
+
+### Mise en route
+1. **Backfill (une fois)** : Actions → **"CollectChain backfill (manual)"** → Run
+   workflow (31 jours par défaut). ~5 500 tx/jour → ~165 000 transferts, comptez
+   **30-60 min**.
+2. **Quotidien** : le workflow **"CollectChain daily activity sync"** tourne à
+   04:40 UTC, ne récupère que les nouveaux transferts depuis le checkpoint
+   (~2-5 min), met à jour `ChainActivity` et recalcule `ChainStats`.
+
+### Estimation des revenus de drop
+`revenu estimé = mints on-chain × storePrice du catalogue`. Le join se fait par
+**UUID** (l'UUID dans l'URL d'image on-chain = `veve_uuid` du catalogue — vérifié),
+sinon par l'UUID de l'`image_url` enrichie, sinon par (nom + n° + rareté).
+C'est une **estimation** : les paiements en gems, promos et claims gratuits sont
+comptés au prix store ; les drops gratuits (storePrice 0) comptent 0.
+
+### Notes
+- Les fenêtres 24h/7j/30j sont à **granularité jour** (jours calendaires UTC).
+- Un « transfert » = un mouvement de NFT. Un achat wallet→wallet compte pour
+  **1 transfert** mais rend **2 comptes actifs** (vendeur + acheteur).
+- Les rares NFTs sans métadonnées (mints très frais) sont comptés avec les
+  collectibles (`category=unknown` en interne).
+- Test local : `python -m scraper.collectchain --test` (2 dernières heures,
+  sans écrire dans le Sheet).

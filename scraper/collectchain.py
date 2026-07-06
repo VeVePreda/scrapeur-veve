@@ -137,6 +137,8 @@ def _flatten(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         kind = "burn"
     else:
         kind = "market"
+    if not isinstance(md, dict):
+        md = {}
     return {
         "ts": ts,
         "date": ts.strftime("%Y-%m-%d"),
@@ -149,7 +151,12 @@ def _flatten(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "category": cat,
         "veve_uuid": uuid,
         "token_id": str(total.get("token_id") or ""),
-        "name": (md.get("name") or "") if isinstance(md, dict) else "",
+        "name": md.get("name") or "",
+        "rarity": md.get("rarity") or "",
+        "series": md.get("series") or "",
+        "comic_number": str(md.get("comicNumber") or ""),
+        "start_year": str(md.get("startYear") or ""),
+        "total_editions": md.get("totalEditions") or "",
     }
 
 
@@ -254,6 +261,57 @@ def aggregate_daily(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for (date, account), counters in sorted(agg.items()):
         row = {"date": date, "account": account, **counters}
         row["total"] = sum(counters.values())
+        rows.append(row)
+    return rows
+
+
+def item_key(category: str, veve_uuid: str, name: str, rarity: str,
+             comic_number: str = "", start_year: str = "") -> str:
+    """Stable identity of one on-chain item (a collectible type, or a comic
+    cover x rarity). UUID when we have it, else a normalised name key."""
+    if veve_uuid:
+        return f"{veve_uuid}|{rarity.lower()}" if category == "comic" else veve_uuid
+    base = name.strip().lower()
+    if category == "comic" and comic_number:
+        base = f"{base} #{comic_number}"
+        if start_year:
+            base = f"{base} ({start_year})"
+    return f"{category}:{base}|{rarity.lower()}"
+
+
+def aggregate_items(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Records -> one row per (date, item): what was minted / traded / burnt,
+    and by how many distinct wallets."""
+    agg: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    for r in records:
+        cat = "comic" if r["category"] == "comic" else "collectible"
+        key = (r["date"], item_key(cat, r["veve_uuid"], r["name"], r["rarity"],
+                                   r["comic_number"], r["start_year"]))
+        row = agg.get(key)
+        if row is None:
+            row = agg[key] = {
+                "date": r["date"], "category": cat,
+                "veve_uuid": r["veve_uuid"], "name": r["name"],
+                "rarity": r["rarity"], "series": r["series"],
+                "comic_number": r["comic_number"], "start_year": r["start_year"],
+                "total_editions": r["total_editions"],
+                "mints": 0, "market": 0, "burns": 0,
+                "_minters": set(), "_buyers": set(), "_sellers": set(),
+            }
+        if r["kind"] == "mint":
+            row["mints"] += 1
+            row["_minters"].add(r["to"])
+        elif r["kind"] == "burn":
+            row["burns"] += 1
+        else:
+            row["market"] += 1
+            row["_buyers"].add(r["to"])
+            row["_sellers"].add(r["from"])
+    rows = []
+    for (_, _), row in sorted(agg.items()):
+        row["unique_minters"] = len(row.pop("_minters"))
+        row["unique_buyers"] = len(row.pop("_buyers"))
+        row["unique_sellers"] = len(row.pop("_sellers"))
         rows.append(row)
     return rows
 

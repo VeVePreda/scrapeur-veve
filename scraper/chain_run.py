@@ -22,6 +22,7 @@ import sys
 import time
 
 from scraper import collectchain as cc
+from scraper import chain_revenue as crv
 from scraper import chain_sheets as cs
 
 
@@ -51,6 +52,7 @@ def main() -> int:
             records, meta = cc.fetch_transfers(cutoff)
             rows = cc.aggregate_daily(records)
             added = cs.append_activity(sheet_id, rows, replace=True)
+            cs.append_items(sheet_id, cc.aggregate_items(records), replace=True)
             pruned = 0
         else:
             checkpoint = cs.read_checkpoint(sheet_id)
@@ -64,7 +66,8 @@ def main() -> int:
             records, meta = cc.fetch_transfers(cutoff, checkpoint=checkpoint)
             rows = cc.aggregate_daily(records)
             added = cs.append_activity(sheet_id, rows)
-            pruned = cs.prune_activity(sheet_id)
+            cs.append_items(sheet_id, cc.aggregate_items(records))
+            pruned = cs.prune_activity(sheet_id) + cs.prune_items(sheet_id)
 
         summary.update(transfers_fetched=meta["count"], pages=meta["pages"],
                        activity_rows_added=added, rows_pruned=pruned)
@@ -79,6 +82,16 @@ def main() -> int:
         for s in stats:
             if s["window"] == "24h" and s["scope"] == "all" and s["category"] == "all":
                 summary["unique_accounts_24h"] = s["unique_accounts"]
+
+        # Per-item view + drop revenue estimation (mints x store price).
+        print("Computing per-item stats + drop revenue...", flush=True)
+        items = cs.read_items(sheet_id)
+        catalogue = cs.read_catalogue(sheet_id)
+        rev = crv.compute_drop_revenue(items, catalogue)
+        cs.write_revenue(sheet_id, rev, crv.summarize_revenue(rev))
+        unmatched = sum(1 for r in rev if r["match"] == "none")
+        if unmatched:
+            summary["note"] += f" unmatched_items={unmatched}"
 
         # Only advance the checkpoint after everything else succeeded.
         if meta.get("newest_block"):
