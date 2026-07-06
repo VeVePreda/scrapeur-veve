@@ -320,7 +320,8 @@ def aggregate_items(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 # Window stats (24h / 7d / 30d) computed from (date, account) activity rows
 # ---------------------------------------------------------------------------
 
-WINDOWS = [("24h", 1), ("7j", 7), ("30j", 30)]
+# "total" = tout l'historique conservé dans le sheet (RETENTION_DAYS, ~35 j)
+WINDOWS = [("24h", 1), ("48h", 2), ("7j", 7), ("30j", 30), ("total", 3650)]
 
 
 def _sum_fields(rows: List[Dict[str, Any]], fields: List[str]) -> int:
@@ -365,10 +366,12 @@ def compute_window_stats(activity_rows: List[Dict[str, Any]],
         mint_c = ["mint_collectible"]; mint_b = ["mint_comic"]
         mkt_c = ["market_in_collectible", "market_out_collectible"]
         mkt_b = ["market_in_comic", "market_out_comic"]
+        burn_c = ["burn_collectible"]; burn_b = ["burn_comic"]
 
-        out.append(scope_row("all", "all", mint_c + mint_b + mkt_c + mkt_b))
-        out.append(scope_row("all", "collectible", mint_c + mkt_c))
-        out.append(scope_row("all", "comic", mint_b + mkt_b))
+        out.append(scope_row("all", "all",
+                             mint_c + mint_b + mkt_c + mkt_b + burn_c + burn_b))
+        out.append(scope_row("all", "collectible", mint_c + mkt_c + burn_c))
+        out.append(scope_row("all", "comic", mint_b + mkt_b + burn_b))
         out.append(scope_row("mints", "all", mint_c + mint_b))
         out.append(scope_row("mints", "collectible", mint_c))
         out.append(scope_row("mints", "comic", mint_b))

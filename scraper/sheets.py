@@ -2,16 +2,19 @@
 Google Sheets sync for the VeVe catalogue.
 
 Tabs maintained:
-1. "Catalogue"      — current snapshot, one row per product UUID (dedupe by veve_uuid).
-                      Rows are never deleted (we always start from what's already there),
-                      so a tracker outage can't wipe your data. Upcoming drops (next 7
-                      days) are highlighted: light blue = collectibles, light green = comics.
+1. "🟢C-COMICS" / "🔵C-COLLECTIBLE"
+                    — current snapshot, one row per product UUID (dedupe by veve_uuid),
+                      physically split by category. Rows are never deleted (we always
+                      start from what's already there), so a tracker outage can't wipe
+                      your data. Upcoming drops are highlighted (green = comics,
+                      blue = collectibles). The legacy "Catalogue" tab, if present,
+                      is read once (migration) then deleted.
 2. "PriceHistory"   — append-only floor-price log (COLLECTIBLES only), one row per change.
 3. "EditionsHistory"— append-only log of the VARIABLE fields (sold / in-circulation /
                       burned / withheld / available), one row per change, so you can
                       track and compare them over time.
-4. "RunLog"         — one row per run: when, status, totals, and how many new items were
-                      found — your confirmation that the daily job worked.
+4. "Logs"           — unified run log (catalogue / pseudos / chain), one row per run,
+                      pruned to LOG_RETENTION_DAYS — your confirmation the jobs worked.
 """
 
 from __future__ import annotations
@@ -49,6 +52,17 @@ PREFERRED_ORDER = [
 FIRST_SEEN = "first_seen"
 LAST_SEEN = "last_seen"
 KEY_COLUMN = "veve_uuid"
+
+# Physical catalogue split (one tab per category) + legacy tab (migrated then deleted)
+COMICS_TAB = "🟢C-COMICS"
+COLLECT_TAB = "🔵C-COLLECTIBLE"
+CATALOGUE_TABS = (COMICS_TAB, COLLECT_TAB)
+LEGACY_CATALOGUE_TAB = "Catalogue"
+
+# Unified run log (catalogue / pseudos / chain)
+LOGS_TAB = "Logs"
+LOGS_HEADER = ["ts_utc", "source", "status", "details"]
+LOG_RETENTION_DAYS = 7
 # Columns removed from the sheet (empty/useless)
 DROP_COLUMNS = {"provider", "series_edition", "licensor_fee", "isEcl",
                 "image_cloudflare", "season"}
@@ -64,10 +78,6 @@ PRICE_HISTORY_HEADER = ["snapshot_date", "veve_uuid", "name", "category",
 EDITIONS_HISTORY_HEADER = ["snapshot_date", "item_id", "name", "category",
                            "sold_editions", "editions_in_circulation",
                            "burned_editions", "withheld_editions", "veve_total_available"]
-RUNLOG_HEADER = ["run_at_utc", "status", "total_rows", "new_items", "updated_items",
-                 "new_collectibles", "new_comics", "upcoming_drops",
-                 "price_history_added", "editions_history_added", "new_item_names"]
-
 BLUE = {"red": 0.82, "green": 0.90, "blue": 1.0}
 GREEN = {"red": 0.83, "green": 0.96, "blue": 0.83}
 WHITE = {"red": 1.0, "green": 1.0, "blue": 1.0}
@@ -160,48 +170,59 @@ def _is_recent(prod: Dict[str, Any], now: _dt.datetime, days: int = 7) -> bool:
     return bool(dt and now - _dt.timedelta(days=days) <= dt <= now)
 
 
-def get_existing_ids(spreadsheet_id: str, tab: str = "Catalogue") -> set:
-    """All veve_uuid values already in the sheet (reads only column A -> fast)."""
-    gc = _client()
-    sh = gc.open_by_key(spreadsheet_id)
-    try:
-        ws = sh.worksheet(tab)
-    except gspread.WorksheetNotFound:
-        return set()
-    col = ws.col_values(1)  # veve_uuid is always the first column
-    return {c.strip() for c in col[1:] if c and c.strip()}
+def _catalogue_worksheets(sh) -> list:
+    """Every worksheet holding catalogue rows: the split tabs + legacy if present."""
+    out = []
+    for tab in CATALOGUE_TABS + (LEGACY_CATALOGUE_TAB,):
+        try:
+            out.append(sh.worksheet(tab))
+        except gspread.WorksheetNotFound:
+            pass
+    return out
 
 
-def get_enriched_ids(spreadsheet_id: str, tab: str = "Catalogue") -> set:
+def get_existing_ids(spreadsheet_id: str, tab: str = "") -> set:
+    """All veve_uuid values already in the sheet (reads only column A -> fast).
+    `tab` is kept for backward compatibility and ignored."""
     gc = _client()
     sh = gc.open_by_key(spreadsheet_id)
-    try:
-        ws = sh.worksheet(tab)
-    except gspread.WorksheetNotFound:
-        return set()
-    if ws.row_count <= 1:
-        return set()
+    ids: set = set()
+    for ws in _catalogue_worksheets(sh):
+        col = ws.col_values(1)  # veve_uuid is always the first column
+        ids.update(c.strip() for c in col[1:] if c and c.strip())
+    return ids
+
+
+def get_enriched_ids(spreadsheet_id: str, tab: str = "") -> set:
+    gc = _client()
+    sh = gc.open_by_key(spreadsheet_id)
     out = set()
-    for r in ws.get_all_records():
-        if str(r.get("veve_enriched_at", "")).strip():
-            uid = str(r.get(KEY_COLUMN, "")).strip()
-            if uid:
-                out.add(uid)
+    for ws in _catalogue_worksheets(sh):
+        if ws.row_count <= 1:
+            continue
+        for r in ws.get_all_records():
+            if str(r.get("veve_enriched_at", "")).strip():
+                uid = str(r.get(KEY_COLUMN, "")).strip()
+                if uid:
+                    out.add(uid)
     return out
 
 
 def sync_products(products: List[Dict[str, Any]], spreadsheet_id: str,
-                  tab: str = "Catalogue") -> Dict[str, Any]:
+                  tab: str = "") -> Dict[str, Any]:
+    """`tab` is kept for backward compatibility and ignored: rows are written
+    into the split tabs (🟢C-COMICS / 🔵C-COLLECTIBLE)."""
     gc = _client()
     sh = gc.open_by_key(spreadsheet_id)
-    ws = _open_worksheet(sh, tab)
 
-    existing_rows = ws.get_all_records() if ws.row_count > 1 else []
     existing_by_id: Dict[str, Dict[str, Any]] = {}
-    for row in existing_rows:
-        rid = str(row.get(KEY_COLUMN, "")).strip()
-        if rid:
-            existing_by_id[rid] = dict(row)
+    for ws in _catalogue_worksheets(sh):
+        if ws.row_count <= 1:
+            continue
+        for row in ws.get_all_records():
+            rid = str(row.get(KEY_COLUMN, "")).strip()
+            if rid and rid not in existing_by_id:
+                existing_by_id[rid] = dict(row)
 
     valid = [p for p in products if str(p.get(KEY_COLUMN, "")).strip()]
 
@@ -281,27 +302,40 @@ def sync_products(products: List[Dict[str, Any]], spreadsheet_id: str,
         key=lambda r: (str(r.get(FIRST_SEEN, "")), str(r.get("name", ""))),
         reverse=True,
     )
-    grid: List[List[Any]] = [columns]
-    upcoming_blue: List[int] = []
-    upcoming_green: List[int] = []
-    for i, rec in enumerate(ordered_recs):
-        grid.append([rec.get(col, "") for col in columns])
-        if _is_upcoming(rec, now_dt):
-            c = str(rec.get("category", "")).lower()
-            if c == "collectible":
-                upcoming_blue.append(i + 1)
-            elif c == "comic":
-                upcoming_green.append(i + 1)
+    comics_recs = [r for r in ordered_recs
+                   if str(r.get("category", "")).lower() == "comic"]
+    collect_recs = [r for r in ordered_recs
+                    if str(r.get("category", "")).lower() != "comic"]
 
-    ws.clear()
-    ws.update(range_name="A1", values=grid, value_input_option="RAW")
+    n_upcoming = 0
+    for tab_name, recs, colour in ((COMICS_TAB, comics_recs, GREEN),
+                                   (COLLECT_TAB, collect_recs, BLUE)):
+        ws = _open_worksheet(sh, tab_name, cols=len(columns))
+        grid: List[List[Any]] = [columns]
+        upcoming: List[int] = []
+        for i, rec in enumerate(recs):
+            grid.append([rec.get(col, "") for col in columns])
+            if _is_upcoming(rec, now_dt):
+                upcoming.append(i + 1)
+        n_upcoming += len(upcoming)
+        ws.clear()
+        ws.update(range_name="A1", values=grid, value_input_option="RAW")
+        try:
+            ws.freeze(rows=1)
+        except Exception:
+            pass
+        _apply_formatting(sh, ws, len(grid), len(columns), upcoming, colour)
+        _apply_rarity_colours(sh, ws, columns, len(grid))
+
+    # Migration done: drop the legacy single-tab catalogue.
     try:
-        ws.freeze(rows=1)
-    except Exception:
+        sh.del_worksheet(sh.worksheet(LEGACY_CATALOGUE_TAB))
+        print(f"    legacy '{LEGACY_CATALOGUE_TAB}' tab deleted (migrated).",
+              flush=True)
+    except gspread.WorksheetNotFound:
         pass
-
-    _apply_formatting(sh, ws, len(grid), len(columns), upcoming_blue, upcoming_green)
-    _apply_rarity_colours(sh, ws, columns, len(grid))
+    except Exception as e:
+        print(f"    legacy tab deletion warning: {e}", flush=True)
 
     ph = _append_rows(sh, "PriceHistory", PRICE_HISTORY_HEADER, price_rows)
     eh = _append_rows(sh, "EditionsHistory", EDITIONS_HISTORY_HEADER, edition_rows)
@@ -309,11 +343,13 @@ def sync_products(products: List[Dict[str, Any]], spreadsheet_id: str,
     return {
         "status": "OK",
         "total_rows": len(merged),
+        "comics_rows": len(comics_recs),
+        "collectibles_rows": len(collect_recs),
         "new_items": added,
         "updated_items": updated,
         "new_collectibles": len(new_collectibles),
         "new_comics": len(new_comics),
-        "upcoming_drops": len(upcoming_blue) + len(upcoming_green),
+        "upcoming_drops": n_upcoming,
         "price_history_added": ph,
         "editions_history_added": eh,
         "new_item_names": (new_collectibles + new_comics)[:40],
@@ -321,7 +357,7 @@ def sync_products(products: List[Dict[str, Any]], spreadsheet_id: str,
 
 
 def _apply_formatting(sh, ws, n_rows: int, n_cols: int,
-                      blue_rows: List[int], green_rows: List[int]) -> None:
+                      upcoming_rows: List[int], upcoming_colour: Dict) -> None:
     sid = ws.id
     reqs: List[Dict[str, Any]] = []
     if n_rows > 1:
@@ -336,16 +372,12 @@ def _apply_formatting(sh, ws, n_rows: int, n_cols: int,
         "cell": {"userEnteredFormat": {"textFormat": {"bold": True}}},
         "fields": "userEnteredFormat.textFormat.bold"}})
 
-    def colour_reqs(rows, colour):
-        for r in rows[:2000]:
-            yield {"repeatCell": {
-                "range": {"sheetId": sid, "startRowIndex": r, "endRowIndex": r + 1,
-                          "startColumnIndex": 0, "endColumnIndex": n_cols},
-                "cell": {"userEnteredFormat": {"backgroundColor": colour}},
-                "fields": "userEnteredFormat.backgroundColor"}}
-
-    reqs.extend(colour_reqs(blue_rows, BLUE))
-    reqs.extend(colour_reqs(green_rows, GREEN))
+    for r in upcoming_rows[:2000]:
+        reqs.append({"repeatCell": {
+            "range": {"sheetId": sid, "startRowIndex": r, "endRowIndex": r + 1,
+                      "startColumnIndex": 0, "endColumnIndex": n_cols},
+            "cell": {"userEnteredFormat": {"backgroundColor": upcoming_colour}},
+            "fields": "userEnteredFormat.backgroundColor"}})
     try:
         sh.batch_update({"requests": reqs})
     except Exception as e:
@@ -408,30 +440,59 @@ def _append_rows(sh, tab: str, header: List[str], rows: List[List[Any]]) -> int:
     return len(rows)
 
 
-def append_run_log(spreadsheet_id: str, summary: Dict[str, Any],
-                   duration_sec: Optional[float] = None) -> None:
+def append_log(spreadsheet_id: str, source: str, status: str,
+               details: str = "") -> None:
+    """One row in the unified "Logs" tab + prune entries older than
+    LOG_RETENTION_DAYS. Sources: catalogue / pseudos / chain."""
     gc = _client()
     sh = gc.open_by_key(spreadsheet_id)
-    ws = _open_worksheet(sh, "RunLog", cols=len(RUNLOG_HEADER))
+    ws = _open_worksheet(sh, LOGS_TAB, cols=len(LOGS_HEADER))
     if not ws.row_values(1):
-        ws.update(range_name="A1", values=[RUNLOG_HEADER], value_input_option="RAW")
+        ws.update(range_name="A1", values=[LOGS_HEADER], value_input_option="RAW")
         try:
             ws.freeze(rows=1)
             ws.format("1:1", {"textFormat": {"bold": True}})
         except Exception:
             pass
-    names = summary.get("new_item_names", [])
-    names_str = ", ".join(names) if names else ""
-    if summary.get("note"):
-        names_str = (summary["note"] + " | " + names_str).strip(" |")
-    row = [
-        _now(), summary.get("status", ""), summary.get("total_rows", ""),
-        summary.get("new_items", ""), summary.get("updated_items", ""),
-        summary.get("new_collectibles", ""), summary.get("new_comics", ""),
-        summary.get("upcoming_drops", ""), summary.get("price_history_added", ""),
-        summary.get("editions_history_added", ""), names_str,
-    ]
-    ws.append_rows([row], value_input_option="RAW")
+    ws.append_rows([[_now(), source, status, details[:2000]]],
+                   value_input_option="RAW")
+    # prune: rows are appended chronologically -> drop the leading old block
+    try:
+        cutoff = (_dt.datetime.utcnow()
+                  - _dt.timedelta(days=LOG_RETENTION_DAYS)).strftime("%Y-%m-%d")
+        stamps = ws.col_values(1)
+        n_old = 0
+        for s in stamps[1:]:
+            if s and s < cutoff:
+                n_old += 1
+            else:
+                break
+        if n_old:
+            ws.delete_rows(2, 1 + n_old)
+    except Exception as e:
+        print(f"    log prune warning: {e}", flush=True)
+
+
+def summary_details(summary: Dict[str, Any], skip=("status",)) -> str:
+    """Compact 'k=v; k=v' rendering of a run summary for the Logs tab."""
+    parts = []
+    for k, v in summary.items():
+        if k in skip or v in (None, "", []):
+            continue
+        if isinstance(v, list):
+            v = ", ".join(str(x) for x in v[:15])
+        parts.append(f"{k}={v}")
+    return "; ".join(parts)
+
+
+def append_run_log(spreadsheet_id: str, summary: Dict[str, Any],
+                   duration_sec: Optional[float] = None) -> None:
+    """Catalogue-run entry in the unified Logs tab."""
+    s = dict(summary)
+    if duration_sec is not None:
+        s["duration"] = f"{duration_sec:.0f}s"
+    append_log(spreadsheet_id, "catalogue", str(summary.get("status", "")),
+               summary_details(s))
 
 
 def _cell(v: Any) -> Any:

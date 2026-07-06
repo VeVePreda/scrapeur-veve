@@ -8,7 +8,7 @@ Two modes (via ENRICH_MODE):
   in their first week, and sync. Minimal load on my-nft-tracker (~150 requests/day).
 - "all"  (BACKFILL, manual): FULL run. Scrape the whole catalogue and (re)enrich everything.
 
-Env: GOOGLE_SERVICE_ACCOUNT_JSON, SHEET_ID, SHEET_TAB, ENRICH_MODE, WINDOW_DAYS,
+Env: GOOGLE_SERVICE_ACCOUNT_JSON, SHEET_ID, ENRICH_MODE, WINDOW_DAYS,
      REFRESH_DYNAMIC, APIFY_PROXY_PASSWORD.
 """
 
@@ -43,7 +43,6 @@ def main() -> int:
     if not sheet_id:
         print("ERROR: SHEET_ID env var is required.", file=sys.stderr)
         return 2
-    tab = os.environ.get("SHEET_TAB", "Catalogue")
     enrich_mode = os.environ.get("ENRICH_MODE", "new").strip().lower()
     window_days = int(os.environ.get("WINDOW_DAYS", "8"))
     refresh_dynamic = os.environ.get("REFRESH_DYNAMIC", "true").strip().lower() != "false"
@@ -86,7 +85,7 @@ def main() -> int:
         coll_targets = [p["veve_uuid"] for p in collectibles]
         comic_ids = list(dict.fromkeys(p["series_uuid"] for p in comics))
     else:
-        existing = sheets.get_existing_ids(sheet_id, tab)
+        existing = sheets.get_existing_ids(sheet_id)
         coll_targets = [p["veve_uuid"] for p in collectibles if p["veve_uuid"] not in existing]
         new_comics = [p for p in comics if p.get("veve_uuid") not in existing]
         comic_ids = list(dict.fromkeys(p["series_uuid"] for p in new_comics))
@@ -122,8 +121,9 @@ def main() -> int:
                     p.update(cols)
 
     # ---- Sync + logs ----
-    print(f"Syncing {len(products)} products into '{tab}'...", flush=True)
-    summary = sheets.sync_products(products, sheet_id, tab=tab)
+    print(f"Syncing {len(products)} products into "
+          f"'{sheets.COMICS_TAB}' / '{sheets.COLLECT_TAB}'...", flush=True)
+    summary = sheets.sync_products(products, sheet_id)
     try:
         sheets.append_run_log(sheet_id, summary, duration_sec=time.time() - t0)
     except Exception as e:

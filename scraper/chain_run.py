@@ -73,11 +73,9 @@ def main() -> int:
                        activity_rows_added=added, rows_pruned=pruned)
 
         # Recompute the window stats from everything in the tab.
-        print("Reading ChainActivity to recompute 24h/7j/30j stats...", flush=True)
+        print("Reading ChainActivity to recompute the window stats...", flush=True)
         activity = cs.read_activity(sheet_id)
         stats = cc.compute_window_stats(activity)
-        top = cc.compute_top_accounts(activity)
-        cs.write_stats(sheet_id, stats, top)
 
         for s in stats:
             if s["window"] == "24h" and s["scope"] == "all" and s["category"] == "all":
@@ -88,7 +86,8 @@ def main() -> int:
         items = cs.read_items(sheet_id)
         catalogue = cs.read_catalogue(sheet_id)
         rev = crv.compute_drop_revenue(items, catalogue)
-        cs.write_revenue(sheet_id, rev, crv.summarize_revenue(rev))
+        cs.write_revenue(sheet_id, rev)
+        cs.write_stats_page(sheet_id, stats, crv.summarize_revenue(rev))
         unmatched = sum(1 for r in rev if r["match"] == "none")
         if unmatched:
             summary["note"] += f" unmatched_items={unmatched}"

@@ -9,14 +9,15 @@ Tabs maintained (same spreadsheet as the catalogue):
                         across runs are fine: counters simply sum when the
                         stats are recomputed. Rows older than RETENTION_DAYS
                         are pruned from the top (keeps the tab ~30 days deep).
-2. "ChainStats"       — rewritten each run: 24h / 7j / 30j windows x
-                        (all / mints / market) x (all / collectible / comic):
-                        NFT transfers, unique active accounts, tx per account.
-3. "ChainTopAccounts" — rewritten each run: top 20 most active wallets per
-                        window, with a direct collectscan link.
-4. "ChainMeta"        — checkpoint (newest processed block/log index) so daily
+2. "ChainItems"       — same, per (day, item): raw source of Stats/DropRevenue.
+3. "Stats"            — rewritten each run: human-readable page combining the
+                        estimated drop revenue and the on-chain activity per
+                        window (24h/48h/7j/30j/total) x category.
+4. "DropRevenue"      — rewritten each run: per-item mints / est. revenue.
+5. "ChainMeta"        — checkpoint (newest processed block/log index) so daily
                         runs only fetch what's new + global chain totals.
-5. "ChainRunLog"      — one line per run: your confirmation it worked.
+                        Kept HIDDEN (technical bookmark, not a page).
+6. Unified "Logs" tab — one line per run (see scraper.sheets.append_log).
 """
 
 from __future__ import annotations
@@ -24,40 +25,31 @@ from __future__ import annotations
 import datetime as _dt
 from typing import Any, Dict, List, Optional, Tuple
 
-from scraper.collectchain import ACTIVITY_FIELDS
-from scraper.sheets import _client, _open_worksheet, _now
+from scraper.collectchain import ACTIVITY_FIELDS, WINDOWS
+from scraper.sheets import (_client, _open_worksheet, _now, append_log,
+                            summary_details, CATALOGUE_TABS,
+                            LEGACY_CATALOGUE_TAB)
 
 RETENTION_DAYS = 35  # keep a little more than the 30-day window
 
 ACTIVITY_TAB = "ChainActivity"
 ITEMS_TAB = "ChainItems"
-STATS_TAB = "ChainStats"
-TOP_TAB = "ChainTopAccounts"
+STATS_TAB = "Stats"
 REVENUE_TAB = "DropRevenue"
-REVENUE_SUMMARY_TAB = "RevenueSummary"
 META_TAB = "ChainMeta"
-RUNLOG_TAB = "ChainRunLog"
 
 ACTIVITY_HEADER = ["date", "account"] + ACTIVITY_FIELDS + ["total"]
 ITEMS_HEADER = ["date", "category", "veve_uuid", "name", "rarity", "series",
                 "comic_number", "start_year", "total_editions",
                 "mints", "market", "burns",
                 "unique_minters", "unique_buyers", "unique_sellers"]
-REVENUE_HEADER = ["category", "name", "rarity", "series", "veve_uuid",
-                  "store_price", "mints_24h", "mints_7j", "mints_30j",
-                  "revenue_24h", "revenue_7j", "revenue_30j",
-                  "market_24h", "market_7j", "market_30j",
-                  "total_editions", "release_amount", "release_date",
-                  "veve_url", "match"]
-REVENUE_SUMMARY_HEADER = ["window", "category", "mints", "est_revenue",
-                          "items_matched", "items_unmatched", "computed_at"]
-STATS_HEADER = ["window", "scope", "category", "nft_transfers",
-                "unique_accounts", "tx_per_account", "computed_at"]
-TOP_HEADER = ["window", "rank", "account", "total", "mints", "market_in",
-              "market_out", "collectibles", "comics", "explorer_url"]
-RUNLOG_HEADER = ["run_at_utc", "mode", "status", "transfers_fetched", "pages",
-                 "activity_rows_added", "rows_pruned", "unique_accounts_24h",
-                 "note"]
+REVENUE_HEADER = (["category", "name", "rarity", "series", "veve_uuid",
+                   "store_price"]
+                  + [f"mints_{l}" for l, _ in WINDOWS]
+                  + [f"revenue_{l}" for l, _ in WINDOWS]
+                  + [f"market_{l}" for l, _ in WINDOWS]
+                  + ["total_editions", "release_amount", "release_date",
+                     "veve_url", "match"])
 
 CHUNK = 20000  # rows per write request
 
@@ -108,6 +100,11 @@ def write_meta(spreadsheet_id: str, meta: Dict[str, Any],
             rows.append([k, totals[k]])
     ws.clear()
     ws.update(range_name="A1", values=rows, value_input_option="RAW")
+    # Technical bookmark, not a page: keep it out of sight.
+    try:
+        ws.hide()
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -232,37 +229,37 @@ def read_items(spreadsheet_id: str) -> List[Dict[str, Any]]:
     return out
 
 
-def read_catalogue(spreadsheet_id: str, tab: str = "Catalogue") \
+def read_catalogue(spreadsheet_id: str, tab: str = "") \
         -> List[Dict[str, Any]]:
-    """Catalogue rows (only the columns the revenue join needs)."""
+    """Catalogue rows from the split tabs (+ legacy tab as fallback),
+    only the columns the revenue join needs."""
     wanted = {"veve_uuid", "name", "category", "rarity", "storePrice",
               "series_uuid", "image_url", "releaseDate", "releaseAmount",
               "veve_url"}
     sh = _sheet(spreadsheet_id)
-    try:
-        ws = sh.worksheet(tab)
-    except Exception:
-        return []
-    values = ws.get_all_values()
-    if len(values) < 2:
-        return []
-    header = values[0]
-    keep = [i for i, h in enumerate(header) if h in wanted]
-    out = []
-    for raw in values[1:]:
-        out.append({header[i]: (raw[i] if i < len(raw) else "") for i in keep})
+    out: List[Dict[str, Any]] = []
+    for tab_name in CATALOGUE_TABS + (LEGACY_CATALOGUE_TAB,):
+        try:
+            ws = sh.worksheet(tab_name)
+        except Exception:
+            continue
+        values = ws.get_all_values()
+        if len(values) < 2:
+            continue
+        header = values[0]
+        keep = [i for i, h in enumerate(header) if h in wanted]
+        for raw in values[1:]:
+            out.append({header[i]: (raw[i] if i < len(raw) else "")
+                        for i in keep})
     return out
 
 
 # ---------------------------------------------------------------------------
-# DropRevenue / RevenueSummary (rewritten each run)
+# DropRevenue (rewritten each run) — per-item detail
 # ---------------------------------------------------------------------------
 
-def write_revenue(spreadsheet_id: str, rev_rows: List[Dict[str, Any]],
-                  summary_rows: List[Dict[str, Any]]) -> None:
+def write_revenue(spreadsheet_id: str, rev_rows: List[Dict[str, Any]]) -> None:
     sh = _sheet(spreadsheet_id)
-    stamp = _now()
-
     ws = _open_worksheet(sh, REVENUE_TAB, cols=len(REVENUE_HEADER))
     grid = [REVENUE_HEADER] + [[r.get(c, "") for c in REVENUE_HEADER]
                                for r in rev_rows]
@@ -279,63 +276,85 @@ def write_revenue(spreadsheet_id: str, rev_rows: List[Dict[str, Any]],
     except Exception:
         pass
 
-    ws2 = _open_worksheet(sh, REVENUE_SUMMARY_TAB,
-                          cols=len(REVENUE_SUMMARY_HEADER))
-    grid2 = [REVENUE_SUMMARY_HEADER] + [
-        [s["window"], s["category"], s["mints"], s["est_revenue"],
-         s["items_matched"], s["items_unmatched"], stamp]
-        for s in summary_rows
-    ]
-    ws2.clear()
-    ws2.update(range_name="A1", values=grid2, value_input_option="RAW")
-    try:
-        ws2.freeze(rows=1)
-        ws2.format("1:1", {"textFormat": {"bold": True}})
-    except Exception:
-        pass
-
 
 # ---------------------------------------------------------------------------
-# ChainStats / ChainTopAccounts (rewritten each run)
+# Stats (rewritten each run) — single human-readable page:
+# estimated revenue + on-chain activity per window x category
 # ---------------------------------------------------------------------------
 
-def write_stats(spreadsheet_id: str, stats: List[Dict[str, Any]],
-                top: List[Dict[str, Any]]) -> None:
+_WINDOW_LABELS = {"total": "Total"}
+_CATS = ("all", "collectible", "comic")
+
+
+def write_stats_page(spreadsheet_id: str, stats: List[Dict[str, Any]],
+                     rev_summary: List[Dict[str, Any]]) -> None:
     sh = _sheet(spreadsheet_id)
     stamp = _now()
 
-    ws = _open_worksheet(sh, STATS_TAB, cols=len(STATS_HEADER))
-    grid = [STATS_HEADER] + [
-        [s["window"], s["scope"], s["category"], s["nft_transfers"],
-         s["unique_accounts"], s["tx_per_account"], stamp]
-        for s in stats
+    # -- bloc 1 : revenus estimés (depuis summarize_revenue) --
+    rows1 = [["Fenêtre", "Catégorie", "Mints", "Revenu estimé $",
+              "Produits matchés", "Produits non matchés"]]
+    by_wc = {(s["window"], s["category"]): s for s in rev_summary}
+    for lbl, _d in WINDOWS:
+        for cat in _CATS:
+            s = by_wc.get((lbl, cat))
+            if s:
+                rows1.append([_WINDOW_LABELS.get(lbl, lbl), cat, s["mints"],
+                              s["est_revenue"], s["items_matched"],
+                              s["items_unmatched"]])
+
+    # -- bloc 2 : activité on-chain (depuis compute_window_stats) --
+    rows2 = [["Fenêtre", "Catégorie", "Transferts", "Mints", "Market",
+              "Burns", "Comptes uniques", "Tx/compte"]]
+    by_wsc = {(s["window"], s["scope"], s["category"]): s for s in stats}
+    for lbl, _d in WINDOWS:
+        for cat in _CATS:
+            s_all = by_wsc.get((lbl, "all", cat))
+            if not s_all:
+                continue
+            s_mint = by_wsc.get((lbl, "mints", cat), {})
+            s_mkt = by_wsc.get((lbl, "market", cat), {})
+            t_all = s_all["nft_transfers"]
+            t_mint = s_mint.get("nft_transfers", 0)
+            t_mkt = s_mkt.get("nft_transfers", 0)
+            rows2.append([_WINDOW_LABELS.get(lbl, lbl), cat, t_all, t_mint,
+                          t_mkt, t_all - t_mint - t_mkt,
+                          s_all["unique_accounts"], s_all["tx_per_account"]])
+
+    grid: List[List[Any]] = [
+        ["📊 STATS"],
+        [f"Mis à jour {stamp} UTC — fenêtres glissantes ; "
+         f"Total = historique conservé ({RETENTION_DAYS} j max). "
+         "Revenu estimé = mints on-chain × prix boutique."],
+        [],
+        ["💰 Revenus estimés"],
+        *rows1,
+        [],
+        ["🔗 Activité on-chain"],
+        *rows2,
     ]
+    ws = _open_worksheet(sh, STATS_TAB, cols=10)
     ws.clear()
     ws.update(range_name="A1", values=grid, value_input_option="RAW")
-    try:
-        ws.freeze(rows=1)
-        ws.format("1:1", {"textFormat": {"bold": True}})
-    except Exception:
-        pass
 
-    ws2 = _open_worksheet(sh, TOP_TAB, cols=len(TOP_HEADER))
-    grid2 = [TOP_HEADER] + [[t.get(c, "") for c in TOP_HEADER] for t in top]
-    ws2.clear()
-    ws2.update(range_name="A1", values=grid2, value_input_option="RAW")
+    h1 = 5                    # ligne d'en-tête du bloc 1
+    h2 = 5 + len(rows1) + 2   # ligne d'en-tête du bloc 2
     try:
-        ws2.freeze(rows=1)
-        ws2.format("1:1", {"textFormat": {"bold": True}})
-    except Exception:
-        pass
+        ws.format("A1", {"textFormat": {"bold": True, "fontSize": 16}})
+        ws.format("A2", {"textFormat": {"foregroundColor":
+                                        {"red": .4, "green": .4, "blue": .4}}})
+        ws.format("A4", {"textFormat": {"bold": True, "fontSize": 12}})
+        ws.format(f"A{h2 - 1}", {"textFormat": {"bold": True, "fontSize": 12}})
+        for rng, col in ((f"A{h1}:F{h1}", {"red": .71, "green": .33, "blue": .04}),
+                         (f"A{h2}:H{h2}", {"red": .10, "green": .14, "blue": .49})):
+            ws.format(rng, {"textFormat": {"bold": True, "foregroundColor":
+                                           {"red": 1, "green": 1, "blue": 1}},
+                            "backgroundColor": col})
+    except Exception as e:
+        print(f"    stats formatting warning: {e}", flush=True)
 
 
 def append_chain_runlog(spreadsheet_id: str, summary: Dict[str, Any]) -> None:
-    sh = _sheet(spreadsheet_id)
-    ws = _open_worksheet(sh, RUNLOG_TAB, cols=len(RUNLOG_HEADER))
-    _ensure_header(ws, RUNLOG_HEADER)
-    ws.append_rows([[
-        _now(), summary.get("mode", ""), summary.get("status", ""),
-        summary.get("transfers_fetched", ""), summary.get("pages", ""),
-        summary.get("activity_rows_added", ""), summary.get("rows_pruned", ""),
-        summary.get("unique_accounts_24h", ""), summary.get("note", ""),
-    ]], value_input_option="RAW")
+    """Chain-run entry in the unified Logs tab."""
+    append_log(spreadsheet_id, "chain", str(summary.get("status", "")),
+               summary_details(summary))

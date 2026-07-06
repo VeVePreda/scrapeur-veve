@@ -135,7 +135,7 @@ def compute_drop_revenue(item_rows: List[Dict[str, Any]],
 
     out: List[Dict[str, Any]] = []
     for it in merged.values():
-        if it["mints_30j"] < min_mints_30d and it["market_30j"] == 0:
+        if it["mints_total"] < min_mints_30d and it["market_total"] == 0:
             continue
         cat_row, source = match_catalogue(it, idx)
         price = _price(cat_row.get("storePrice")) if cat_row else None
@@ -146,19 +146,19 @@ def compute_drop_revenue(item_rows: List[Dict[str, Any]],
             "series": it["series"],
             "veve_uuid": it["veve_uuid"],
             "store_price": price if price is not None else "",
-            "mints_24h": it["mints_24h"], "mints_7j": it["mints_7j"],
-            "mints_30j": it["mints_30j"],
-            "revenue_24h": round(it["mints_24h"] * price, 2) if price else "",
-            "revenue_7j": round(it["mints_7j"] * price, 2) if price else "",
-            "revenue_30j": round(it["mints_30j"] * price, 2) if price else "",
-            "market_24h": it["market_24h"], "market_7j": it["market_7j"],
-            "market_30j": it["market_30j"],
+        }
+        for lbl, _days in WINDOWS:
+            row[f"mints_{lbl}"] = it[f"mints_{lbl}"]
+            row[f"revenue_{lbl}"] = (round(it[f"mints_{lbl}"] * price, 2)
+                                     if price else "")
+            row[f"market_{lbl}"] = it[f"market_{lbl}"]
+        row.update({
             "total_editions": it["total_editions"],
             "release_amount": cat_row.get("releaseAmount", "") if cat_row else "",
             "release_date": cat_row.get("releaseDate", "") if cat_row else "",
             "veve_url": cat_row.get("veve_url", "") if cat_row else "",
             "match": source,
-        }
+        })
         out.append(row)
 
     out.sort(key=lambda r: (r["revenue_30j"] or 0, r["mints_30j"]), reverse=True)

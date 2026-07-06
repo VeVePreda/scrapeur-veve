@@ -26,7 +26,7 @@ API découverte (tRPC, https://www.stackr.world/api/trpc/) :
 
 Deux familles de wallets par utilisateur :
   imx_wallet         = le wallet VeVe historique (IMX -> CollectChain). C'est
-                       LUI qui apparaît dans ChainActivity / ChainTopAccounts.
+                       LUI qui apparaît dans ChainActivity.
   web3_smart_wallet  = le wallet StackR (Base) utilisé pour payer en OMI.
 
 Onglet Sheet `Pseudos` (réécrit à chaque run) :
@@ -43,7 +43,7 @@ Onglet Sheet `Pseudos` (réécrit à chaque run) :
 Sources d'un run quotidien :
   1. leaderboard   : getAllLeaderboards (gratuit, sans session).
   2. ranking       : pages du classement OMI (si session) -> pseudos garantis.
-  3. chain         : wallets les plus actifs de ChainTopAccounts/ChainActivity
+  3. chain         : wallets les plus actifs de ChainActivity
                      encore inconnus -> résolution individuelle.
   4. transactions  : contreparties découvertes dans les ventes des wallets
                      résolus (pseudo garanti).
@@ -83,11 +83,8 @@ HEADERS = {
 }
 
 PSEUDOS_TAB = "Pseudos"
-RUNLOG_TAB = "PseudoRunLog"
 PSEUDOS_HEADER = ["username", "wallet_imx", "wallet_stackr", "veve_user_id",
                   "status", "source", "first_seen", "last_checked"]
-RUNLOG_HEADER = ["run_at_utc", "status", "verified_api", "lookups_used",
-                 "new_rows", "usernames_found", "total_rows", "note"]
 
 PAUSE = float(os.environ.get("STACKR_PAUSE", "0.35"))
 MAX_LOOKUPS = int(os.environ.get("STACKR_MAX_LOOKUPS", "200"))
@@ -483,19 +480,10 @@ def write_book(spreadsheet_id: str, book: PseudoBook) -> None:
 
 
 def append_runlog(spreadsheet_id: str, summary: Dict[str, Any]) -> None:
-    from scraper.sheets import _client, _open_worksheet
-    sh = _client().open_by_key(spreadsheet_id)
-    ws = _open_worksheet(sh, RUNLOG_TAB, cols=len(RUNLOG_HEADER))
-    if not ws.row_values(1):
-        ws.update(range_name="A1", values=[RUNLOG_HEADER],
-                  value_input_option="RAW")
-        try:
-            ws.freeze(rows=1)
-            ws.format("1:1", {"textFormat": {"bold": True}})
-        except Exception:
-            pass
-    ws.append_rows([[summary.get(c, "") for c in RUNLOG_HEADER]],
-                   value_input_option="RAW")
+    """Pseudos-run entry in the unified Logs tab."""
+    from scraper.sheets import append_log, summary_details
+    append_log(spreadsheet_id, "pseudos", str(summary.get("status", "")),
+               summary_details(summary, skip=("status", "run_at_utc")))
 
 
 # ---------------------------------------------------------------------------
