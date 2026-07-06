@@ -156,22 +156,29 @@ class StackrClient:
 
     def bootstrap(self) -> bool:
         """Obtient un accès aux endpoints verifiedVeve (les publicVeve
-        fonctionnent dans tous les cas). Étapes :
-          1. cookie de session fourni via env STACKR_COOKIE (secret GitHub,
-             optionnel : copier l'en-tête Cookie d'un onglet stackr.world) ;
-          2. visite de la home pour récolter d'éventuels Set-Cookie ;
-          3. cookies synthétiques (le middleware peut se contenter de la
-             présence de cookies banals)."""
+        fonctionnent dans tous les cas).
+
+        Si STACKR_COOKIE est fourni (secret GitHub : coller l'en-tête `cookie`
+        d'une requête `trpc` depuis DevTools → Network → Request Headers), on
+        l'envoie **tel quel** dans l'en-tête `Cookie` de chaque requête. On ne
+        le reparse PAS : les jetons Privy (`privy-token`, `privy-session`) sont
+        de longs JWT/valeurs URL-encodées que tout reparsing corromprait
+        (→ 500 côté serveur). À défaut de cookie, on tente une session
+        anonyme récoltée sur la home."""
         env_cookie = os.environ.get("STACKR_COOKIE", "").strip()
         if env_cookie:
-            for part in env_cookie.split(";"):
-                if "=" in part:
-                    k, v = part.split("=", 1)
-                    self.s.cookies.set(k.strip(), v.strip(),
-                                       domain="www.stackr.world")
+            # header brut sur TOUTES les requêtes de la session
+            self.s.headers["Cookie"] = env_cookie
             if self._probe("env_cookie"):
                 self.verified_ok = True
                 return True
+            # au cas où l'utilisateur aurait collé "cookie: xxx"
+            if env_cookie.lower().startswith("cookie:"):
+                self.s.headers["Cookie"] = env_cookie.split(":", 1)[1].strip()
+                if self._probe("env_cookie_stripped"):
+                    self.verified_ok = True
+                    return True
+            self.s.headers.pop("Cookie", None)
 
         try:
             r = self.s.get(BASE + "/", timeout=30)
@@ -180,15 +187,6 @@ class StackrClient:
         except requests.RequestException as e:
             print(f"    [stackr] bootstrap: {e}", flush=True)
         if self._probe("after_home"):
-            self.verified_ok = True
-            return True
-
-        self.s.cookies.set("NEXT_LOCALE", "en", domain="www.stackr.world")
-        self.s.cookies.set("_ga", "GA1.1.918273645.1719000000",
-                           domain="www.stackr.world")
-        self.s.cookies.set("_ga_KL6MRVPJBJ", "GS1.1.1719000000.1.1.1719000300.0.0.0",
-                           domain="www.stackr.world")
-        if self._probe("synthetic_cookies"):
             self.verified_ok = True
             return True
 
