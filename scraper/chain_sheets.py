@@ -9,15 +9,13 @@ Tabs maintained (same spreadsheet as the catalogue):
                         across runs are fine: counters simply sum when the
                         stats are recomputed. Rows older than RETENTION_DAYS
                         are pruned from the top (keeps the tab ~30 days deep).
-2. "ChainItems"       — same, per (day, item): raw source of Stats/DropRevenue.
-3. "Stats"            — rewritten each run: human-readable page combining the
-                        estimated drop revenue and the on-chain activity per
-                        window (24h/48h/7j/30j/total) x category.
-4. "DropRevenue"      — rewritten each run: per-item mints / est. revenue.
-5. "ChainMeta"        — checkpoint (newest processed block/log index) so daily
+2. "ChainItems"       — same, per (day, item): raw source of DropRevenue.
+3. "DropRevenue"      — rewritten each run: per-item mints / est. revenue /
+                        market moves per window (24h/48h/7j/30j/total).
+4. "ChainMeta"        — checkpoint (newest processed block/log index) so daily
                         runs only fetch what's new + global chain totals.
                         Kept HIDDEN (technical bookmark, not a page).
-6. Unified "Logs" tab — one line per run (see scraper.sheets.append_log).
+5. Unified "Logs" tab — one line per run (see scraper.sheets.append_log).
 """
 
 from __future__ import annotations
@@ -34,7 +32,6 @@ RETENTION_DAYS = 35  # keep a little more than the 30-day window
 
 ACTIVITY_TAB = "ChainActivity"
 ITEMS_TAB = "ChainItems"
-STATS_TAB = "Stats"
 REVENUE_TAB = "DropRevenue"
 META_TAB = "ChainMeta"
 
@@ -275,83 +272,6 @@ def write_revenue(spreadsheet_id: str, rev_rows: List[Dict[str, Any]]) -> None:
         ws.format("1:1", {"textFormat": {"bold": True}})
     except Exception:
         pass
-
-
-# ---------------------------------------------------------------------------
-# Stats (rewritten each run) — single human-readable page:
-# estimated revenue + on-chain activity per window x category
-# ---------------------------------------------------------------------------
-
-_WINDOW_LABELS = {"total": "Total"}
-_CATS = ("all", "collectible", "comic")
-
-
-def write_stats_page(spreadsheet_id: str, stats: List[Dict[str, Any]],
-                     rev_summary: List[Dict[str, Any]]) -> None:
-    sh = _sheet(spreadsheet_id)
-    stamp = _now()
-
-    # -- bloc 1 : revenus estimés (depuis summarize_revenue) --
-    rows1 = [["Fenêtre", "Catégorie", "Mints", "Revenu estimé $",
-              "Produits matchés", "Produits non matchés"]]
-    by_wc = {(s["window"], s["category"]): s for s in rev_summary}
-    for lbl, _d in WINDOWS:
-        for cat in _CATS:
-            s = by_wc.get((lbl, cat))
-            if s:
-                rows1.append([_WINDOW_LABELS.get(lbl, lbl), cat, s["mints"],
-                              s["est_revenue"], s["items_matched"],
-                              s["items_unmatched"]])
-
-    # -- bloc 2 : activité on-chain (depuis compute_window_stats) --
-    rows2 = [["Fenêtre", "Catégorie", "Transferts", "Mints", "Market",
-              "Burns", "Comptes uniques", "Tx/compte"]]
-    by_wsc = {(s["window"], s["scope"], s["category"]): s for s in stats}
-    for lbl, _d in WINDOWS:
-        for cat in _CATS:
-            s_all = by_wsc.get((lbl, "all", cat))
-            if not s_all:
-                continue
-            s_mint = by_wsc.get((lbl, "mints", cat), {})
-            s_mkt = by_wsc.get((lbl, "market", cat), {})
-            t_all = s_all["nft_transfers"]
-            t_mint = s_mint.get("nft_transfers", 0)
-            t_mkt = s_mkt.get("nft_transfers", 0)
-            rows2.append([_WINDOW_LABELS.get(lbl, lbl), cat, t_all, t_mint,
-                          t_mkt, t_all - t_mint - t_mkt,
-                          s_all["unique_accounts"], s_all["tx_per_account"]])
-
-    grid: List[List[Any]] = [
-        ["📊 STATS"],
-        [f"Mis à jour {stamp} UTC — fenêtres glissantes ; "
-         f"Total = historique conservé ({RETENTION_DAYS} j max). "
-         "Revenu estimé = mints on-chain × prix boutique."],
-        [],
-        ["💰 Revenus estimés"],
-        *rows1,
-        [],
-        ["🔗 Activité on-chain"],
-        *rows2,
-    ]
-    ws = _open_worksheet(sh, STATS_TAB, cols=10)
-    ws.clear()
-    ws.update(range_name="A1", values=grid, value_input_option="RAW")
-
-    h1 = 5                    # ligne d'en-tête du bloc 1
-    h2 = 5 + len(rows1) + 2   # ligne d'en-tête du bloc 2
-    try:
-        ws.format("A1", {"textFormat": {"bold": True, "fontSize": 16}})
-        ws.format("A2", {"textFormat": {"foregroundColor":
-                                        {"red": .4, "green": .4, "blue": .4}}})
-        ws.format("A4", {"textFormat": {"bold": True, "fontSize": 12}})
-        ws.format(f"A{h2 - 1}", {"textFormat": {"bold": True, "fontSize": 12}})
-        for rng, col in ((f"A{h1}:F{h1}", {"red": .71, "green": .33, "blue": .04}),
-                         (f"A{h2}:H{h2}", {"red": .10, "green": .14, "blue": .49})):
-            ws.format(rng, {"textFormat": {"bold": True, "foregroundColor":
-                                           {"red": 1, "green": 1, "blue": 1}},
-                            "backgroundColor": col})
-    except Exception as e:
-        print(f"    stats formatting warning: {e}", flush=True)
 
 
 def append_chain_runlog(spreadsheet_id: str, summary: Dict[str, Any]) -> None:

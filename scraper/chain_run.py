@@ -87,7 +87,6 @@ def main() -> int:
         catalogue = cs.read_catalogue(sheet_id)
         rev = crv.compute_drop_revenue(items, catalogue)
         cs.write_revenue(sheet_id, rev)
-        cs.write_stats_page(sheet_id, stats, crv.summarize_revenue(rev))
         unmatched = sum(1 for r in rev if r["match"] == "none")
         if unmatched:
             summary["note"] += f" unmatched_items={unmatched}"
