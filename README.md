@@ -270,3 +270,48 @@ comptés au prix store ; les drops gratuits (storePrice 0) comptent 0.
   collectibles (`category=unknown` en interne).
 - Test local : `python -m scraper.collectchain --test` (2 dernières heures,
   sans écrire dans le Sheet).
+
+---
+
+## Pseudos VeVe ↔ wallets (stackr.world)
+
+[StackR](https://www.stackr.world/) est la place de marché OMI officielle : chaque compte
+StackR est **lié à un compte VeVe**, ce qui permet de relier une **adresse wallet** (celle
+des onglets `Chain*`) au **pseudo VeVe**. Le module `scraper/stackr.py` interroge l'API
+tRPC de StackR (`/api/trpc/…`) et maintient l'onglet **`Pseudos`**.
+
+### Onglet `Pseudos`
+
+| Colonne | Contenu |
+|---|---|
+| `username` | pseudo VeVe (vide si pas encore découvert) |
+| `wallet_imx` | wallet VeVe historique (IMX → CollectChain) — **c'est lui qui apparaît dans `ChainActivity` / `ChainTopAccounts`**, jointure directe |
+| `wallet_stackr` | smart wallet StackR (Base) utilisé pour payer en OMI |
+| `veve_user_id` | UUID interne VeVe |
+| `status` | `ok` (pseudo trouvé) / `no_username` (compte trouvé, pseudo pas encore vu) / `not_found` (wallet sans compte StackR) |
+| `source` | `leaderboard`, `ranking`, `chain` ou `transactions` |
+
+### Comment les pseudos sont trouvés (4 sources par run)
+1. **Leaderboards** top holders (public, sans session) : wallet + pseudo directs.
+2. **Classement OMI rewards** (paginé, mois courant + précédent) : pseudos garantis.
+3. **Wallets CollectChain** les plus actifs (`ChainActivity`) encore inconnus :
+   résolution individuelle via `getPublicUser`, puis recherche du pseudo dans les
+   **listings** puis les **ventes** du compte.
+4. **Contreparties** des ventes rencontrées en chemin (pseudo garanti).
+
+Le mapping **s'enrichit au fil des jours** : chaque run consomme un budget de
+`STACKR_MAX_LOOKUPS` appels (200 par défaut, ~2 min) avec une pause de politesse entre
+chaque appel. Les wallets sans compte StackR sont re-testés après 30 jours, ceux sans
+pseudo après 14 jours. Un run quotidien tourne à **05:10 UTC** (workflow
+**"StackR pseudo sync"**) et se confirme dans **`PseudoRunLog`**.
+
+### Notes
+- L'API `verifiedVeve.*` exige un **cookie de session anonyme** (obtenu automatiquement
+  en visitant la home). Si StackR durcit ce point, le run continue en mode dégradé
+  (leaderboards uniquement) et le note dans `PseudoRunLog` (`verifiedVeve=OFF`).
+- Seuls les collectionneurs **ayant lié leur compte VeVe à StackR** sont résolubles :
+  un wallet `not_found` peut très bien être un utilisateur VeVe sans compte StackR.
+- Test local : `python -m scraper.stackr --test` (moissonne les leaderboards + quelques
+  résolutions, n'écrit rien dans le Sheet).
+- Réglages : `STACKR_MAX_LOOKUPS`, `STACKR_RANKING_PAGES` (pages de classement par
+  période, 3 par défaut), `STACKR_PAUSE` (0.35 s par défaut).
