@@ -136,17 +136,64 @@ class StackrClient:
 
     # -- bootstrap ----------------------------------------------------------
 
-    def bootstrap(self) -> bool:
-        """Visite la home pour récupérer un cookie de session anonyme, puis
-        vérifie que les endpoints verifiedVeve répondent. Les endpoints
-        publicVeve fonctionnent dans tous les cas."""
+    def _probe(self, label: str) -> bool:
+        """Teste l'accès verifiedVeve et loggue le diagnostic."""
+        inp = {"json": {"id": "DrFuze"}}
+        url = (TRPC + "verifiedVeve.getPublicUser?input="
+               + urllib.parse.quote(json.dumps(inp)))
         try:
-            self.s.get(BASE + "/", timeout=30)
+            r = self.s.get(url, timeout=30, allow_redirects=False)
+        except requests.RequestException as e:
+            print(f"    [stackr] probe({label}): {e}", flush=True)
+            return False
+        loc = r.headers.get("location", "")
+        ct = r.headers.get("content-type", "")
+        ok = r.status_code == 200 and "json" in ct and '"imx_wallet"' in r.text
+        print(f"    [stackr] probe({label}): status={r.status_code} "
+              f"ct={ct.split(';')[0]}{' -> ' + loc if loc else ''} "
+              f"{'OK' if ok else 'KO'}", flush=True)
+        return ok
+
+    def bootstrap(self) -> bool:
+        """Obtient un accès aux endpoints verifiedVeve (les publicVeve
+        fonctionnent dans tous les cas). Étapes :
+          1. cookie de session fourni via env STACKR_COOKIE (secret GitHub,
+             optionnel : copier l'en-tête Cookie d'un onglet stackr.world) ;
+          2. visite de la home pour récolter d'éventuels Set-Cookie ;
+          3. cookies synthétiques (le middleware peut se contenter de la
+             présence de cookies banals)."""
+        env_cookie = os.environ.get("STACKR_COOKIE", "").strip()
+        if env_cookie:
+            for part in env_cookie.split(";"):
+                if "=" in part:
+                    k, v = part.split("=", 1)
+                    self.s.cookies.set(k.strip(), v.strip(),
+                                       domain="www.stackr.world")
+            if self._probe("env_cookie"):
+                self.verified_ok = True
+                return True
+
+        try:
+            r = self.s.get(BASE + "/", timeout=30)
+            print(f"    [stackr] home: {r.status_code}, "
+                  f"cookies={list(self.s.cookies.keys())}", flush=True)
         except requests.RequestException as e:
             print(f"    [stackr] bootstrap: {e}", flush=True)
-        probe = self._get("verifiedVeve.getPublicUser", {"id": "DrFuze"})
-        self.verified_ok = bool(probe and probe.get("imx_wallet"))
-        return self.verified_ok
+        if self._probe("after_home"):
+            self.verified_ok = True
+            return True
+
+        self.s.cookies.set("NEXT_LOCALE", "en", domain="www.stackr.world")
+        self.s.cookies.set("_ga", "GA1.1.918273645.1719000000",
+                           domain="www.stackr.world")
+        self.s.cookies.set("_ga_KL6MRVPJBJ", "GS1.1.1719000000.1.1.1719000300.0.0.0",
+                           domain="www.stackr.world")
+        if self._probe("synthetic_cookies"):
+            self.verified_ok = True
+            return True
+
+        self.verified_ok = False
+        return False
 
     # -- endpoints ----------------------------------------------------------
 
