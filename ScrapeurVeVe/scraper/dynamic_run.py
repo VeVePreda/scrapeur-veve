@@ -74,12 +74,20 @@ def main() -> int:
     by_uuid = {p["veve_uuid"]: p for p in colls}
 
     # ---- VeVe GraphQL: store price / supply / edition counters ----
+    # These change slowly, so by default we DON'T hit GraphQL on the frequent
+    # (3-hourly) runs — floor/listings from the tracker are enough. A once-a-day
+    # run with DYNAMIC_WITH_EDITIONS=true refreshes the edition counters.
+    with_editions = os.environ.get("DYNAMIC_WITH_EDITIONS", "false").strip().lower() == "true"
     uuids = list(by_uuid.keys())
-    print(f"Refreshing dynamic fields for {len(uuids)} collectibles via VeVe...",
-          flush=True)
-    for uid, cols in veve_detail.enrich_dynamic(uuids, is_comic=False).items():
-        if by_uuid.get(uid):
-            by_uuid[uid].update(cols)
+    if with_editions:
+        print(f"Refreshing edition counters for {len(uuids)} collectibles via VeVe GraphQL...",
+              flush=True)
+        for uid, cols in veve_detail.enrich_dynamic(uuids, is_comic=False).items():
+            if by_uuid.get(uid):
+                by_uuid[uid].update(cols)
+    else:
+        print("Floor/listings only (tracker) — skipping GraphQL editions this run "
+              "(set DYNAMIC_WITH_EDITIONS=true for the daily edition refresh).", flush=True)
 
     items = [_item(p) for p in colls]
 

@@ -34,6 +34,8 @@ ACTIVITY_TAB = "ChainActivity"
 ITEMS_TAB = "ChainItems"
 REVENUE_TAB = "DropRevenue"
 META_TAB = "ChainMeta"
+ESCROW_TAB = "_EscrowListings"  # hidden: (veve_uuid, edition) -> seller wallet
+ESCROW_HEADER = ["veve_uuid", "edition", "seller_wallet", "ts"]
 
 ACTIVITY_HEADER = ["date", "account"] + ACTIVITY_FIELDS + ["total"]
 ITEMS_HEADER = ["date", "category", "veve_uuid", "name", "rarity", "series",
@@ -179,6 +181,11 @@ def append_items(spreadsheet_id: str, rows: List[Dict[str, Any]],
     grid = [[r.get(c, "") for c in ITEMS_HEADER] for r in rows]
     for i in range(0, len(grid), CHUNK):
         ws.append_rows(grid[i:i + CHUNK], value_input_option="RAW")
+    # Backing store for DropRevenue — kept but hidden (not a page to read).
+    try:
+        ws.hide()
+    except Exception:
+        pass
     return len(grid)
 
 
@@ -293,6 +300,43 @@ def write_revenue(spreadsheet_id: str, rev_rows: List[Dict[str, Any]]) -> None:
         ws.format("1:1", {"textFormat": {"bold": True}})
     except Exception:
         pass
+
+
+def merge_escrow(spreadsheet_id: str, deposits: List[Dict[str, Any]]) -> int:
+    """Merge escrow deposits into the hidden _EscrowListings tab, keeping the
+    latest seller wallet per (veve_uuid, edition). Returns count of NEW keys."""
+    if not deposits:
+        return 0
+    sh = _sheet(spreadsheet_id)
+    ws = _open_worksheet(sh, ESCROW_TAB, cols=len(ESCROW_HEADER))
+    existing: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    if ws.row_count > 1:
+        for r in ws.get_all_records():
+            k = (str(r.get("veve_uuid", "")).strip(), str(r.get("edition", "")).strip())
+            if k[0]:
+                existing[k] = dict(r)
+    added = 0
+    for d in deposits:
+        k = (str(d["veve_uuid"]).strip(), str(d["edition"]).strip())
+        cur = existing.get(k)
+        if cur is None:
+            added += 1
+        if cur is None or str(d["ts"]) > str(cur.get("ts", "")):
+            existing[k] = {"veve_uuid": d["veve_uuid"], "edition": d["edition"],
+                           "seller_wallet": d["seller_wallet"], "ts": d["ts"]}
+    grid = [ESCROW_HEADER] + [[existing[k].get(c, "") for c in ESCROW_HEADER]
+                              for k in existing]
+    ws.clear()
+    for i in range(0, len(grid), CHUNK):
+        if i == 0:
+            ws.update(range_name="A1", values=grid[:CHUNK], value_input_option="RAW")
+        else:
+            ws.append_rows(grid[i:i + CHUNK], value_input_option="RAW")
+    try:
+        ws.hide()
+    except Exception:
+        pass
+    return added
 
 
 def append_chain_runlog(spreadsheet_id: str, summary: Dict[str, Any]) -> None:

@@ -75,8 +75,13 @@ def main() -> int:
             cs.append_items(sheet_id, cc.aggregate_items(records))
             pruned = cs.prune_activity(sheet_id) + cs.prune_items(sheet_id)
 
+        # Market escrow deposits -> (veve_uuid, edition) -> seller wallet, for the
+        # pseudo<->wallet join with the Market listings.
+        esc_added = cs.merge_escrow(sheet_id, cc.escrow_listings(records))
+
         summary.update(transfers_fetched=meta["count"], pages=meta["pages"],
-                       activity_rows_added=added, rows_pruned=pruned)
+                       activity_rows_added=added, rows_pruned=pruned,
+                       escrow_listings_added=esc_added)
 
         # Recompute the window stats from everything in the tab. Windows are
         # anchored on the last COMPLETE day (24h = yesterday), since today is

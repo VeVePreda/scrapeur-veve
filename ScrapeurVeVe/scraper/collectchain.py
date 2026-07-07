@@ -43,6 +43,10 @@ TRANSFERS_URL = f"{API_BASE}/tokens/{CONTRACT}/transfers"
 STATS_URL = f"{API_BASE}/stats"
 
 ZERO = "0x0000000000000000000000000000000000000000"
+# VeVe secondary-market escrow wallet: listing a collectible transfers it here
+# (seller -> escrow); a sale is escrow -> buyer; a cancel is escrow -> seller.
+# The DEPOSIT transfer's `from` reveals the seller wallet behind a market listing.
+MARKET_ESCROW = "0xb1af72a77b9065c55cda0680b86655a79b62e42c"
 
 REQUEST_TIMEOUT = 60
 MAX_RETRIES = 5
@@ -278,6 +282,32 @@ def aggregate_daily(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         row["total"] = sum(counters.values())
         rows.append(row)
     return rows
+
+
+def escrow_listings(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Latest deposit INTO the market escrow per (veve_uuid, edition): its `from`
+    is the seller wallet behind that listing. Returns
+    [{veve_uuid, edition, seller_wallet, ts}]. Enables pseudo<->wallet by joining
+    (veve_uuid, edition) to the Market issueNumber."""
+    latest: Dict[tuple, Dict[str, Any]] = {}
+    for r in records:
+        uid = r.get("veve_uuid")
+        ed = r.get("edition")
+        if not uid or ed in (None, ""):
+            continue
+        if r.get("to") != MARKET_ESCROW:
+            continue
+        frm = r.get("from")
+        if not frm or frm == ZERO or frm == MARKET_ESCROW:
+            continue
+        key = (uid, str(ed))
+        cur = latest.get(key)
+        if cur is None or r["ts"] > cur["_ts"]:
+            latest[key] = {"veve_uuid": uid, "edition": str(ed),
+                           "seller_wallet": frm, "_ts": r["ts"]}
+    return [{"veve_uuid": v["veve_uuid"], "edition": v["edition"],
+             "seller_wallet": v["seller_wallet"],
+             "ts": v["_ts"].strftime("%Y-%m-%d %H:%M:%S")} for v in latest.values()]
 
 
 def item_key(category: str, veve_uuid: str, name: str, rarity: str,

@@ -83,8 +83,13 @@ HEADERS = {
 }
 
 PSEUDOS_TAB = "Pseudos"
+# The last 6 columns are the on-chain WALLET REGISTRY, filled by
+# scraper.wallet_registry from ChainActivity (kept across runs; chain_first_seen
+# only ever moves earlier). username/wallets stay stable once found.
 PSEUDOS_HEADER = ["username", "wallet_imx", "wallet_stackr", "veve_user_id",
-                  "status", "source", "first_seen", "last_checked"]
+                  "status", "source", "first_seen", "last_checked",
+                  "chain_first_seen", "chain_last_active",
+                  "chain_mints", "chain_buys", "chain_sells", "chain_active_days"]
 
 PAUSE = float(os.environ.get("STACKR_PAUSE", "0.35"))
 MAX_LOOKUPS = int(os.environ.get("STACKR_MAX_LOOKUPS", "200"))
@@ -247,10 +252,16 @@ class PseudoBook:
 
     def __init__(self, existing_rows: List[Dict[str, Any]]) -> None:
         self.rows: Dict[str, Dict[str, Any]] = {}
+        # Rows WITHOUT a wallet yet (e.g. pseudos found via the Market) are kept
+        # aside and preserved verbatim — a found pseudo must never be dropped just
+        # because StackR hasn't resolved its wallet.
+        self.extra: List[Dict[str, Any]] = []
         for r in existing_rows:
             key = _norm(r.get("wallet_imx")) or _norm(r.get("wallet_stackr"))
             if key:
                 self.rows[key] = dict(r)
+            elif str(r.get("veve_user_id", "")).strip() or str(r.get("username", "")).strip():
+                self.extra.append(dict(r))
         # index secondaire par smart wallet
         self.by_smart = {_norm(r.get("wallet_stackr")): k
                          for k, r in self.rows.items() if _norm(r.get("wallet_stackr"))}
@@ -319,8 +330,17 @@ class PseudoBook:
                       key=lambda r: (r.get("status") != "ok",
                                      str(r.get("username", "")).lower() or "~",
                                      str(r.get("wallet_imx", ""))))
+        # Preserve wallet-less rows (Market pseudos) that aren't already covered
+        # by a wallet-keyed row (matched by veve_user_id or username).
+        seen_uid = {str(r.get("veve_user_id", "")).strip() for r in recs
+                    if str(r.get("veve_user_id", "")).strip()}
+        seen_name = {str(r.get("username", "")).strip().lower() for r in recs
+                     if str(r.get("username", "")).strip()}
+        extra = [r for r in self.extra
+                 if str(r.get("veve_user_id", "")).strip() not in seen_uid
+                 and str(r.get("username", "")).strip().lower() not in seen_name]
         return [PSEUDOS_HEADER] + [[r.get(c, "") for c in PSEUDOS_HEADER]
-                                   for r in recs]
+                                   for r in (recs + extra)]
 
 
 def _resolve_wallet(cli: StackrClient, book: PseudoBook, wallet: str,
