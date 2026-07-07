@@ -1,20 +1,35 @@
 """
 Google Sheets sync for the VeVe catalogue.
 
+Architecture (v5 — 2026-07-07)
+------------------------------
+The sheet now separates COLD data (rarely/never changes — refreshed once a day,
+only to add brand-new drops) from DYNAMIC data (supply / listings / floor —
+refreshed several times a day).
+
 Tabs maintained:
-1. "🟢C-COMICS" / "🔵C-COLLECTIBLE"
-                    — current snapshot, one row per product UUID (dedupe by veve_uuid),
-                      physically split by category. Rows are never deleted (we always
-                      start from what's already there), so a tracker outage can't wipe
-                      your data. Upcoming drops are highlighted (green = comics,
-                      blue = collectibles). The legacy "Catalogue" tab, if present,
-                      is read once (migration) then deleted.
-2. "PriceHistory"   — append-only floor-price log (COLLECTIBLES only), one row per change.
-3. "EditionsHistory"— append-only log of the VARIABLE fields (sold / in-circulation /
-                      burned / withheld / available), one row per change, so you can
-                      track and compare them over time.
-4. "Logs"           — unified run log (catalogue / pseudos / chain), one row per run,
-                      pruned to LOG_RETENTION_DAYS — your confirmation the jobs worked.
+
+1. "🔵C-COLLECTIBLE" / "🟢C-COMICS"
+        — COLD catalogue, one row per product UUID, physically split by category.
+          Only stable fields (identity, rarity, series/brand/licensor, description,
+          drop method, market fee…). Rows are never deleted (we always start from
+          what's already there), so a source outage can't wipe your data. Upcoming
+          drops are highlighted (green = comics, blue = collectibles).
+2. "Marques & Licences"
+        — COLD reference page: one row per brand and per licensor, with product
+          counts. Rebuilt each day from the catalogue.
+3. "Données Dynamiques"
+        — DYNAMIC snapshot, one COMBINED page (collectibles + comics), one row per
+          product with the variable fields (floor, listings, supply, editions…).
+          Collectible rows are refreshed several times a day by dynamic_run.py;
+          comic rows are refreshed once a day (first-week items) by run.py.
+4. "PriceHistory"   — append-only floor-price log (COLLECTIBLES only), one row per change.
+5. "EditionsHistory"— append-only log of the edition counters, one row per change.
+6. "Logs"           — unified run log (catalogue / dynamic / pseudos / chain).
+
+NOTE (market_fee): VeVe returns marketFee in tenths of a percent (e.g. 85 -> 8.5%).
+We store it formatted as a percentage string. If VeVe's raw scale ever differs,
+change FEE_DIVISOR below (single source of truth).
 """
 
 from __future__ import annotations
@@ -31,27 +46,51 @@ from scraper.veve_scraper import build_veve_url
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
-PREFERRED_ORDER = [
-    "veve_uuid", "name", "category", "edition", "rarity", "releaseDate",
-    "releaseAmount", "availableAmount",
-    "storePrice", "market_lowestOffer", "market_totalListings",
-    "allTimeLow", "allTimeHigh", "change_1d_pct", "change_7d_pct", "change_30d_pct",
-    "gemsPerMcp", "noMarketListing",
-    "series_name", "series_uuid",
-    "brand_name", "brand_uuid", "licensor_name", "licensor_uuid",
-    "veve_url", "image_url", "tracker_uuid",
-    "description", "special_edition", "edition_type", "is_blindbox",
-    "drop_method", "drop_date", "daily_mcp_points", "market_fee", "veve_store_price",
-    "rarity_editions", "editions_in_circulation", "sold_editions", "burned_editions",
-    "withheld_editions", "store_allocation", "first_available_edition",
-    "veve_total_available", "start_year", "veve_comic_name", "veve_series_name",
-    "veve_brand", "veve_licensor", "veve_enriched_at",
-    "first_seen", "last_seen",
+# ---------------------------------------------------------------------------
+# Column model
+# ---------------------------------------------------------------------------
+# COLD columns kept in each catalogue tab (order = display order).
+COLLECTIBLE_COLD = [
+    "veve_uuid", "name", "category", "edition_type", "rarity", "releaseDate",
+    "daily_mcp_points", "gemsPerMcp", "veve_series_name", "series_uuid",
+    "veve_brand", "brand_uuid", "veve_licensor", "licensor_uuid",
+    "veve_url", "image_url", "tracker_uuid", "description", "special_edition",
+    "market_fee", "first_available_edition", "is_blindbox", "drop_method",
 ]
+COMICS_COLD = [
+    "veve_uuid", "name", "category", "edition_type", "rarity", "releaseDate",
+    "daily_mcp_points", "noMarketListing", "gemsPerMcp", "veve_series_name",
+    "series_uuid", "veve_brand", "brand_uuid", "veve_licensor", "licensor_uuid",
+    "veve_url", "image_url", "tracker_uuid", "description", "drop_method",
+    "market_fee", "first_available_edition", "start_year",
+]
+# Operational bookkeeping columns appended after the cold columns (needed by the
+# pipeline: new-drop detection, ordering, enrichment tracking).
+BOOKKEEPING = ["veve_enriched_at", "first_seen", "last_seen"]
+
+# Columns that must never reach the sheet (duplicates or moved to the dynamic page).
+DROP_COLUMNS = {
+    # legacy empties
+    "provider", "series_edition", "licensor_fee", "isEcl", "image_cloudflare",
+    "season",
+    # duplicates folded into veve_* / edition_type
+    "series_name", "brand_name", "licensor_name", "edition",
+    "storePrice", "availableAmount", "drop_date", "rarity_editions",
+    "veve_comic_name",
+    # derived elsewhere (another sheet)
+    "allTimeLow", "allTimeHigh", "change_1d_pct", "change_7d_pct", "change_30d_pct",
+    # dynamic fields (live on the dynamic page, not in the cold catalogue)
+    "market_lowestOffer", "market_totalListings", "releaseAmount",
+    "veve_total_available", "veve_store_price", "sold_editions",
+    "editions_in_circulation", "burned_editions", "withheld_editions",
+    "store_allocation",
+}
 
 FIRST_SEEN = "first_seen"
 LAST_SEEN = "last_seen"
 KEY_COLUMN = "veve_uuid"
+
+FEE_DIVISOR = 10.0  # VeVe marketFee is in tenths of a percent (85 -> 8.5%)
 
 # Physical catalogue split (one tab per category) + legacy tab (migrated then deleted)
 COMICS_TAB = "🟢C-COMICS"
@@ -59,16 +98,30 @@ COLLECT_TAB = "🔵C-COLLECTIBLE"
 CATALOGUE_TABS = (COMICS_TAB, COLLECT_TAB)
 LEGACY_CATALOGUE_TAB = "Catalogue"
 
-# Unified run log (catalogue / pseudos / chain)
+MARQUES_TAB = "Marques & Licences"
+MARQUES_HEADER = ["kind", "name", "uuid", "licensor_name", "licensor_uuid",
+                  "n_total", "n_collectibles", "n_comics"]
+
+# Combined dynamic snapshot page.
+DYNAMIC_TAB = "Données Dynamiques"
+DYNAMIC_HEADER = [
+    "veve_uuid", "name", "category",
+    "market_lowestOffer", "market_totalListings", "releaseAmount",
+    "veve_total_available", "veve_store_price",
+    "sold_editions", "editions_in_circulation", "burned_editions",
+    "withheld_editions", "store_allocation", "updated_at",
+]
+# Dynamic fields we actually write (everything except identity + updated_at).
+DYNAMIC_VALUE_FIELDS = DYNAMIC_HEADER[3:-1]
+
+# Unified run log (catalogue / dynamic / pseudos / chain)
 LOGS_TAB = "Logs"
 LOGS_HEADER = ["ts_utc", "source", "status", "details"]
 LOG_RETENTION_DAYS = 7
-# Columns removed from the sheet (empty/useless)
-DROP_COLUMNS = {"provider", "series_edition", "licensor_fee", "isEcl",
-                "image_cloudflare", "season"}
 FLOOR_COLUMN = "market_lowestOffer"
 
-DYNAMIC_FIELDS = [
+# Edition counters watched for the EditionsHistory log.
+EDITION_FIELDS = [
     "sold_editions", "editions_in_circulation", "burned_editions",
     "withheld_editions", "veve_total_available",
 ]
@@ -82,20 +135,6 @@ BLUE = {"red": 0.82, "green": 0.90, "blue": 1.0}
 GREEN = {"red": 0.83, "green": 0.96, "blue": 0.83}
 WHITE = {"red": 1.0, "green": 1.0, "blue": 1.0}
 UPCOMING_DAYS = 7
-
-# Rarity background colours (hex -> rgb 0..1), white text for contrast.
-def _hex(h):
-    h = h.lstrip("#")
-    return {"red": int(h[0:2], 16) / 255, "green": int(h[2:4], 16) / 255, "blue": int(h[4:6], 16) / 255}
-
-RARITY_COLOURS = {
-    "COMMON": _hex("1A7431"),
-    "UNCOMMON": _hex("5F3072"),
-    "RARE": _hex("0466C8"),
-    "ULTRA_RARE": _hex("FD9E02"),
-    "SECRET_RARE": _hex("A1160E"),
-    "ARTIST_PROOF": _hex("D801D8"),
-}
 
 
 def _client() -> gspread.Client:
@@ -121,28 +160,23 @@ def _today() -> str:
     return _dt.datetime.utcnow().strftime("%Y-%m-%d")
 
 
-def _order_columns(all_keys: set) -> List[str]:
-    ordered: List[str] = []
-    for k in PREFERRED_ORDER:
-        if k in all_keys and k not in ordered:
-            ordered.append(k)
-    for k in sorted(all_keys):
-        if k not in ordered:
-            ordered.append(k)
-    for bk in (FIRST_SEEN, LAST_SEEN):
-        if bk in ordered:
-            ordered.remove(bk)
-        ordered.append(bk)
-    return ordered
-
-
 def _to_num(x: Any) -> Optional[float]:
     if x in (None, ""):
         return None
     try:
-        return float(x)
+        return float(str(x).replace(",", "."))
     except (ValueError, TypeError):
         return None
+
+
+def _fmt_fee(x: Any) -> Any:
+    """VeVe marketFee (tenths of a percent) -> percentage string, e.g. 85 -> '8.5%'."""
+    n = _to_num(x)
+    if n is None:
+        return x if x not in (None,) else ""
+    pct = n / FEE_DIVISOR
+    s = f"{pct:.1f}".rstrip("0").rstrip(".")
+    return f"{s}%"
 
 
 def _parse_dt(x: Any) -> Optional[_dt.datetime]:
@@ -182,8 +216,7 @@ def _catalogue_worksheets(sh) -> list:
 
 
 def get_existing_ids(spreadsheet_id: str, tab: str = "") -> set:
-    """All veve_uuid values already in the sheet (reads only column A -> fast).
-    `tab` is kept for backward compatibility and ignored."""
+    """All veve_uuid values already in the sheet (reads only column A -> fast)."""
     gc = _client()
     sh = gc.open_by_key(spreadsheet_id)
     ids: set = set()
@@ -208,10 +241,35 @@ def get_enriched_ids(spreadsheet_id: str, tab: str = "") -> set:
     return out
 
 
-def sync_products(products: List[Dict[str, Any]], spreadsheet_id: str,
-                  tab: str = "") -> Dict[str, Any]:
-    """`tab` is kept for backward compatibility and ignored: rows are written
-    into the split tabs (🟢C-COMICS / 🔵C-COLLECTIBLE)."""
+# ---------------------------------------------------------------------------
+# Normalisation: fold duplicate columns into the canonical veve_* / edition_type
+# ---------------------------------------------------------------------------
+
+def _normalise(rec: Dict[str, Any]) -> Dict[str, Any]:
+    """Fold tracker duplicates into the canonical columns, format the fee, strip
+    dropped columns. Mutates and returns `rec`."""
+    rec["veve_series_name"] = rec.get("veve_series_name") or rec.get("series_name")
+    rec["veve_brand"] = rec.get("veve_brand") or rec.get("brand_name")
+    rec["veve_licensor"] = rec.get("veve_licensor") or rec.get("licensor_name")
+    rec["edition_type"] = rec.get("edition_type") or rec.get("edition")
+    if rec.get("market_fee") not in (None, ""):
+        rec["market_fee"] = _fmt_fee(rec.get("market_fee"))
+    rec["veve_url"] = build_veve_url(rec.get("category"), rec.get("veve_uuid"),
+                                     rec.get("series_uuid"))
+    for dc in DROP_COLUMNS:
+        rec.pop(dc, None)
+    return rec
+
+
+# ---------------------------------------------------------------------------
+# COLD catalogue sync (daily) — also (re)builds the Marques & Licences page
+# ---------------------------------------------------------------------------
+
+def sync_catalogue(products: List[Dict[str, Any]], spreadsheet_id: str,
+                   tab: str = "") -> Dict[str, Any]:
+    """Merge `products` (usually just the new/recent window) into the persisted
+    cold catalogue tabs, rewrite them, and rebuild the Marques & Licences page.
+    Rows are never deleted; existing rows are the source of truth for counts."""
     gc = _client()
     sh = gc.open_by_key(spreadsheet_id)
 
@@ -227,46 +285,15 @@ def sync_products(products: List[Dict[str, Any]], spreadsheet_id: str,
     valid = [p for p in products if str(p.get(KEY_COLUMN, "")).strip()]
 
     now_dt = _dt.datetime.utcnow()
-    now = stamp = _now()
+    now = _now()
     added, updated = 0, 0
     new_collectibles: List[str] = []
     new_comics: List[str] = []
     merged: Dict[str, Dict[str, Any]] = dict(existing_by_id)
-    price_rows: List[List[Any]] = []
-    edition_rows: List[List[Any]] = []
-    seen_comic_edit: set = set()
 
     for prod in valid:
         pid = str(prod.get(KEY_COLUMN, "")).strip()
         cat = str(prod.get("category", "")).lower()
-        prev = existing_by_id.get(pid)
-
-        if cat == "collectible":
-            nf = _to_num(prod.get(FLOOR_COLUMN))
-            if nf is not None and nf > 0:
-                pf = _to_num(prev.get(FLOOR_COLUMN)) if prev else None
-                if pf is None or pf != nf:
-                    price_rows.append([stamp, pid, prod.get("name", ""), prod.get("category", ""),
-                                       nf, prod.get("storePrice", ""),
-                                       prod.get("market_totalListings", "")])
-
-        if cat in ("collectible", "comic") and _is_recent(prod, now_dt) \
-                and any(prod.get(f) not in (None, "") for f in DYNAMIC_FIELDS):
-            item_id = pid if cat == "collectible" else str(prod.get("series_uuid", "")).strip()
-            if item_id and not (cat == "comic" and item_id in seen_comic_edit):
-                if cat == "comic":
-                    seen_comic_edit.add(item_id)
-                changed = False
-                for fld in DYNAMIC_FIELDS:
-                    newv = _to_num(prod.get(fld))
-                    oldv = _to_num(prev.get(fld)) if prev else None
-                    if newv is not None and newv != oldv:
-                        changed = True
-                        break
-                if changed:
-                    edition_rows.append([stamp, item_id, prod.get("name", ""), prod.get("category", "")]
-                                        + [prod.get(f, "") for f in DYNAMIC_FIELDS])
-
         record = {k: _cell(v) for k, v in prod.items()}
         if pid in merged:
             record[FIRST_SEEN] = merged[pid].get(FIRST_SEEN) or now
@@ -285,17 +312,8 @@ def sync_products(products: List[Dict[str, Any]], spreadsheet_id: str,
             elif cat == "comic":
                 new_comics.append(str(prod.get("name", "")) or pid)
 
-    # Fix veve_url for every row (comics use series_uuid) + strip dead columns
     for rec in merged.values():
-        for dc in DROP_COLUMNS:
-            rec.pop(dc, None)
-        rec["veve_url"] = build_veve_url(rec.get("category"), rec.get("veve_uuid"),
-                                         rec.get("series_uuid"))
-
-    all_keys: set = set()
-    for rec in merged.values():
-        all_keys.update(rec.keys())
-    columns = _order_columns(all_keys)
+        _normalise(rec)
 
     ordered_recs = sorted(
         merged.values(),
@@ -308,13 +326,14 @@ def sync_products(products: List[Dict[str, Any]], spreadsheet_id: str,
                     if str(r.get("category", "")).lower() != "comic"]
 
     n_upcoming = 0
-    for tab_name, recs, colour in ((COMICS_TAB, comics_recs, GREEN),
-                                   (COLLECT_TAB, collect_recs, BLUE)):
-        ws = _open_worksheet(sh, tab_name, cols=len(columns))
-        grid: List[List[Any]] = [columns]
+    for tab_name, recs, cols, colour in (
+            (COMICS_TAB, comics_recs, COMICS_COLD + BOOKKEEPING, GREEN),
+            (COLLECT_TAB, collect_recs, COLLECTIBLE_COLD + BOOKKEEPING, BLUE)):
+        ws = _open_worksheet(sh, tab_name, cols=len(cols))
+        grid: List[List[Any]] = [cols]
         upcoming: List[int] = []
         for i, rec in enumerate(recs):
-            grid.append([rec.get(col, "") for col in columns])
+            grid.append([rec.get(col, "") for col in cols])
             if _is_upcoming(rec, now_dt):
                 upcoming.append(i + 1)
         n_upcoming += len(upcoming)
@@ -324,21 +343,18 @@ def sync_products(products: List[Dict[str, Any]], spreadsheet_id: str,
             ws.freeze(rows=1)
         except Exception:
             pass
-        _apply_formatting(sh, ws, len(grid), len(columns), upcoming, colour)
-        _apply_rarity_colours(sh, ws, columns, len(grid))
+        _apply_formatting(sh, ws, len(grid), len(cols), upcoming, colour)
 
     # Migration done: drop the legacy single-tab catalogue.
     try:
         sh.del_worksheet(sh.worksheet(LEGACY_CATALOGUE_TAB))
-        print(f"    legacy '{LEGACY_CATALOGUE_TAB}' tab deleted (migrated).",
-              flush=True)
+        print(f"    legacy '{LEGACY_CATALOGUE_TAB}' tab deleted (migrated).", flush=True)
     except gspread.WorksheetNotFound:
         pass
     except Exception as e:
         print(f"    legacy tab deletion warning: {e}", flush=True)
 
-    ph = _append_rows(sh, "PriceHistory", PRICE_HISTORY_HEADER, price_rows)
-    eh = _append_rows(sh, "EditionsHistory", EDITIONS_HISTORY_HEADER, edition_rows)
+    n_brands, n_licensors = _write_marques(sh, merged.values())
 
     return {
         "status": "OK",
@@ -350,10 +366,64 @@ def sync_products(products: List[Dict[str, Any]], spreadsheet_id: str,
         "new_collectibles": len(new_collectibles),
         "new_comics": len(new_comics),
         "upcoming_drops": n_upcoming,
-        "price_history_added": ph,
-        "editions_history_added": eh,
+        "brands": n_brands,
+        "licensors": n_licensors,
         "new_item_names": (new_collectibles + new_comics)[:40],
     }
+
+
+# Backward-compatible alias (old callers).
+sync_products = sync_catalogue
+
+
+def _write_marques(sh, records) -> tuple:
+    """Build the Marques & Licences reference page from catalogue rows."""
+    brands: Dict[str, Dict[str, Any]] = {}
+    licensors: Dict[str, Dict[str, Any]] = {}
+    for rec in records:
+        cat = str(rec.get("category", "")).lower()
+        is_comic = cat == "comic"
+        b_uuid = str(rec.get("brand_uuid", "")).strip()
+        b_name = str(rec.get("veve_brand", "")).strip()
+        l_uuid = str(rec.get("licensor_uuid", "")).strip()
+        l_name = str(rec.get("veve_licensor", "")).strip()
+        if b_name or b_uuid:
+            key = b_uuid or b_name
+            b = brands.setdefault(key, {"name": b_name, "uuid": b_uuid,
+                                        "licensor_name": l_name, "licensor_uuid": l_uuid,
+                                        "n_collectibles": 0, "n_comics": 0})
+            b["n_comics" if is_comic else "n_collectibles"] += 1
+            if not b["licensor_name"] and l_name:
+                b["licensor_name"] = l_name
+                b["licensor_uuid"] = l_uuid
+        if l_name or l_uuid:
+            key = l_uuid or l_name
+            lz = licensors.setdefault(key, {"name": l_name, "uuid": l_uuid,
+                                            "n_collectibles": 0, "n_comics": 0})
+            lz["n_comics" if is_comic else "n_collectibles"] += 1
+
+    rows: List[List[Any]] = []
+    for lz in sorted(licensors.values(),
+                     key=lambda d: -(d["n_collectibles"] + d["n_comics"])):
+        rows.append(["Licence", lz["name"], lz["uuid"], "", "",
+                     lz["n_collectibles"] + lz["n_comics"],
+                     lz["n_collectibles"], lz["n_comics"]])
+    for b in sorted(brands.values(),
+                    key=lambda d: -(d["n_collectibles"] + d["n_comics"])):
+        rows.append(["Marque", b["name"], b["uuid"], b["licensor_name"],
+                     b["licensor_uuid"], b["n_collectibles"] + b["n_comics"],
+                     b["n_collectibles"], b["n_comics"]])
+
+    ws = _open_worksheet(sh, MARQUES_TAB, cols=len(MARQUES_HEADER))
+    ws.clear()
+    ws.update(range_name="A1", values=[MARQUES_HEADER] + rows,
+              value_input_option="RAW")
+    try:
+        ws.freeze(rows=1)
+        ws.format("1:1", {"textFormat": {"bold": True}})
+    except Exception:
+        pass
+    return len(brands), len(licensors)
 
 
 def _apply_formatting(sh, ws, n_rows: int, n_cols: int,
@@ -378,52 +448,124 @@ def _apply_formatting(sh, ws, n_rows: int, n_cols: int,
                       "startColumnIndex": 0, "endColumnIndex": n_cols},
             "cell": {"userEnteredFormat": {"backgroundColor": upcoming_colour}},
             "fields": "userEnteredFormat.backgroundColor"}})
+    # Clear any leftover conditional-format rules (old rarity colouring).
+    try:
+        meta = sh.fetch_sheet_metadata()
+        for sheet in meta.get("sheets", []):
+            if sheet.get("properties", {}).get("sheetId") == sid:
+                n_cf = len(sheet.get("conditionalFormats", []) or [])
+                for _ in range(n_cf):
+                    reqs.append({"deleteConditionalFormatRule": {"sheetId": sid, "index": 0}})
+                break
+    except Exception:
+        pass
     try:
         sh.batch_update({"requests": reqs})
     except Exception as e:
         print(f"    formatting warning: {e}", flush=True)
 
 
-def _apply_rarity_colours(sh, ws, columns: List[str], n_rows: int) -> None:
-    """Colour the `rarity` cells by rarity via persistent conditional-format rules
-    (white text on the requested background). Rules are cleared & re-added each run
-    so they always match the current rarity column position."""
-    if "rarity" not in columns or n_rows <= 1:
-        return
-    sid = ws.id
-    col = columns.index("rarity")
-    rng = {"sheetId": sid, "startRowIndex": 1, "endRowIndex": n_rows,
-           "startColumnIndex": col, "endColumnIndex": col + 1}
+# ---------------------------------------------------------------------------
+# DYNAMIC snapshot sync (hourly for collectibles, daily for comics)
+# ---------------------------------------------------------------------------
 
-    # Count existing conditional-format rules on this sheet, to delete them first.
-    try:
-        meta = sh.fetch_sheet_metadata()
-        existing = 0
-        for sheet in meta.get("sheets", []):
-            if sheet.get("properties", {}).get("sheetId") == sid:
-                existing = len(sheet.get("conditionalFormats", []) or [])
+def sync_dynamic(items: List[Dict[str, Any]], spreadsheet_id: str) -> Dict[str, Any]:
+    """Merge dynamic values for `items` into the combined 'Données Dynamiques'
+    page (field-level merge, keeps previously known values for fields absent from
+    an item), and append PriceHistory / EditionsHistory rows on change.
+
+    Each item is a dict with at least veve_uuid, name, category and any of the
+    DYNAMIC_VALUE_FIELDS. Floor changes (collectibles) are logged to PriceHistory.
+    """
+    gc = _client()
+    sh = gc.open_by_key(spreadsheet_id)
+    ws = _open_worksheet(sh, DYNAMIC_TAB, cols=len(DYNAMIC_HEADER))
+
+    prev: Dict[str, Dict[str, Any]] = {}
+    if ws.row_count > 1:
+        for r in ws.get_all_records():
+            rid = str(r.get(KEY_COLUMN, "")).strip()
+            if rid:
+                prev[rid] = dict(r)
+
+    stamp = _now()
+    merged: Dict[str, Dict[str, Any]] = {k: dict(v) for k, v in prev.items()}
+    price_rows: List[List[Any]] = []
+    edition_rows: List[List[Any]] = []
+    changed = 0
+
+    for it in items:
+        pid = str(it.get(KEY_COLUMN, "")).strip()
+        if not pid:
+            continue
+        cat = str(it.get("category", "")).lower()
+        old = prev.get(pid, {})
+        row = merged.setdefault(pid, {})
+        row["veve_uuid"] = pid
+        row["name"] = it.get("name", row.get("name", ""))
+        row["category"] = it.get("category", row.get("category", ""))
+
+        # Floor history (collectibles only, on change).
+        if cat == "collectible":
+            nf = _to_num(it.get(FLOOR_COLUMN))
+            if nf is not None and nf > 0:
+                of = _to_num(old.get(FLOOR_COLUMN))
+                if of is None or of != nf:
+                    price_rows.append([stamp, pid, it.get("name", ""),
+                                       it.get("category", ""), nf,
+                                       it.get("veve_store_price", ""),
+                                       it.get("market_totalListings", "")])
+
+        # Editions history (on change).
+        ed_changed = False
+        for fld in EDITION_FIELDS:
+            nv = _to_num(it.get(fld))
+            ov = _to_num(old.get(fld))
+            if nv is not None and nv != ov:
+                ed_changed = True
                 break
-    except Exception:
-        existing = 0
+        if ed_changed:
+            edition_rows.append([stamp, pid, it.get("name", ""), it.get("category", "")]
+                                + [it.get(f, old.get(f, "")) for f in EDITION_FIELDS])
 
-    reqs = []
-    for _ in range(existing):
-        reqs.append({"deleteConditionalFormatRule": {"sheetId": sid, "index": 0}})
-    for rarity, colour in RARITY_COLOURS.items():
-        reqs.append({"addConditionalFormatRule": {"index": 0, "rule": {
-            "ranges": [rng],
-            "booleanRule": {
-                "condition": {"type": "TEXT_EQ",
-                              "values": [{"userEnteredValue": rarity}]},
-                "format": {"backgroundColor": colour,
-                           "textFormat": {"foregroundColor": {"red": 1, "green": 1, "blue": 1},
-                                          "bold": True}},
-            },
-        }}})
+        # Field-level merge: only overwrite when the item provides a value.
+        any_change = False
+        for fld in DYNAMIC_VALUE_FIELDS:
+            v = it.get(fld)
+            if v not in (None, ""):
+                if str(row.get(fld, "")) != str(v):
+                    any_change = True
+                row[fld] = _cell(v)
+        if any_change or pid not in prev:
+            changed += 1
+        row["updated_at"] = stamp
+
+    ordered = sorted(merged.values(),
+                     key=lambda r: (str(r.get("category", "")), str(r.get("name", ""))))
+    grid = [DYNAMIC_HEADER] + [[r.get(c, "") for c in DYNAMIC_HEADER] for r in ordered]
+    ws.clear()
+    for i in range(0, len(grid), 20000):
+        if i == 0:
+            ws.update(range_name="A1", values=grid[:20000], value_input_option="RAW")
+        else:
+            ws.append_rows(grid[i:i + 20000], value_input_option="RAW")
     try:
-        sh.batch_update({"requests": reqs})
-    except Exception as e:
-        print(f"    rarity colouring warning: {e}", flush=True)
+        ws.freeze(rows=1)
+        ws.format("1:1", {"textFormat": {"bold": True}})
+    except Exception:
+        pass
+
+    ph = _append_rows(sh, "PriceHistory", PRICE_HISTORY_HEADER, price_rows)
+    eh = _append_rows(sh, "EditionsHistory", EDITIONS_HISTORY_HEADER, edition_rows)
+
+    return {
+        "status": "OK",
+        "items": len(items),
+        "rows_total": len(merged),
+        "rows_changed": changed,
+        "price_history_added": ph,
+        "editions_history_added": eh,
+    }
 
 
 def _append_rows(sh, tab: str, header: List[str], rows: List[List[Any]]) -> int:
@@ -440,10 +582,14 @@ def _append_rows(sh, tab: str, header: List[str], rows: List[List[Any]]) -> int:
     return len(rows)
 
 
+# ---------------------------------------------------------------------------
+# Logs
+# ---------------------------------------------------------------------------
+
 def append_log(spreadsheet_id: str, source: str, status: str,
                details: str = "") -> None:
     """One row in the unified "Logs" tab + prune entries older than
-    LOG_RETENTION_DAYS. Sources: catalogue / pseudos / chain."""
+    LOG_RETENTION_DAYS. Sources: catalogue / dynamic / pseudos / chain."""
     gc = _client()
     sh = gc.open_by_key(spreadsheet_id)
     ws = _open_worksheet(sh, LOGS_TAB, cols=len(LOGS_HEADER))
@@ -456,7 +602,6 @@ def append_log(spreadsheet_id: str, source: str, status: str,
             pass
     ws.append_rows([[_now(), source, status, details[:2000]]],
                    value_input_option="RAW")
-    # prune: rows are appended chronologically -> drop the leading old block
     try:
         cutoff = (_dt.datetime.utcnow()
                   - _dt.timedelta(days=LOG_RETENTION_DAYS)).strftime("%Y-%m-%d")
@@ -486,12 +631,13 @@ def summary_details(summary: Dict[str, Any], skip=("status",)) -> str:
 
 
 def append_run_log(spreadsheet_id: str, summary: Dict[str, Any],
-                   duration_sec: Optional[float] = None) -> None:
-    """Catalogue-run entry in the unified Logs tab."""
+                   duration_sec: Optional[float] = None,
+                   source: str = "catalogue") -> None:
+    """Run entry in the unified Logs tab (source: catalogue / dynamic)."""
     s = dict(summary)
     if duration_sec is not None:
         s["duration"] = f"{duration_sec:.0f}s"
-    append_log(spreadsheet_id, "catalogue", str(summary.get("status", "")),
+    append_log(spreadsheet_id, source, str(summary.get("status", "")),
                summary_details(s))
 
 

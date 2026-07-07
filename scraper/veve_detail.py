@@ -68,15 +68,16 @@ COMIC_QUERY = (
     "media{ edges{ node{ url } } } } }"
 )
 
-# Slim queries used for the DAILY refresh of variable fields (editions counts).
+# Slim queries used for the DYNAMIC refresh of variable fields (editions counts,
+# store price, allocation). Collectibles are refreshed several times a day.
 DYN_COLLECTIBLE_QUERY = (
     "query publicStoreCollectibleEditionsQuery($id: ID!){ "
-    "publicCollectibleType(id:$id){ id soldEditions totalAvailable "
-    "editionsBurnt editionsInCirculation withheldEditions } }"
+    "publicCollectibleType(id:$id){ id storePrice soldEditions totalAvailable "
+    "totalStoreAllocation editionsBurnt editionsInCirculation withheldEditions } }"
 )
 DYN_COMIC_QUERY = (
     "query publicStoreCollectibleEditionsQuery($id: ID!){ "
-    "publicComicType(id:$id){ id soldEditions totalAvailable "
+    "publicComicType(id:$id){ id storePrice soldEditions totalAvailable "
     "editionsBurnt editionsInCirculation withheldEditions } }"
 )
 
@@ -350,11 +351,13 @@ if __name__ == "__main__":
 
 def _map_dynamic(n: Dict[str, Any]) -> Dict[str, Any]:
     return {
+        "veve_store_price": _num(n.get("storePrice")),
         "sold_editions": _num(n.get("soldEditions")),
         "editions_in_circulation": _num(n.get("editionsInCirculation")),
         "burned_editions": _num(n.get("editionsBurnt")),
         "withheld_editions": _num(n.get("withheldEditions")),
         "veve_total_available": _num(n.get("totalAvailable")),
+        "store_allocation": _num(n.get("totalStoreAllocation")),
     }
 
 

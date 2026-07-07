@@ -6,6 +6,65 @@ du temps. Tourne gratuitement sur **GitHub Actions** — aucun PC à laisser all
 
 ---
 
+## ⭐ Architecture v5 (2026-07-07) — froid vs dynamique
+
+Le Sheet sépare désormais les **données froides** (qui ne varient pas dans le temps :
+identité, rareté, série/brand/licensor, description, drop method, fee…) des **données
+dynamiques** (floor, listings, offre, éditions vendues/brûlées…).
+
+**Onglets :**
+
+| Onglet | Contenu | Rythme |
+|---|---|---|
+| `🔵C-COLLECTIBLE` | Catalogue **froid** collectibles (1 ligne/produit). | 1×/jour, ajoute les nouveaux drops |
+| `🟢C-COMICS` | Catalogue **froid** comics. | 1×/jour |
+| `Marques & Licences` | Référentiel : 1 ligne par **marque** et par **licence**, avec compteurs produits. Reconstruit chaque jour. | 1×/jour |
+| `Données Dynamiques` | Instantané **combiné** (collectibles + comics) des champs variables. 1 ligne/produit, écrasée à chaque run. | collectibles toutes les 3 h ; comics 1×/jour (1ʳᵉ semaine) |
+| `PriceHistory` | Historique du floor (collectibles), append-only sur changement. | à chaque run dynamique |
+| `EditionsHistory` | Historique des compteurs d'éditions, append-only sur changement. | à chaque run dynamique |
+| `Logs` | Journal unifié (source `catalogue` / `dynamic` / `chain` / `pseudos`). | à chaque run |
+| `Chain*` / `DropRevenue` | Activité on-chain CollectChain (voir plus bas). | 1×/jour |
+
+**Colonnes froides — collectibles :** `veve_uuid, name, category, edition_type, rarity,
+releaseDate, daily_mcp_points, gemsPerMcp, veve_series_name, series_uuid, veve_brand,
+brand_uuid, veve_licensor, licensor_uuid, veve_url, image_url, tracker_uuid, description,
+special_edition, market_fee, first_available_edition, is_blindbox, drop_method`
+(+ suivi : `veve_enriched_at, first_seen, last_seen`).
+
+**Colonnes froides — comics :** idem sans `special_edition`/`is_blindbox`, avec en plus
+`noMarketListing` et `start_year` (`edition_type` conservé même s'il est souvent vide côté
+comics).
+
+**Page dynamique (combinée) :** `veve_uuid, name, category, market_lowestOffer,
+market_totalListings, releaseAmount, veve_total_available, veve_store_price, sold_editions,
+editions_in_circulation, burned_editions, withheld_editions, store_allocation, updated_at`.
+
+**À noter :**
+- **`market_fee` en %** : VeVe renvoie des dixièmes de pourcent (85 → **8,5 %**). Conversion
+  centralisée dans `sheets.FEE_DIVISOR` (=10). *À confirmer contre le vrai taux VeVe ; si
+  l'échelle diffère, changer cette seule constante.*
+- **`market_lowestOffer` (floor)** a été **ajouté** à la page dynamique (non listé dans la
+  demande) car c'est la métrique de prix clé et elle sert à alimenter `PriceHistory`.
+  Supprimable si non voulu (retirer de `DYNAMIC_HEADER`).
+- Colonnes **supprimées** (doublons ou déplacées) : `edition, storePrice, availableAmount,
+  drop_date, rarity_editions, series_name, brand_name, licensor_name, veve_comic_name,
+  season`. Colonnes **déduites ailleurs** (autre Sheet) et donc retirées : `allTimeLow,
+  allTimeHigh, change_1d/7d/30d_pct`.
+- **Plus de formatage couleur des raretés** (règles de mise en forme conditionnelle
+  supprimées à chaque run). Le **surlignage des drops à venir** est conservé (bleu =
+  collectibles, vert = comics).
+
+**Workflows :**
+- `daily-scrape.yml` — catalogues froids + Marques (fenêtre nouveautés), 04:11 UTC.
+- `dynamic-collectibles.yml` — page dynamique collectibles, **toutes les 3 h** par défaut.
+  ⚠️ **Budget minutes GitHub** (2 000 min/mois gratuites en repo privé) : toutes les 3 h ≈
+  1 200 min/mois (OK) ; horaire ≈ 3 600 min/mois (dépasse → minutes payantes). Régler le
+  `cron` dans le workflow (ex. `17 5,17 * * *` pour 2×/jour).
+- `chain-daily.yml` — CollectChain, **journées complètes uniquement** (la journée en cours
+  n'est jamais collectée ; elle est traitée le lendemain).
+
+---
+
 ## Comment ça marche
 
 Le site VeVe est protégé par Cloudflare (403 aux robots) et son API GraphQL n'accepte que

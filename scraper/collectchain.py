@@ -162,20 +162,26 @@ def _flatten(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def fetch_transfers(cutoff: _dt.datetime,
                     checkpoint: Optional[Tuple[int, int]] = None,
+                    until: Optional[_dt.datetime] = None,
                     max_pages: int = 20000) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """Fetch transfers newest-first until `cutoff` (UTC) or the checkpoint.
 
     checkpoint: (block_number, log_index) of the newest transfer already
     processed by a previous run — we stop as soon as we reach it (incremental).
 
-    Returns (records, meta) where meta holds the new checkpoint (newest
-    transfer seen) and counters.
+    until: exclusive upper bound (UTC). Transfers with ts >= until are SKIPPED
+    and never advance the checkpoint. Pass today's 00:00 UTC to only ever process
+    fully-finished days (the current, incomplete day is ignored until tomorrow).
+
+    Returns (records, meta) where meta holds the new checkpoint (newest PROCESSED
+    transfer) and counters.
     """
     session = _session()
     params: Dict[str, Any] = {}
     records: List[Dict[str, Any]] = []
     newest: Optional[Dict[str, Any]] = None
     pages = 0
+    skipped_recent = 0
     stop = False
 
     while pages < max_pages and not stop:
@@ -187,8 +193,6 @@ def fetch_transfers(cutoff: _dt.datetime,
             rec = _flatten(item)
             if rec is None:
                 continue
-            if newest is None:
-                newest = rec
             if checkpoint and rec["block"] is not None:
                 if (rec["block"], rec["log_index"] or 0) <= checkpoint:
                     stop = True
@@ -196,6 +200,12 @@ def fetch_transfers(cutoff: _dt.datetime,
             if rec["ts"] < cutoff:
                 stop = True
                 break
+            if until is not None and rec["ts"] >= until:
+                # current (incomplete) day — skip, and don't checkpoint past it.
+                skipped_recent += 1
+                continue
+            if newest is None:
+                newest = rec
             records.append(rec)
         pages += 1
         if pages % 50 == 0:
@@ -211,12 +221,14 @@ def fetch_transfers(cutoff: _dt.datetime,
     meta = {
         "pages": pages,
         "count": len(records),
+        "skipped_current_day": skipped_recent,
         "newest_block": newest["block"] if newest else None,
         "newest_log_index": (newest["log_index"] or 0) if newest else None,
         "newest_ts": newest["ts"].strftime("%Y-%m-%d %H:%M:%S") if newest else "",
     }
     print(f"Fetched {len(records)} transfers over {pages} pages "
-          f"(newest block {meta['newest_block']}).", flush=True)
+          f"(newest processed block {meta['newest_block']}, "
+          f"skipped {skipped_recent} from the current day).", flush=True)
     return records, meta
 
 

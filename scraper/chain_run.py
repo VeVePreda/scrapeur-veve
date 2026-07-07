@@ -44,12 +44,17 @@ def main() -> int:
         totals = None
         print(f"stats endpoint warning: {e}", flush=True)
 
+    # Only ever process fully-finished days: ignore everything at or after 00:00
+    # UTC today (the current day is incomplete). It gets picked up tomorrow.
+    today_start = _dt.datetime.combine(_dt.datetime.utcnow().date(), _dt.time.min)
+    last_complete_day = (_dt.datetime.utcnow().date() - _dt.timedelta(days=1))
+
     try:
         if mode == "backfill":
             cutoff = _dt.datetime.utcnow() - _dt.timedelta(days=backfill_days)
-            print(f"BACKFILL: fetching transfers since {cutoff:%Y-%m-%d %H:%M} UTC "
-                  f"({backfill_days} days)...", flush=True)
-            records, meta = cc.fetch_transfers(cutoff)
+            print(f"BACKFILL: fetching transfers {cutoff:%Y-%m-%d} → "
+                  f"{last_complete_day} (complete days only)...", flush=True)
+            records, meta = cc.fetch_transfers(cutoff, until=today_start)
             rows = cc.aggregate_daily(records)
             added = cs.append_activity(sheet_id, rows, replace=True)
             cs.append_items(sheet_id, cc.aggregate_items(records), replace=True)
@@ -57,13 +62,14 @@ def main() -> int:
         else:
             checkpoint = cs.read_checkpoint(sheet_id)
             cutoff = _dt.datetime.utcnow() - _dt.timedelta(days=cs.RETENTION_DAYS)
-            print(f"DAILY: checkpoint={checkpoint}, safety cutoff={cutoff:%Y-%m-%d}",
-                  flush=True)
+            print(f"DAILY: checkpoint={checkpoint}, safety cutoff={cutoff:%Y-%m-%d}, "
+                  f"last complete day={last_complete_day}", flush=True)
             if checkpoint is None:
                 print("No checkpoint found — did you run the backfill? "
                       "Falling back to the last 2 days only.", flush=True)
                 cutoff = _dt.datetime.utcnow() - _dt.timedelta(days=2)
-            records, meta = cc.fetch_transfers(cutoff, checkpoint=checkpoint)
+            records, meta = cc.fetch_transfers(cutoff, checkpoint=checkpoint,
+                                               until=today_start)
             rows = cc.aggregate_daily(records)
             added = cs.append_activity(sheet_id, rows)
             cs.append_items(sheet_id, cc.aggregate_items(records))
@@ -72,10 +78,12 @@ def main() -> int:
         summary.update(transfers_fetched=meta["count"], pages=meta["pages"],
                        activity_rows_added=added, rows_pruned=pruned)
 
-        # Recompute the window stats from everything in the tab.
+        # Recompute the window stats from everything in the tab. Windows are
+        # anchored on the last COMPLETE day (24h = yesterday), since today is
+        # deliberately not collected yet.
         print("Reading ChainActivity to recompute the window stats...", flush=True)
         activity = cs.read_activity(sheet_id)
-        stats = cc.compute_window_stats(activity)
+        stats = cc.compute_window_stats(activity, today=last_complete_day)
 
         for s in stats:
             if s["window"] == "24h" and s["scope"] == "all" and s["category"] == "all":
