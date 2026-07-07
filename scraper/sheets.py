@@ -102,17 +102,22 @@ MARQUES_TAB = "Marques & Licences"
 MARQUES_HEADER = ["kind", "name", "uuid", "licensor_name", "licensor_uuid",
                   "n_total", "n_collectibles", "n_comics"]
 
-# Combined dynamic snapshot page.
-DYNAMIC_TAB = "Données Dynamiques"
-DYNAMIC_HEADER = [
-    "veve_uuid", "name", "category",
+# Single append-only DYNAMIC HISTORY page (COLLECTIBLES only). It merges what used
+# to be three tabs (snapshot + PriceHistory + EditionsHistory) so the whole
+# evolution of every collectible lives on ONE page. One row is appended whenever
+# any tracked value changes. A hidden state tab holds the last-known values for a
+# fast diff (no need to re-read the whole history each run).
+DYN_TAB = "Données Dynamiques"
+DYN_STATE_TAB = "_DynState"          # hidden: last snapshot per uuid (for diffing)
+DYN_FIELDS = [
     "market_lowestOffer", "market_totalListings", "releaseAmount",
     "veve_total_available", "veve_store_price",
     "sold_editions", "editions_in_circulation", "burned_editions",
-    "withheld_editions", "store_allocation", "updated_at",
+    "withheld_editions", "store_allocation",
 ]
-# Dynamic fields we actually write (everything except identity + updated_at).
-DYNAMIC_VALUE_FIELDS = DYNAMIC_HEADER[3:-1]
+DYN_HEADER = ["snapshot_date", "veve_uuid", "name", "category"] + DYN_FIELDS
+DYN_STATE_HEADER = ["veve_uuid", "name", "category"] + DYN_FIELDS + ["last_snapshot"]
+DYN_RETENTION_DAYS = 120             # keep ~4 months of history, prune older rows
 
 # Unified run log (catalogue / dynamic / pseudos / chain)
 LOGS_TAB = "Logs"
@@ -120,17 +125,6 @@ LOGS_HEADER = ["ts_utc", "source", "status", "details"]
 LOG_RETENTION_DAYS = 7
 FLOOR_COLUMN = "market_lowestOffer"
 
-# Edition counters watched for the EditionsHistory log.
-EDITION_FIELDS = [
-    "sold_editions", "editions_in_circulation", "burned_editions",
-    "withheld_editions", "veve_total_available",
-]
-
-PRICE_HISTORY_HEADER = ["snapshot_date", "veve_uuid", "name", "category",
-                        "floor", "storePrice", "totalListings"]
-EDITIONS_HISTORY_HEADER = ["snapshot_date", "item_id", "name", "category",
-                           "sold_editions", "editions_in_circulation",
-                           "burned_editions", "withheld_editions", "veve_total_available"]
 BLUE = {"red": 0.82, "green": 0.90, "blue": 1.0}
 GREEN = {"red": 0.83, "green": 0.96, "blue": 0.83}
 WHITE = {"red": 1.0, "green": 1.0, "blue": 1.0}
@@ -170,12 +164,19 @@ def _to_num(x: Any) -> Optional[float]:
 
 
 def _fmt_fee(x: Any) -> Any:
-    """VeVe marketFee (tenths of a percent) -> percentage string, e.g. 85 -> '8.5%'."""
+    """VeVe marketFee -> percentage string.
+
+    VeVe returns the fee as a FRACTION (0.085 = 8.5% = 2.5% VeVe + 6% licensor).
+    We also tolerate the legacy tenths-of-percent scale (85 -> 8.5%) so old sheet
+    values don't blow up before they're re-enriched.
+    """
     n = _to_num(x)
     if n is None:
-        return x if x not in (None,) else ""
-    pct = n / FEE_DIVISOR
-    s = f"{pct:.1f}".rstrip("0").rstrip(".")
+        return "" if x is None else x
+    if n == 0:
+        return "0%"
+    pct = n * 100 if n < 1 else n / 10  # fraction (0.085->8.5) vs legacy tenths (85->8.5)
+    s = f"{pct:.2f}".rstrip("0").rstrip(".")
     return f"{s}%"
 
 
@@ -470,116 +471,121 @@ def _apply_formatting(sh, ws, n_rows: int, n_cols: int,
 # ---------------------------------------------------------------------------
 
 def sync_dynamic(items: List[Dict[str, Any]], spreadsheet_id: str) -> Dict[str, Any]:
-    """Merge dynamic values for `items` into the combined 'Données Dynamiques'
-    page (field-level merge, keeps previously known values for fields absent from
-    an item), and append PriceHistory / EditionsHistory rows on change.
+    """Append the dynamic evolution of COLLECTIBLES to the single append-only
+    'Données Dynamiques' history page.
 
-    Each item is a dict with at least veve_uuid, name, category and any of the
-    DYNAMIC_VALUE_FIELDS. Floor changes (collectibles) are logged to PriceHistory.
+    For each item, a full-row snapshot (floor, listings, supply, editions…) is
+    appended **only when at least one tracked field changed** vs the item's last
+    recorded state (kept in the hidden _DynState tab). This unifies what used to
+    be the snapshot + PriceHistory + EditionsHistory tabs into one time series.
+
+    Each item is a dict with veve_uuid, name, category and any DYN_FIELDS.
+    Comics are NOT tracked here.
     """
     gc = _client()
     sh = gc.open_by_key(spreadsheet_id)
-    ws = _open_worksheet(sh, DYNAMIC_TAB, cols=len(DYNAMIC_HEADER))
+    hist = _open_worksheet(sh, DYN_TAB, cols=len(DYN_HEADER))
+    state_ws = _open_worksheet(sh, DYN_STATE_TAB, cols=len(DYN_STATE_HEADER))
 
-    prev: Dict[str, Dict[str, Any]] = {}
-    if ws.row_count > 1:
-        for r in ws.get_all_records():
+    # Last-known values per uuid (for a fast diff without re-reading history).
+    state: Dict[str, Dict[str, Any]] = {}
+    if state_ws.row_count > 1:
+        for r in state_ws.get_all_records():
             rid = str(r.get(KEY_COLUMN, "")).strip()
             if rid:
-                prev[rid] = dict(r)
+                state[rid] = dict(r)
 
     stamp = _now()
-    merged: Dict[str, Dict[str, Any]] = {k: dict(v) for k, v in prev.items()}
-    price_rows: List[List[Any]] = []
-    edition_rows: List[List[Any]] = []
-    changed = 0
+    new_state: Dict[str, Dict[str, Any]] = {k: dict(v) for k, v in state.items()}
+    new_rows: List[List[Any]] = []
+    appended = 0
 
     for it in items:
         pid = str(it.get(KEY_COLUMN, "")).strip()
-        if not pid:
+        if not pid or str(it.get("category", "")).lower() == "comic":
             continue
-        cat = str(it.get("category", "")).lower()
-        old = prev.get(pid, {})
-        row = merged.setdefault(pid, {})
-        row["veve_uuid"] = pid
-        row["name"] = it.get("name", row.get("name", ""))
-        row["category"] = it.get("category", row.get("category", ""))
+        old = state.get(pid)
 
-        # Floor history (collectibles only, on change).
-        if cat == "collectible":
-            nf = _to_num(it.get(FLOOR_COLUMN))
-            if nf is not None and nf > 0:
-                of = _to_num(old.get(FLOOR_COLUMN))
-                if of is None or of != nf:
-                    price_rows.append([stamp, pid, it.get("name", ""),
-                                       it.get("category", ""), nf,
-                                       it.get("veve_store_price", ""),
-                                       it.get("market_totalListings", "")])
-
-        # Editions history (on change).
-        ed_changed = False
-        for fld in EDITION_FIELDS:
-            nv = _to_num(it.get(fld))
-            ov = _to_num(old.get(fld))
-            if nv is not None and nv != ov:
-                ed_changed = True
+        # Detect change only on fields the item actually provides (non-empty),
+        # so a partial refresh never records a spurious "back to empty".
+        changed = old is None
+        for f in DYN_FIELDS:
+            v = it.get(f)
+            if v in (None, ""):
+                continue
+            if _to_num(v) != _to_num((old or {}).get(f)):
+                changed = True
                 break
-        if ed_changed:
-            edition_rows.append([stamp, pid, it.get("name", ""), it.get("category", "")]
-                                + [it.get(f, old.get(f, "")) for f in EDITION_FIELDS])
+        if not changed:
+            continue
 
-        # Field-level merge: only overwrite when the item provides a value.
-        any_change = False
-        for fld in DYNAMIC_VALUE_FIELDS:
-            v = it.get(fld)
-            if v not in (None, ""):
-                if str(row.get(fld, "")) != str(v):
-                    any_change = True
-                row[fld] = _cell(v)
-        if any_change or pid not in prev:
-            changed += 1
-        row["updated_at"] = stamp
+        # Build the snapshot, keeping last-known values for fields not refreshed.
+        snap = {"veve_uuid": pid, "name": it.get("name", (old or {}).get("name", "")),
+                "category": it.get("category", (old or {}).get("category", ""))}
+        for f in DYN_FIELDS:
+            v = it.get(f)
+            snap[f] = _cell(v) if v not in (None, "") else (old or {}).get(f, "")
 
-    ordered = sorted(merged.values(),
-                     key=lambda r: (str(r.get("category", "")), str(r.get("name", ""))))
-    grid = [DYNAMIC_HEADER] + [[r.get(c, "") for c in DYNAMIC_HEADER] for r in ordered]
-    ws.clear()
-    for i in range(0, len(grid), 20000):
+        row = {"snapshot_date": stamp, **snap}
+        new_rows.append([row.get(c, "") for c in DYN_HEADER])
+        new_state[pid] = {**snap, "last_snapshot": stamp}
+        appended += 1
+
+    # Append the changed rows to the history page.
+    if not hist.row_values(1):
+        hist.update(range_name="A1", values=[DYN_HEADER], value_input_option="RAW")
+        try:
+            hist.freeze(rows=1)
+            hist.format("1:1", {"textFormat": {"bold": True}})
+        except Exception:
+            pass
+    for i in range(0, len(new_rows), 20000):
+        hist.append_rows(new_rows[i:i + 20000], value_input_option="RAW")
+
+    # Rewrite the hidden state tab with the latest values.
+    state_grid = [DYN_STATE_HEADER] + [[new_state[k].get(c, "") for c in DYN_STATE_HEADER]
+                                       for k in new_state]
+    state_ws.clear()
+    for i in range(0, len(state_grid), 20000):
         if i == 0:
-            ws.update(range_name="A1", values=grid[:20000], value_input_option="RAW")
+            state_ws.update(range_name="A1", values=state_grid[:20000],
+                            value_input_option="RAW")
         else:
-            ws.append_rows(grid[i:i + 20000], value_input_option="RAW")
+            state_ws.append_rows(state_grid[i:i + 20000], value_input_option="RAW")
     try:
-        ws.freeze(rows=1)
-        ws.format("1:1", {"textFormat": {"bold": True}})
+        state_ws.hide()
     except Exception:
         pass
 
-    ph = _append_rows(sh, "PriceHistory", PRICE_HISTORY_HEADER, price_rows)
-    eh = _append_rows(sh, "EditionsHistory", EDITIONS_HISTORY_HEADER, edition_rows)
+    pruned = _prune_history(hist)
 
     return {
         "status": "OK",
         "items": len(items),
-        "rows_total": len(merged),
-        "rows_changed": changed,
-        "price_history_added": ph,
-        "editions_history_added": eh,
+        "rows_appended": appended,
+        "rows_pruned": pruned,
+        "tracked_collectibles": len(new_state),
     }
 
 
-def _append_rows(sh, tab: str, header: List[str], rows: List[List[Any]]) -> int:
-    ws = _open_worksheet(sh, tab, cols=len(header))
-    if not ws.row_values(1):
-        ws.update(range_name="A1", values=[header], value_input_option="RAW")
-        try:
-            ws.freeze(rows=1)
-            ws.format("1:1", {"textFormat": {"bold": True}})
-        except Exception:
-            pass
-    if rows:
-        ws.append_rows(rows, value_input_option="RAW")
-    return len(rows)
+def _prune_history(ws) -> int:
+    """Delete the leading block of history rows older than DYN_RETENTION_DAYS."""
+    try:
+        cutoff = (_dt.datetime.utcnow()
+                  - _dt.timedelta(days=DYN_RETENTION_DAYS)).strftime("%Y-%m-%d")
+        dates = ws.col_values(1)  # snapshot_date, includes header
+        n_old = 0
+        for d in dates[1:]:
+            if d and d < cutoff:
+                n_old += 1
+            else:
+                break
+        if n_old:
+            ws.delete_rows(2, 1 + n_old)
+        return n_old
+    except Exception as e:
+        print(f"    history prune warning: {e}", flush=True)
+        return 0
 
 
 # ---------------------------------------------------------------------------

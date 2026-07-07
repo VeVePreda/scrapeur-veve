@@ -138,7 +138,10 @@ def compute_drop_revenue(item_rows: List[Dict[str, Any]],
         if it["mints_total"] < min_mints_30d and it["market_total"] == 0:
             continue
         cat_row, source = match_catalogue(it, idx)
-        price = _price(cat_row.get("storePrice")) if cat_row else None
+        price = None
+        if cat_row:
+            price = _price(cat_row.get("storePrice")) \
+                or _price(cat_row.get("veve_store_price"))
         row = {
             "category": it["category"],
             "name": it["name"] or (cat_row.get("name", "") if cat_row else ""),

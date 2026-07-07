@@ -116,28 +116,20 @@ def main() -> int:
             if cols:
                 p.update({k: v for k, v in cols.items() if k != "comic_id"})
 
-    # ---- Refresh dynamic fields for first-week items (both categories) ----
+    # ---- Seed dynamic history for first-week COLLECTIBLES (comics excluded) ----
+    # Dynamic data is COLLECTIBLES-ONLY, tracked as history in 'Données Dynamiques'.
     dyn_items = []
     if refresh_dynamic and enrich_mode != "all":
         recent_coll = [p["veve_uuid"] for p in collectibles if _is_recent(p, 7)]
-        recent_comic_ids = list(dict.fromkeys(
-            p["series_uuid"] for p in comics if _is_recent(p, 7)))
-        print(f"First-week dynamic refresh: {len(recent_coll)} collectibles + "
-              f"{len(recent_comic_ids)} comics.", flush=True)
+        print(f"First-week collectible dynamic refresh: {len(recent_coll)}.", flush=True)
         if recent_coll:
             for uid, cols in veve_detail.enrich_dynamic(recent_coll, is_comic=False).items():
                 if by_uuid.get(uid):
                     by_uuid[uid].update(cols)
-        if recent_comic_ids:
-            dyn = veve_detail.enrich_dynamic(recent_comic_ids, is_comic=True)
-            for p in comics:
-                cols = dyn.get(p.get("series_uuid"))
-                if cols:
-                    p.update(cols)
-        dyn_items = [_dyn_item(p) for p in products if _is_recent(p, 7)]
+        dyn_items = [_dyn_item(p) for p in collectibles if _is_recent(p, 7)]
     elif enrich_mode == "all":
-        # Backfill: enrich() / enrich_comics() already returned the dynamic fields.
-        dyn_items = [_dyn_item(p) for p in products]
+        # Backfill: enrich() already returned the dynamic fields for collectibles.
+        dyn_items = [_dyn_item(p) for p in collectibles]
 
     # ---- Sync cold catalogue + Marques & Licences ----
     print(f"Syncing {len(products)} products into cold catalogue tabs...", flush=True)

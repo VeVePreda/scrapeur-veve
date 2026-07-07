@@ -2,14 +2,15 @@
 Dynamic data refresh (COLLECTIBLES) — entry point.
 
 Runs several times a day (much more often than the daily cold catalogue). It
-refreshes the fast-moving fields for every collectible and writes them to the
-combined "Données Dynamiques" page, plus the PriceHistory / EditionsHistory logs:
+refreshes the fast-moving fields for every collectible and appends them, as a
+time series, to the single append-only "Données Dynamiques" history page (a row
+is added only when a value changed):
 
     - floor (market_lowestOffer) & listings  ...  from my-nft-tracker
     - store price, supply, edition counters   ...  from VeVe GraphQL
 
-Comics are NOT refreshed here (only their first-week items are refreshed once a
-day by scraper.run) — this keeps the request volume discreet.
+Comics are NOT tracked dynamically at all — this keeps the request volume
+discreet and the history focused on collectibles.
 
 Volume: ~2,600 GraphQL calls + ~110 tracker pages per run. On GitHub Actions this
 is a few minutes; mind the free-tier minutes budget (see the workflow file).
@@ -90,10 +91,10 @@ def main() -> int:
     except Exception as e:
         print(f"run log warning: {e}", flush=True)
 
-    print(f"Done. status={summary.get('status')} rows={summary.get('rows_total')} "
-          f"changed={summary.get('rows_changed')} "
-          f"price_hist+={summary.get('price_history_added')} "
-          f"editions_hist+={summary.get('editions_history_added')} "
+    print(f"Done. status={summary.get('status')} "
+          f"tracked={summary.get('tracked_collectibles')} "
+          f"appended={summary.get('rows_appended')} "
+          f"pruned={summary.get('rows_pruned')} "
           f"in {time.time()-t0:.0f}s", flush=True)
     return 0 if summary.get("status") == "OK" else 1
 

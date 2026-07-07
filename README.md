@@ -19,11 +19,14 @@ dynamiques** (floor, listings, offre, éditions vendues/brûlées…).
 | `🔵C-COLLECTIBLE` | Catalogue **froid** collectibles (1 ligne/produit). | 1×/jour, ajoute les nouveaux drops |
 | `🟢C-COMICS` | Catalogue **froid** comics. | 1×/jour |
 | `Marques & Licences` | Référentiel : 1 ligne par **marque** et par **licence**, avec compteurs produits. Reconstruit chaque jour. | 1×/jour |
-| `Données Dynamiques` | Instantané **combiné** (collectibles + comics) des champs variables. 1 ligne/produit, écrasée à chaque run. | collectibles toutes les 3 h ; comics 1×/jour (1ʳᵉ semaine) |
-| `PriceHistory` | Historique du floor (collectibles), append-only sur changement. | à chaque run dynamique |
-| `EditionsHistory` | Historique des compteurs d'éditions, append-only sur changement. | à chaque run dynamique |
+| `Données Dynamiques` | **Historique append-only** des champs variables, **collectibles uniquement**. 1 ligne ajoutée à chaque **changement** de valeur (floor, listings, offre, éditions…) → tu retraces l'évolution dans le temps. Fusionne l'ancien snapshot + PriceHistory + EditionsHistory en **une seule page**. Rétention ~120 j. | collectibles toutes les 3 h + amorçage des nouveaux au run quotidien |
+| `_DynState` (masqué) | Dernière valeur connue par collectible (diff rapide, pas une page à consulter). | à chaque run dynamique |
 | `Logs` | Journal unifié (source `catalogue` / `dynamic` / `chain` / `pseudos`). | à chaque run |
 | `Chain*` / `DropRevenue` | Activité on-chain CollectChain (voir plus bas). | 1×/jour |
+
+> **Comics : pas de données dynamiques.** Seuls les collectibles ont un historique
+> dynamique. Les anciens onglets `PriceHistory`/`EditionsHistory` ne sont plus alimentés
+> (tu peux les supprimer ; leurs données passées restent consultables si tu les gardes).
 
 **Colonnes froides — collectibles :** `veve_uuid, name, category, edition_type, rarity,
 releaseDate, daily_mcp_points, gemsPerMcp, veve_series_name, series_uuid, veve_brand,
@@ -35,17 +38,19 @@ special_edition, market_fee, first_available_edition, is_blindbox, drop_method`
 `noMarketListing` et `start_year` (`edition_type` conservé même s'il est souvent vide côté
 comics).
 
-**Page dynamique (combinée) :** `veve_uuid, name, category, market_lowestOffer,
-market_totalListings, releaseAmount, veve_total_available, veve_store_price, sold_editions,
-editions_in_circulation, burned_editions, withheld_editions, store_allocation, updated_at`.
+**Page dynamique (historique, collectibles) :** `snapshot_date, veve_uuid, name, category,
+market_lowestOffer, market_totalListings, releaseAmount, veve_total_available,
+veve_store_price, sold_editions, editions_in_circulation, burned_editions, withheld_editions,
+store_allocation`. Une ligne est ajoutée à chaque run **si au moins une valeur a changé**.
 
 **À noter :**
-- **`market_fee` en %** : VeVe renvoie des dixièmes de pourcent (85 → **8,5 %**). Conversion
-  centralisée dans `sheets.FEE_DIVISOR` (=10). *À confirmer contre le vrai taux VeVe ; si
-  l'échelle diffère, changer cette seule constante.*
-- **`market_lowestOffer` (floor)** a été **ajouté** à la page dynamique (non listé dans la
-  demande) car c'est la métrique de prix clé et elle sert à alimenter `PriceHistory`.
-  Supprimable si non voulu (retirer de `DYNAMIC_HEADER`).
+- **`market_fee` en %** : VeVe renvoie le fee en **fraction** (`0.085` = **8,5 %** = 2,5 %
+  VeVe + 6 % licensor, ex. Marvel/Disney — source [VeVe Fees](https://www.veve.me/veve-fees)).
+  `_fmt_fee` fait donc `×100`, et tolère aussi l'ancienne échelle en dixièmes (85 → 8,5 %)
+  pour les valeurs pas encore ré-enrichies. **→ relance le backfill enrichment une fois**
+  pour que toutes les fiches repassent en fraction et affichent le bon %.
+- **`market_lowestOffer` (floor)** est inclus dans l'historique dynamique (métrique de prix
+  clé) — c'est ce qui remplace l'ancien `PriceHistory`.
 - Colonnes **supprimées** (doublons ou déplacées) : `edition, storePrice, availableAmount,
   drop_date, rarity_editions, series_name, brand_name, licensor_name, veve_comic_name,
   season`. Colonnes **déduites ailleurs** (autre Sheet) et donc retirées : `allTimeLow,

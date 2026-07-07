@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from scraper.collectchain import ACTIVITY_FIELDS, WINDOWS
 from scraper.sheets import (_client, _open_worksheet, _now, append_log,
                             summary_details, CATALOGUE_TABS,
-                            LEGACY_CATALOGUE_TAB)
+                            LEGACY_CATALOGUE_TAB, DYN_STATE_TAB)
 
 RETENTION_DAYS = 35  # keep a little more than the 30-day window
 
@@ -228,12 +228,27 @@ def read_items(spreadsheet_id: str) -> List[Dict[str, Any]]:
 
 def read_catalogue(spreadsheet_id: str, tab: str = "") \
         -> List[Dict[str, Any]]:
-    """Catalogue rows from the split tabs (+ legacy tab as fallback),
-    only the columns the revenue join needs."""
+    """Catalogue rows from the split tabs (+ legacy tab as fallback), only the
+    columns the revenue join needs. Since v5 the store price / release amount
+    live on the dynamic history, so we merge the latest values per collectible
+    from the hidden _DynState tab (comics have no dynamic data -> no price)."""
     wanted = {"veve_uuid", "name", "category", "rarity", "storePrice",
-              "series_uuid", "image_url", "releaseDate", "releaseAmount",
-              "veve_url"}
+              "veve_store_price", "series_uuid", "image_url", "releaseDate",
+              "releaseAmount", "veve_url"}
     sh = _sheet(spreadsheet_id)
+
+    # Latest dynamic values per collectible uuid (store price / release amount).
+    dyn: Dict[str, Dict[str, Any]] = {}
+    try:
+        ws = sh.worksheet(DYN_STATE_TAB)
+        for r in ws.get_all_records():
+            uid = str(r.get("veve_uuid", "")).strip().lower()
+            if uid:
+                dyn[uid] = {"veve_store_price": r.get("veve_store_price", ""),
+                            "releaseAmount": r.get("releaseAmount", "")}
+    except Exception:
+        pass
+
     out: List[Dict[str, Any]] = []
     for tab_name in CATALOGUE_TABS + (LEGACY_CATALOGUE_TAB,):
         try:
@@ -246,8 +261,14 @@ def read_catalogue(spreadsheet_id: str, tab: str = "") \
         header = values[0]
         keep = [i for i, h in enumerate(header) if h in wanted]
         for raw in values[1:]:
-            out.append({header[i]: (raw[i] if i < len(raw) else "")
-                        for i in keep})
+            row = {header[i]: (raw[i] if i < len(raw) else "") for i in keep}
+            d = dyn.get(str(row.get("veve_uuid", "")).strip().lower())
+            if d:
+                if not row.get("veve_store_price"):
+                    row["veve_store_price"] = d["veve_store_price"]
+                if not row.get("releaseAmount"):
+                    row["releaseAmount"] = d["releaseAmount"]
+            out.append(row)
     return out
 
 
