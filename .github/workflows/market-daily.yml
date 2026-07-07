@@ -1,0 +1,46 @@
+name: VeVe market listings sync
+
+# Collects the current secondary-market offers (per collectible) into
+# MarketListings + accumulates the sellerId<->pseudo directory in MarketPseudos.
+# Foundation for pseudo <-> wallet (cross-referenced with CollectChain editions).
+#
+# AUTH: VeVe uses a session cookie (`vv.at`). Add a repository secret VEVE_AUTH
+# with the raw cookie header value (or just `vv.at=<jwt>`). The access token
+# expires after a few hours; refresh it periodically like STACKR_COOKIE. If the
+# listings turn out to be public, it may also work without the secret.
+
+on:
+  schedule:
+    # 05:40 UTC — after the chain sync, once a day.
+    - cron: "40 5 * * *"
+  workflow_dispatch:
+    inputs:
+      max_products:
+        description: "Cap products scanned (0 = all, for a quick test)"
+        required: false
+        default: "0"
+
+concurrency:
+  group: veve-market
+  cancel-in-progress: false
+
+jobs:
+  market:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Collect market listings + pseudos
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          VEVE_AUTH: ${{ secrets.VEVE_AUTH }}
+          MARKET_MAX_PRODUCTS: ${{ github.event.inputs.max_products || '0' }}
+        run: python -m scraper.veve_market
