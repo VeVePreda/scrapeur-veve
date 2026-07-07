@@ -131,6 +131,33 @@ def main() -> int:
         # Backfill: enrich() already returned the dynamic fields for collectibles.
         dyn_items = [_dyn_item(p) for p in collectibles]
 
+    # ---- Brand / licensor logos (isolated, fault-tolerant) ----
+    try:
+        have = sheets.get_brand_image_uuids(sheet_id)
+        reps = {}
+        for p in collectibles:
+            cid = p.get("veve_uuid")
+            for uk in ("brand_uuid", "licensor_uuid"):
+                u = str(p.get(uk, "") or "").strip()
+                if cid and u and u not in have and u not in reps:
+                    reps[u] = cid
+        if reps:
+            media = veve_detail.enrich_brand_media(list(dict.fromkeys(reps.values())))
+            img_rows, seen = [], set()
+            for m in media.values():
+                for kind, uk, nk, ik in (
+                        ("brand", "brand_uuid", "brand_name", "brand_image"),
+                        ("licensor", "licensor_uuid", "licensor_name", "licensor_image")):
+                    u = str(m.get(uk, "") or "").strip()
+                    img = m.get(ik)
+                    if u and img and u not in seen and u not in have:
+                        img_rows.append([u, kind, m.get(nk, "") or "", img])
+                        seen.add(u)
+            added = sheets.write_brand_images(sheet_id, img_rows)
+            print(f"Brand/licensor logos added: {added}.", flush=True)
+    except Exception as e:
+        print(f"brand media warning: {e}", flush=True)
+
     # ---- Sync cold catalogue + Marques & Licences ----
     print(f"Syncing {len(products)} products into cold catalogue tabs...", flush=True)
     summary = sheets.sync_catalogue(products, sheet_id)

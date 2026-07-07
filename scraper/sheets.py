@@ -99,8 +99,13 @@ CATALOGUE_TABS = (COMICS_TAB, COLLECT_TAB)
 LEGACY_CATALOGUE_TAB = "Catalogue"
 
 MARQUES_TAB = "Marques & Licences"
-MARQUES_HEADER = ["kind", "name", "uuid", "licensor_name", "licensor_uuid",
-                  "n_total", "n_collectibles", "n_comics"]
+MARQUES_HEADER = ["kind", "name", "uuid", "image_url", "licensor_name",
+                  "licensor_uuid", "n_total", "n_collectibles", "n_comics"]
+
+# Hidden store of brand / licensor logo URLs (fetched from VeVe GraphQL), merged
+# into the Marques & Licences page. Kept separately so it accumulates across runs.
+BRAND_IMAGES_TAB = "_BrandImages"
+BRAND_IMAGES_HEADER = ["uuid", "kind", "name", "image_url"]
 
 # Single append-only DYNAMIC HISTORY page (COLLECTIBLES only). It merges what used
 # to be three tabs (snapshot + PriceHistory + EditionsHistory) so the whole
@@ -355,7 +360,8 @@ def sync_catalogue(products: List[Dict[str, Any]], spreadsheet_id: str,
     except Exception as e:
         print(f"    legacy tab deletion warning: {e}", flush=True)
 
-    n_brands, n_licensors = _write_marques(sh, merged.values())
+    brand_imgs = _read_brand_images(sh)
+    n_brands, n_licensors = _write_marques(sh, merged.values(), brand_imgs)
 
     return {
         "status": "OK",
@@ -377,8 +383,25 @@ def sync_catalogue(products: List[Dict[str, Any]], spreadsheet_id: str,
 sync_products = sync_catalogue
 
 
-def _write_marques(sh, records) -> tuple:
-    """Build the Marques & Licences reference page from catalogue rows."""
+def _read_brand_images(sh) -> Dict[str, str]:
+    """{uuid -> image_url} from the hidden _BrandImages tab (may be empty)."""
+    out: Dict[str, str] = {}
+    try:
+        ws = sh.worksheet(BRAND_IMAGES_TAB)
+    except gspread.WorksheetNotFound:
+        return out
+    for r in ws.get_all_records():
+        u = str(r.get("uuid", "")).strip()
+        img = str(r.get("image_url", "")).strip()
+        if u and img:
+            out[u] = img
+    return out
+
+
+def _write_marques(sh, records, brand_imgs: Optional[Dict[str, str]] = None) -> tuple:
+    """Build the Marques & Licences reference page from catalogue rows.
+    `brand_imgs` maps brand/licensor uuid -> logo URL (from VeVe)."""
+    brand_imgs = brand_imgs or {}
     brands: Dict[str, Dict[str, Any]] = {}
     licensors: Dict[str, Dict[str, Any]] = {}
     for rec in records:
@@ -406,13 +429,14 @@ def _write_marques(sh, records) -> tuple:
     rows: List[List[Any]] = []
     for lz in sorted(licensors.values(),
                      key=lambda d: -(d["n_collectibles"] + d["n_comics"])):
-        rows.append(["Licence", lz["name"], lz["uuid"], "", "",
-                     lz["n_collectibles"] + lz["n_comics"],
+        rows.append(["Licence", lz["name"], lz["uuid"], brand_imgs.get(lz["uuid"], ""),
+                     "", "", lz["n_collectibles"] + lz["n_comics"],
                      lz["n_collectibles"], lz["n_comics"]])
     for b in sorted(brands.values(),
                     key=lambda d: -(d["n_collectibles"] + d["n_comics"])):
-        rows.append(["Marque", b["name"], b["uuid"], b["licensor_name"],
-                     b["licensor_uuid"], b["n_collectibles"] + b["n_comics"],
+        rows.append(["Marque", b["name"], b["uuid"], brand_imgs.get(b["uuid"], ""),
+                     b["licensor_name"], b["licensor_uuid"],
+                     b["n_collectibles"] + b["n_comics"],
                      b["n_collectibles"], b["n_comics"]])
 
     ws = _open_worksheet(sh, MARQUES_TAB, cols=len(MARQUES_HEADER))
@@ -425,6 +449,41 @@ def _write_marques(sh, records) -> tuple:
     except Exception:
         pass
     return len(brands), len(licensors)
+
+
+def write_brand_images(spreadsheet_id: str, rows: List[List[Any]]) -> int:
+    """Merge new [uuid, kind, name, image_url] rows into the hidden _BrandImages
+    tab (never overwrites an existing uuid). Returns how many were added."""
+    if not rows:
+        return 0
+    gc = _client()
+    sh = gc.open_by_key(spreadsheet_id)
+    ws = _open_worksheet(sh, BRAND_IMAGES_TAB, cols=len(BRAND_IMAGES_HEADER))
+    existing = set()
+    if not ws.row_values(1):
+        ws.update(range_name="A1", values=[BRAND_IMAGES_HEADER],
+                  value_input_option="RAW")
+    else:
+        existing = {str(u).strip() for u in ws.col_values(1)[1:] if str(u).strip()}
+    fresh = [r for r in rows if str(r[0]).strip() and str(r[0]).strip() not in existing]
+    if fresh:
+        ws.append_rows(fresh, value_input_option="RAW")
+    try:
+        ws.hide()
+    except Exception:
+        pass
+    return len(fresh)
+
+
+def get_brand_image_uuids(spreadsheet_id: str) -> set:
+    """UUIDs that already have a logo recorded (to skip re-fetching)."""
+    gc = _client()
+    sh = gc.open_by_key(spreadsheet_id)
+    try:
+        ws = sh.worksheet(BRAND_IMAGES_TAB)
+    except gspread.WorksheetNotFound:
+        return set()
+    return {str(u).strip() for u in ws.col_values(1)[1:] if str(u).strip()}
 
 
 def _apply_formatting(sh, ws, n_rows: int, n_cols: int,

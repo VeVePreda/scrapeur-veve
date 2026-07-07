@@ -311,6 +311,83 @@ def enrich_comics(comic_ids: List[str], workers: int = DEFAULT_WORKERS) -> Dict[
     return out
 
 
+# Brand / licensor logos. VeVe exposes them (if at all) as an `image { url webpUrl }`
+# sub-selection on the Brand / Licensor types, reached via a collectible of that
+# brand. This is an ISOLATED query: if the field name differs, only this step fails
+# (logged), the main enrichment is untouched.
+BRAND_MEDIA_QUERY = (
+    "query publicStoreCollectibleEditionsQuery($id: ID!){ "
+    "publicCollectibleType(id:$id){ id "
+    "brand{ id name image{ url webpUrl } "
+    "licensor{ id name image{ url webpUrl } } } } }"
+)
+
+
+def fetch_brand_media(cid: str) -> Optional[Dict[str, Any]]:
+    """Return {brand_uuid, brand_name, brand_image, licensor_*} for one collectible,
+    or None (incl. when VeVe rejects the image field — that error is printed)."""
+    payload = {"operationName": "publicStoreCollectibleEditionsQuery",
+               "variables": {"id": cid}, "query": BRAND_MEDIA_QUERY}
+    last_err = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            r = _session().post(GRAPHQL_URL, json=payload, timeout=REQUEST_TIMEOUT)
+            if r.status_code == 200:
+                data = r.json()
+                node = (data.get("data") or {}).get("publicCollectibleType")
+                if not node:
+                    if data.get("errors"):
+                        print(f"    brand media query rejected (field mismatch?): "
+                              f"{str(data['errors'])[:200]}", flush=True)
+                    return None
+                b = node.get("brand") or {}
+                lz = (b.get("licensor") or {}) if isinstance(b, dict) else {}
+                bi = (b.get("image") or {}) if isinstance(b, dict) else {}
+                li = (lz.get("image") or {}) if isinstance(lz, dict) else {}
+                return {
+                    "brand_uuid": b.get("id"), "brand_name": b.get("name"),
+                    "brand_image": bi.get("webpUrl") or bi.get("url"),
+                    "licensor_uuid": lz.get("id"), "licensor_name": lz.get("name"),
+                    "licensor_image": li.get("webpUrl") or li.get("url"),
+                }
+            last_err = f"HTTP {r.status_code}"
+        except Exception as e:
+            last_err = str(e)
+            _maybe_disable_proxy(e)
+        time.sleep(RETRY_BACKOFF * attempt)
+    print(f"    brand media failed for {cid}: {last_err}", flush=True)
+    return None
+
+
+def enrich_brand_media(cids: List[str], workers: int = DEFAULT_WORKERS) \
+        -> Dict[str, Dict[str, Any]]:
+    """Fetch brand/licensor logos for representative collectible ids. Probes the
+    first id; if VeVe doesn't return images (field mismatch), skips the rest so we
+    never hammer a broken query. Returns {cid: media}."""
+    cids = [c for c in dict.fromkeys(cids) if c]
+    if not cids:
+        return {}
+    _decide_egress()
+    probe = fetch_brand_media(cids[0])
+    if not probe or not (probe.get("brand_image") or probe.get("licensor_image")):
+        print("Brand media: VeVe returned no brand/licensor image on the probe "
+              "(field name may differ) — skipping logo collection.", flush=True)
+        return {cids[0]: probe} if probe else {}
+    out: Dict[str, Dict[str, Any]] = {cids[0]: probe}
+
+    def task(c: str):
+        time.sleep(PAUSE)
+        return c, fetch_brand_media(c)
+
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for fut in as_completed([ex.submit(task, c) for c in cids[1:]]):
+            c, m = fut.result()
+            if m:
+                out[c] = m
+    print(f"Brand media: {len(out)}/{len(cids)} representatives fetched.", flush=True)
+    return out
+
+
 def enrich(uuids: List[str], workers: int = DEFAULT_WORKERS) -> Dict[str, Dict[str, Any]]:
     """Enrich many collectible uuids concurrently. Returns {uuid: columns}."""
     uuids = [u for u in dict.fromkeys(uuids) if u]  # dedupe, drop empties

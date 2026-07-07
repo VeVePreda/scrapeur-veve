@@ -157,6 +157,9 @@ def _flatten(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "comic_number": str(md.get("comicNumber") or ""),
         "start_year": str(md.get("startYear") or ""),
         "total_editions": md.get("totalEditions") or "",
+        # Edition / mint number of THIS token — joins to the Market issueNumber
+        # (veve_uuid, edition) so we can attribute an offer's pseudo to a wallet.
+        "edition": md.get("edition") if md.get("edition") not in (None, "") else "",
     }
 
 
