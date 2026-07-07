@@ -1,0 +1,39 @@
+name: CollectChain backfill (manual)
+
+# Run this ONCE (Actions tab -> Run workflow) to load the last ~31 days of
+# on-chain transfers into the ChainActivity tab. Afterwards the daily job
+# only fetches what's new. Re-run anytime to rebuild from scratch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "How many days of history to fetch"
+        default: "31"
+        required: true
+
+concurrency:
+  group: chain-tracker
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Full chain backfill
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          CHAIN_MODE: backfill
+          CHAIN_BACKFILL_DAYS: ${{ github.event.inputs.days }}
+        run: python -m scraper.chain_run
