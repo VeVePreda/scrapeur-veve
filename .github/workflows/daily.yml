@@ -1,14 +1,14 @@
-name: VeVe daily sync (catalogue + chain + pseudos + market)
+name: VeVe daily sync (catalogue + chain + pseudos)
 
 # One daily job that runs every step in order:
-#   1. catalogue  — cold catalogues + Marques & Licences + brand logos
-#   2. chain      — CollectChain activity + DropRevenue + escrow deposits
-#   3. stackr     — StackR pseudo <-> wallet resolution (writes Pseudos)
-#   4. market     — VeVe market listings + merges sellers into Pseudos
+#   1. catalogue  — cold catalogues + 🟤C-MARQUE
+#   2. chain      — CollectChain activity + escrow deposits (feeds 🟣C-PSEUDOS)
+#   3. stackr     — StackR pseudo <-> wallet resolution (writes 🟣C-PSEUDOS)
+#   4. dynamic    — daily edition-counter refresh (GraphQL) into 🟠H-PRIX
+#   5. wallets    — enrich 🟣C-PSEUDOS with on-chain first_seen / last_active
 #
-# Order matters: market runs LAST so it augments the fresh Pseudos (StackR) and
-# uses the same-day escrow deposits from the chain step.
-# The fast-moving dynamic data (collectibles) has its own 3-hourly workflow.
+# The fast-moving dynamic data (floor/listings) has its own 3-hourly workflow.
+# The VeVe market step was removed (scrap account blocked, no session).
 
 on:
   schedule:
@@ -47,7 +47,7 @@ jobs:
           REFRESH_DYNAMIC: "true"
         run: python -m scraper.run
 
-      - name: 2) CollectChain (activity + revenue + escrow)
+      - name: 2) CollectChain (activity + escrow deposits)
         if: ${{ always() }}
         env:
           CHAIN_MODE: daily
@@ -60,19 +60,12 @@ jobs:
           STACKR_COOKIE: ${{ secrets.STACKR_COOKIE }}
         run: python -m scraper.stackr
 
-      - name: 4) Market listings + pseudo merge
-        if: ${{ always() }}
-        env:
-          VEVE_AUTH: ${{ secrets.VEVE_AUTH }}
-          MARKET_MAX_PRODUCTS: "0"
-        run: python -m scraper.veve_market
-
-      - name: 5) Dynamic edition counters (daily GraphQL pass)
+      - name: 4) Dynamic edition counters (daily GraphQL pass)
         if: ${{ always() }}
         env:
           DYNAMIC_WITH_EDITIONS: "true"
         run: python -m scraper.dynamic_run
 
-      - name: 6) Wallet registry (enrich Pseudos with on-chain activity)
+      - name: 5) Wallet registry (enrich Pseudos with on-chain activity)
         if: ${{ always() }}
         run: python -m scraper.wallet_registry
