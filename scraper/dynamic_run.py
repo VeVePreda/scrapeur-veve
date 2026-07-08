@@ -29,8 +29,12 @@ from scraper.veve_scraper import scrape_catalogue
 from scraper import sheets
 from scraper import veve_detail
 
+# FLOOR (market_lowestOffer / market_totalListings) is owned by scraper.floors
+# now (VeVe floor, tracker fallback, once a day) — NOT emitted here, otherwise the
+# tracker floor would fight the VeVe floor in 🟠H-PRIX. This step only refreshes
+# supply / edition counters.
 DYN_ITEM_FIELDS = [
-    "market_lowestOffer", "market_totalListings", "releaseAmount",
+    "releaseAmount",
     "veve_total_available", "veve_store_price", "sold_editions",
     "editions_in_circulation", "burned_editions", "withheld_editions",
     "store_allocation",

@@ -26,9 +26,13 @@ from scraper.veve_scraper import scrape_catalogue, scrape_window
 from scraper import sheets
 from scraper import veve_detail
 
-# Fields copied into a dynamic-page item (tracker + enrichment).
+# Fields copied into a dynamic-page item (supply / editions only).
+# FLOOR (market_lowestOffer / market_totalListings) is intentionally NOT here:
+# it is owned by scraper.floors (VeVe floor, tracker fallback, once a day). If we
+# emitted a tracker floor here too, the two would overwrite each other in 🟠H-PRIX
+# and create spurious floor changes.
 DYN_ITEM_FIELDS = [
-    "market_lowestOffer", "market_totalListings", "releaseAmount",
+    "releaseAmount",
     "veve_total_available", "veve_store_price", "sold_editions",
     "editions_in_circulation", "burned_editions", "withheld_editions",
     "store_allocation",
