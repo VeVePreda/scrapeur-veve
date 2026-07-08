@@ -1,20 +1,15 @@
 """
 Wallet registry — enriches the `Pseudos` tab with on-chain activity per wallet.
 
-Turns `Pseudos` into a real wallet catalogue: for every row that has a
-CollectChain wallet (`wallet_imx`), it fills the last 6 columns from
-ChainActivity:
+Turns `Pseudos` into a wallet catalogue: for every row that has a CollectChain
+wallet (`wallet_imx`), it fills 2 columns from ChainActivity:
 
     chain_first_seen    earliest day the wallet was active (kept persistent:
                         only ever moves EARLIER, so it survives the 35-day
                         ChainActivity pruning and approximates wallet creation)
     chain_last_active   most recent active day
-    chain_mints         mints received (collectibles + comics) in the window
-    chain_buys          market purchases (market-in)
-    chain_sells         market sales (market-out)
-    chain_active_days   number of distinct active days in the window
 
-Serves: "wallets created this month + do they keep going" and "whale activity".
+Serves: "wallets created this month + do they keep going".
 Runs LAST in the daily workflow (after chain + stackr + market) so it sees the
 final Pseudos. Only enriches KNOWN wallets — unknown wallets stay in
 ChainActivity (raw) and can be surfaced later.
@@ -88,10 +83,6 @@ def main() -> int:
             continue
         r["chain_first_seen"] = _earliest(r.get("chain_first_seen", ""), a["first"])
         r["chain_last_active"] = max(str(r.get("chain_last_active", "")).strip(), a["last"])
-        r["chain_mints"] = a["mints"]
-        r["chain_buys"] = a["buys"]
-        r["chain_sells"] = a["sells"]
-        r["chain_active_days"] = len(a["days"])
         updated += 1
 
     grid = [PSEUDOS_HEADER] + [[r.get(c, "") for c in PSEUDOS_HEADER] for r in rows]

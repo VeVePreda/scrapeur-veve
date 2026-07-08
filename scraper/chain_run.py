@@ -22,7 +22,6 @@ import sys
 import time
 
 from scraper import collectchain as cc
-from scraper import chain_revenue as crv
 from scraper import chain_sheets as cs
 
 
@@ -94,15 +93,8 @@ def main() -> int:
             if s["window"] == "24h" and s["scope"] == "all" and s["category"] == "all":
                 summary["unique_accounts_24h"] = s["unique_accounts"]
 
-        # Per-item view + drop revenue estimation (mints x store price).
-        print("Computing per-item stats + drop revenue...", flush=True)
-        items = cs.read_items(sheet_id)
-        catalogue = cs.read_catalogue(sheet_id)
-        rev = crv.compute_drop_revenue(items, catalogue)
-        cs.write_revenue(sheet_id, rev)
-        unmatched = sum(1 for r in rev if r["match"] == "none")
-        if unmatched:
-            summary["note"] += f" unmatched_items={unmatched}"
+        # DropRevenue abandoned: raw per-item counts stay in ChainItems (hidden)
+        # for any external drop-revenue analysis.
 
         # Only advance the checkpoint after everything else succeeded.
         if meta.get("newest_block"):

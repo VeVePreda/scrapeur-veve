@@ -83,13 +83,12 @@ HEADERS = {
 }
 
 PSEUDOS_TAB = "🟣C-PSEUDOS"
-# The last 6 columns are the on-chain WALLET REGISTRY, filled by
+# The last 2 columns are the on-chain WALLET REGISTRY, filled by
 # scraper.wallet_registry from ChainActivity (kept across runs; chain_first_seen
-# only ever moves earlier). username/wallets stay stable once found.
+# only ever moves earlier — approximates the wallet's creation).
 PSEUDOS_HEADER = ["username", "wallet_imx", "wallet_stackr", "veve_user_id",
                   "status", "source", "first_seen", "last_checked",
-                  "chain_first_seen", "chain_last_active",
-                  "chain_mints", "chain_buys", "chain_sells", "chain_active_days"]
+                  "chain_first_seen", "chain_last_active"]
 
 PAUSE = float(os.environ.get("STACKR_PAUSE", "0.35"))
 MAX_LOOKUPS = int(os.environ.get("STACKR_MAX_LOOKUPS", "200"))
