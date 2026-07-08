@@ -98,7 +98,7 @@ COLLECT_TAB = "🔵C-COLLECTIBLE"
 CATALOGUE_TABS = (COMICS_TAB, COLLECT_TAB)
 LEGACY_CATALOGUE_TAB = "Catalogue"
 
-MARQUES_TAB = "Marques & Licences"
+MARQUES_TAB = "🟤C-MARQUE"
 MARQUES_HEADER = ["kind", "name", "uuid", "image_url", "licensor_name",
                   "licensor_uuid", "n_total", "n_collectibles", "n_comics"]
 
@@ -112,7 +112,7 @@ BRAND_IMAGES_HEADER = ["uuid", "kind", "name", "image_url"]
 # evolution of every collectible lives on ONE page. One row is appended whenever
 # any tracked value changes. A hidden state tab holds the last-known values for a
 # fast diff (no need to re-read the whole history each run).
-DYN_TAB = "Données Dynamiques"
+DYN_TAB = "🟠H-PRIX"
 DYN_STATE_TAB = "_DynState"          # hidden: last snapshot per uuid (for diffing)
 DYN_FIELDS = [
     "market_lowestOffer", "market_totalListings", "releaseAmount",
@@ -125,7 +125,7 @@ DYN_STATE_HEADER = ["veve_uuid", "name", "category"] + DYN_FIELDS + ["last_snaps
 DYN_RETENTION_DAYS = 120             # keep ~4 months of history, prune older rows
 
 # Unified run log (catalogue / dynamic / pseudos / chain)
-LOGS_TAB = "Logs"
+LOGS_TAB = "🤖LOGS"
 LOGS_HEADER = ["ts_utc", "source", "status", "details"]
 LOG_RETENTION_DAYS = 7
 FLOOR_COLUMN = "market_lowestOffer"
@@ -590,8 +590,10 @@ def sync_dynamic(items: List[Dict[str, Any]], spreadsheet_id: str) -> Dict[str, 
         new_state[pid] = {**snap, "last_snapshot": stamp}
         appended += 1
 
-    # Append the changed rows to the history page.
-    if not hist.row_values(1):
+    # Append the changed rows to the history page. Make sure row 1 is the CURRENT
+    # header: if the tab pre-existed with a different (old) header, rewrite it so
+    # the columns line up with the data we append (fixes the misaligned header).
+    if hist.row_values(1) != DYN_HEADER:
         hist.update(range_name="A1", values=[DYN_HEADER], value_input_option="RAW")
         try:
             hist.freeze(rows=1)

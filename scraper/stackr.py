@@ -82,7 +82,7 @@ HEADERS = {
     "Referer": BASE + "/",
 }
 
-PSEUDOS_TAB = "Pseudos"
+PSEUDOS_TAB = "🟣C-PSEUDOS"
 # The last 6 columns are the on-chain WALLET REGISTRY, filled by
 # scraper.wallet_registry from ChainActivity (kept across runs; chain_first_seen
 # only ever moves earlier). username/wallets stay stable once found.

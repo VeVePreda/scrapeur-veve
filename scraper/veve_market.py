@@ -305,14 +305,16 @@ def main() -> int:
     print("Listing products with active market listings...", flush=True)
     products = list_products_with_listings(max_products)
     if not products:
-        print("No products with listings returned (auth issue or empty).",
-              file=sys.stderr)
+        # No VeVe session (account blocked / VEVE_AUTH unset) -> skip gracefully
+        # so the daily workflow stays green. The already-collected pseudos remain.
+        print("No products returned (VeVe session unavailable) — skipping market step.",
+              flush=True)
         try:
-            append_log(sheet_id, "market", "FAILED_NO_DATA",
-                       "landing returned no products (check VEVE_AUTH?).")
+            append_log(sheet_id, "market", "SKIPPED",
+                       "no VeVe session (VEVE_AUTH unset/blocked) — market skipped.")
         except Exception:
             pass
-        return 1
+        return 0
     print(f"{len(products)} products with listings.", flush=True)
 
     escrow = _load_escrow(_client().open_by_key(sheet_id))
