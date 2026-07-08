@@ -1,0 +1,52 @@
+name: VeVe blog sync
+
+# Scrapes the VeVe blog and upserts every article — title, category, tags, author,
+# reading time, excerpt, FULL body, cover image, permalink — into the "📝C-BLOG" tab.
+#
+# STANDALONE / on demand only — NOT part of the daily pipeline. Trigger it from the
+# Actions tab ("Run workflow") whenever you want to refresh the blog tab.
+#   pages = 0    -> scan all listing pages (full backfill of the article list)
+#   pages = 2    -> only the newest listing pages (light refresh)
+#   max_new = 0  -> fetch full content for every new article (no cap)
+# Full article content is fetched ONLY for articles not already in the sheet, so
+# the first run does the big backfill and later runs stay light. Rows are never
+# deleted; re-running only ever adds/updates.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pages:
+        description: "Listing pages to scan (0 = all, full backfill; e.g. 2 = newest only)"
+        required: false
+        default: "0"
+      max_new:
+        description: "Cap article-content fetches this run (0 = no cap)"
+        required: false
+        default: "0"
+
+concurrency:
+  group: veve-blog
+  cancel-in-progress: false
+
+jobs:
+  blog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Scrape blog (+ full content) -> 📝C-BLOG
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          BLOG_MAX_PAGES: ${{ github.event.inputs.pages || '0' }}
+          BLOG_WITH_CONTENT: "true"
+          BLOG_MAX_NEW: ${{ github.event.inputs.max_new || '0' }}
+        run: python -m scraper.blog_run
