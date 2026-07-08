@@ -1,0 +1,9 @@
+# DEPRECATED — merged into daily.yml (step 2). Safe to delete this file.
+# Kept without a schedule trigger so it never runs on its own.
+name: "[deprecated] CollectChain daily activity sync"
+on: { workflow_dispatch: {} }
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Deprecated: use the 'VeVe daily sync' workflow (daily.yml)."
