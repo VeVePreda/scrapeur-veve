@@ -43,10 +43,13 @@ def main() -> int:
         totals = None
         print(f"stats endpoint warning: {e}", flush=True)
 
-    # Only ever process fully-finished days: ignore everything at or after 00:00
-    # UTC today (the current day is incomplete). It gets picked up tomorrow.
-    today_start = _dt.datetime.combine(_dt.datetime.utcnow().date(), _dt.time.min)
-    last_complete_day = (_dt.datetime.utcnow().date() - _dt.timedelta(days=1))
+    # Only ever process fully-finished PACIFIC days (les journees sont decoupees
+    # en PT, le fuseau metier VeVe) : tout ce qui est a/apres minuit PT du jour
+    # courant est ignore et sera traite demain.
+    now_pt = _dt.datetime.now(cc.PT)
+    pt_midnight = now_pt.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = pt_midnight.astimezone(_dt.timezone.utc).replace(tzinfo=None)
+    last_complete_day = now_pt.date() - _dt.timedelta(days=1)
 
     try:
         if mode == "backfill":
@@ -77,6 +80,14 @@ def main() -> int:
         # Market escrow deposits -> (veve_uuid, edition) -> seller wallet, for the
         # pseudo<->wallet join with the Market listings.
         esc_added = cs.merge_escrow(sheet_id, cc.escrow_listings(records))
+
+        # Registre wallets (data/wallet_registry_daily.csv) — voir wallet_scan.py.
+        # Non bloquant : le suivi on-chain du Sheet ne depend pas du registre.
+        try:
+            from scraper import wallet_scan as ws
+            summary.update(ws.update_from_records(records))
+        except Exception as e:
+            print(f"wallet registry warning: {e}", flush=True)
 
         summary.update(transfers_fetched=meta["count"], pages=meta["pages"],
                        activity_rows_added=added, rows_pruned=pruned,
