@@ -54,10 +54,10 @@ def _iter_rows(text: str):
 def _merge_first_seen() -> Dict[str, str]:
     """{wallet -> plus ancienne first_seen} sur toutes les sources."""
     first: Dict[str, str] = {}
-    urls = [u.strip() for u in os.environ.get(
-        "REGISTRY_URLS", ",".join(DEFAULT_URLS)).split(",") if u.strip()]
-    locals_ = [p.strip() for p in os.environ.get(
-        "REGISTRY_LOCAL", "data/wallet_registry_daily.csv").split(",") if p.strip()]
+    urls = [u.strip() for u in (os.environ.get("REGISTRY_URLS")
+            or ",".join(DEFAULT_URLS)).split(",") if u.strip()]
+    locals_ = [p.strip() for p in (os.environ.get("REGISTRY_LOCAL")
+               or "data/wallet_registry_daily.csv").split(",") if p.strip()]
 
     sources = 0
     for url in urls:
