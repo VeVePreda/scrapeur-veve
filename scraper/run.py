@@ -139,20 +139,26 @@ def main() -> int:
     try:
         have = sheets.get_brand_image_uuids(sheet_id)
         reps = {}
+        cid_prod = {}   # collectible representatif -> produit tracker (pour ses uuids)
         for p in collectibles:
             cid = p.get("veve_uuid")
             for uk in ("brand_uuid", "licensor_uuid"):
                 u = str(p.get(uk, "") or "").strip()
                 if cid and u and u not in have and u not in reps:
                     reps[u] = cid
+                    cid_prod[str(cid)] = p
         if reps:
             media = veve_detail.enrich_brand_media(list(dict.fromkeys(reps.values())))
             img_rows, seen = [], set()
-            for m in media.values():
+            # Cle = uuid TRACKER du produit representatif (celui de 🟤C-MARQUE),
+            # PAS l'id GraphQL VeVe renvoye dans media (referentiel different —
+            # meme bug que logos.py, corrige le 2026-07-09).
+            for cid, m in media.items():
+                p = cid_prod.get(str(cid)) or {}
                 for kind, uk, nk, ik in (
                         ("brand", "brand_uuid", "brand_name", "brand_image"),
                         ("licensor", "licensor_uuid", "licensor_name", "licensor_image")):
-                    u = str(m.get(uk, "") or "").strip()
+                    u = str(p.get(uk, "") or "").strip()
                     img = m.get(ik)
                     if u and img and u not in seen and u not in have:
                         img_rows.append([u, kind, m.get(nk, "") or "", img])
