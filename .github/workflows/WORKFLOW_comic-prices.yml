@@ -1,0 +1,41 @@
+name: Comic store prices (daily)
+
+# Prix store des ~16k comics depuis my-nft-tracker -> 🟠H-PRIX (via _DynState).
+# Une ligne n'est ajoutee que si le prix CHANGE : ~16k lignes au 1er run
+# (initialisation), puis presque rien. Sert au calcul de revenue des drops
+# comics (mints x prix store).
+
+on:
+  schedule:
+    # 06:21 UTC — apres floors (05:41) et logos (05:51), loin de l'heure pile.
+    - cron: "21 6 * * *"
+  workflow_dispatch:
+    inputs:
+      max_items:
+        description: "Cap de test (0 = tous les comics)"
+        default: "0"
+
+concurrency:
+  group: veve-comic-prices
+  cancel-in-progress: false
+
+jobs:
+  prices:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      SHEET_ID: ${{ secrets.SHEET_ID }}
+      COMIC_PRICES_MAX: ${{ github.event.inputs.max_items || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Comic store prices
+        run: python -m scraper.comic_prices
