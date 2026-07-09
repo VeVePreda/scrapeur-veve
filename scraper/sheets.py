@@ -539,7 +539,9 @@ def sync_dynamic(items: List[Dict[str, Any]], spreadsheet_id: str) -> Dict[str, 
     be the snapshot + PriceHistory + EditionsHistory tabs into one time series.
 
     Each item is a dict with veve_uuid, name, category and any DYN_FIELDS.
-    Comics are NOT tracked here.
+    Comics : uniquement leur prix store (module comic_prices, 2026-07-08) —
+    pas de floor/listings pour eux, le prix store ne change quasiment jamais
+    donc le cout en lignes est minime.
     """
     gc = _client()
     sh = gc.open_by_key(spreadsheet_id)
@@ -561,7 +563,7 @@ def sync_dynamic(items: List[Dict[str, Any]], spreadsheet_id: str) -> Dict[str, 
 
     for it in items:
         pid = str(it.get(KEY_COLUMN, "")).strip()
-        if not pid or str(it.get("category", "")).lower() == "comic":
+        if not pid:
             continue
         old = state.get(pid)
 
