@@ -68,10 +68,15 @@ def main() -> int:
     print(f"Fetching logos for {len(reps)} new brand(s)...", flush=True)
     media = veve_detail.enrich_brand_media(list(reps.values()))
 
+    # media est indexe par collectible representatif ; on re-cle chaque logo par
+    # l'uuid TRACKER de la marque (celui de 🟤C-MARQUE et du catalogue), PAS par
+    # l'id GraphQL VeVe renvoye dans m["brand_uuid"] (referentiel DIFFERENT —
+    # c'etait le bug : zero match a la fusion, et re-sondage quotidien).
+    cid_to_brand = {cid: bu for bu, cid in reps.items()}
     rows = []
     seen = set()
-    for _cid, m in media.items():
-        bu = str(m.get("brand_uuid") or "").strip()
+    for cid, m in media.items():
+        bu = cid_to_brand.get(str(cid), "")
         img = m.get("brand_image")
         if bu and img and bu not in seen:
             rows.append([bu, "Marque", m.get("brand_name") or "", img])

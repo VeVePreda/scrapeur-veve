@@ -384,7 +384,11 @@ sync_products = sync_catalogue
 
 
 def _read_brand_images(sh) -> Dict[str, str]:
-    """{uuid -> image_url} from the hidden _BrandImages tab (may be empty)."""
+    """{cle -> image_url} depuis l'onglet cache _BrandImages.
+
+    Deux cles par ligne : l'uuid, ET "name:<nom normalise>" en secours — les
+    anciennes lignes sont clees par l'id GraphQL VeVe (≠ uuid tracker de
+    🟤C-MARQUE), le fallback par nom les rattrape sans re-sonder VeVe."""
     out: Dict[str, str] = {}
     try:
         ws = sh.worksheet(BRAND_IMAGES_TAB)
@@ -392,10 +396,21 @@ def _read_brand_images(sh) -> Dict[str, str]:
         return out
     for r in ws.get_all_records():
         u = str(r.get("uuid", "")).strip()
+        n = str(r.get("name", "")).strip().lower()
         img = str(r.get("image_url", "")).strip()
-        if u and img:
+        if not img:
+            continue
+        if u:
             out[u] = img
+        if n:
+            out.setdefault("name:" + n, img)
     return out
+
+
+def _brand_img(brand_imgs: Dict[str, str], uuid: str, name: str) -> str:
+    """Logo par uuid, sinon par nom normalise (fallback lignes legacy)."""
+    return (brand_imgs.get(str(uuid).strip())
+            or brand_imgs.get("name:" + str(name).strip().lower(), ""))
 
 
 def _write_marques(sh, records, brand_imgs: Optional[Dict[str, str]] = None) -> tuple:
@@ -429,12 +444,12 @@ def _write_marques(sh, records, brand_imgs: Optional[Dict[str, str]] = None) -> 
     rows: List[List[Any]] = []
     for lz in sorted(licensors.values(),
                      key=lambda d: -(d["n_collectibles"] + d["n_comics"])):
-        rows.append(["Licence", lz["name"], lz["uuid"], brand_imgs.get(lz["uuid"], ""),
+        rows.append(["Licence", lz["name"], lz["uuid"], _brand_img(brand_imgs, lz["uuid"], lz["name"]),
                      "", "", lz["n_collectibles"] + lz["n_comics"],
                      lz["n_collectibles"], lz["n_comics"]])
     for b in sorted(brands.values(),
                     key=lambda d: -(d["n_collectibles"] + d["n_comics"])):
-        rows.append(["Marque", b["name"], b["uuid"], brand_imgs.get(b["uuid"], ""),
+        rows.append(["Marque", b["name"], b["uuid"], _brand_img(brand_imgs, b["uuid"], b["name"]),
                      b["licensor_name"], b["licensor_uuid"],
                      b["n_collectibles"] + b["n_comics"],
                      b["n_collectibles"], b["n_comics"]])
