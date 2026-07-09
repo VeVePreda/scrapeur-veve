@@ -58,13 +58,20 @@ except Exception:
 SYSTEM = {ZERO, MARKET_ESCROW, BURN_SINK, ""}
 BURN_TO = {ZERO, BURN_SINK}
 
-WHALES_TAB = "📊A-WHALES"
-CORNER_TAB = "📊A-CORNERISATION"
-SIZE_TAB = "📊A-WALLET-SIZE"
-WHALES_HEADER = ["rank", "wallet", "pseudo", "holdings", "distinct_collectibles",
-                 "acquired", "sold", "retention", "median_hold_days",
-                 "collectorScore", "last_active", "activityStatus", "listed",
-                 "qty_bucket", "value_store", "value_floor"]
+WHALES_TAB = "🐋A-WHALES"
+CORNER_TAB = "🎯A-CORNERISATION"
+SIZE_TAB = "📈H-WALLET-SIZE"
+# Typologie : un classement par type de whale (accumulatrice / valeur).
+WHALES_HEADER = ["type", "rank", "wallet", "pseudo", "metric_value", "holdings",
+                 "distinct_collectibles", "value_store", "value_floor",
+                 "collectorScore", "activityStatus"]
+SIZE_HEADER = ["snapshot_month", "dimension", "bucket", "wallets", "pct_wallets",
+               "total", "pct_total"]
+# Colonnes de profil injectees dans 🟣C-PSEUDOS (join wallet_imx).
+PSEUDO_PROFILE_COLS = ["holdings", "distinct_collectibles", "acquired", "sold",
+                       "retention", "median_hold_days", "collectorScore",
+                       "activityStatus", "value_store", "value_floor",
+                       "qty_bucket"]
 CORNER_HEADER = (["veve_uuid", "name", "category", "circulating", "holders",
                   "gini"]
                  + [f"top{i}_{s}" for i in range(1, 11) for s in ("cnt", "pct")]
@@ -73,7 +80,6 @@ CORNER_HEADER = (["veve_uuid", "name", "category", "circulating", "holders",
                     "vfloor_dominant", "vfloor_dominant_pct",
                     "score_dominant", "score_dominant_pct",
                     "activity_dominant", "activity_dominant_pct"])
-SIZE_HEADER = ["dimension", "bucket", "wallets", "pct_wallets", "total", "pct_total"]
 
 # Tranches de QUANTITE (nb d'exemplaires detenus) — demande Preda.
 QTY_BUCKETS = [(1, 1, "1"), (2, 10, "2-10"), (11, 50, "11-50"),
@@ -382,19 +388,35 @@ def build_all(folder: str, sh, top: int, today: _dt.date):
             if ls:
                 listed_cnt[hd] += 1
 
-    # WHALES : top par holdings
-    whales = []
-    ranked = sorted(((w, p["holdings"]) for w, p in prof.items() if p["holdings"] > 0),
-                    key=lambda x: -x[1])[:top]
-    for rank, (w, h) in enumerate(ranked, 1):
-        p = prof[w]
+    # profil complet par wallet (pour 🟣C-PSEUDOS + typologie)
+    profiles = {}
+    for w, p in prof.items():
+        if p["holdings"] <= 0:
+            continue
         acq = p["mints"] + p["buys"]
         md = round(statistics.median(p["durations"]), 1) if p["durations"] else ""
-        whales.append([rank, w, pseudos.get(w, ""), h, len(distinct[w]),
-                       acq, p["sells"], round(h / acq, 3) if acq else "",
-                       md, score[w], p["last"], activity[w], listed_cnt.get(w, 0),
-                       qbk[w], round(value_store.get(w, 0), 2),
-                       round(value_floor.get(w, 0), 2)])
+        profiles[w] = {
+            "holdings": p["holdings"], "distinct_collectibles": len(distinct[w]),
+            "acquired": acq, "sold": p["sells"],
+            "retention": round(p["holdings"] / acq, 3) if acq else "",
+            "median_hold_days": md, "collectorScore": score[w],
+            "activityStatus": activity[w],
+            "value_store": round(value_store.get(w, 0), 2),
+            "value_floor": round(value_floor.get(w, 0), 2),
+            "qty_bucket": qbk[w], "pseudo": pseudos.get(w, ""),
+            "last_active": p["last"], "listed": listed_cnt.get(w, 0)}
+
+    # TYPOLOGIE des whales : 3 classements independants
+    whales = []
+    for typ, key in (("accumulatrice", "holdings"),
+                     ("valeur_floor", "value_floor"),
+                     ("valeur_store", "value_store")):
+        ranked = sorted(profiles.items(), key=lambda kv: -kv[1][key])[:top]
+        for rank, (w, pr) in enumerate(ranked, 1):
+            whales.append([typ, rank, w, pr["pseudo"], pr[key], pr["holdings"],
+                           pr["distinct_collectibles"], pr["value_store"],
+                           pr["value_floor"], pr["collectorScore"],
+                           pr["activityStatus"]])
 
     # CORNERISATION : 1 ligne/collectible
     corner = []
@@ -429,8 +451,7 @@ def build_all(folder: str, sh, top: int, today: _dt.date):
     # DISTRIBUTION GLOBALE des wallets par taille (quantite + valeur)
     size_rows = _size_distribution(prof, value_store, value_floor)
 
-    profiles_meta = (score, activity, qbk, vsbk, vfbk, value_store, value_floor)
-    return ledger, prof, whales, corner, size_rows, profiles_meta
+    return ledger, prof, whales, corner, size_rows, profiles
 
 
 def _size_distribution(prof, value_store, value_floor):
@@ -483,23 +504,70 @@ def _save_ledger(ledger, path):
             w.writerow([u, e, h, ls])
 
 
-def _save_profiles(prof, meta, path):
-    score, activity, qbk, vsbk, vfbk, vstore, vfloor = meta
+def _save_profiles(profiles, path):
+    cols = ["holdings", "distinct_collectibles", "acquired", "sold", "retention",
+            "median_hold_days", "collectorScore", "activityStatus", "value_store",
+            "value_floor", "qty_bucket", "pseudo", "last_active", "listed"]
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with gzip.open(path, "wt", encoding="utf-8", newline="") as f:
         w = csv.writer(f, lineterminator="\n")
-        w.writerow(["wallet", "holdings", "acquired", "sold", "retention",
-                    "median_hold_days", "collectorScore", "last_active",
-                    "activityStatus", "qty_bucket", "value_store",
-                    "value_store_bucket", "value_floor", "value_floor_bucket"])
-        for wl, p in prof.items():
-            acq = p["mints"] + p["buys"]
-            md = round(statistics.median(p["durations"]), 1) if p["durations"] else ""
-            w.writerow([wl, p["holdings"], acq, p["sells"],
-                        round(p["holdings"] / acq, 3) if acq else "",
-                        md, score[wl], p["last"], activity[wl], qbk[wl],
-                        round(vstore.get(wl, 0), 2), vsbk[wl],
-                        round(vfloor.get(wl, 0), 2), vfbk[wl]])
+        w.writerow(["wallet"] + cols)
+        for wl, pr in profiles.items():
+            w.writerow([wl] + [pr.get(c, "") for c in cols])
+
+
+def _write_size_history(sh, size_rows, month):
+    """Append-only mensuel : upsert des lignes du mois (📈H-WALLET-SIZE)."""
+    ws = _open_worksheet(sh, SIZE_TAB, cols=len(SIZE_HEADER))
+    existing = ws.get_all_records() if ws.row_count > 1 else []
+    kept = [[r.get(c, "") for c in SIZE_HEADER] for r in existing
+            if str(r.get("snapshot_month", "")) != month]
+    fresh = [[month] + row for row in size_rows]
+    grid = [SIZE_HEADER] + kept + fresh
+    ws.clear()
+    for i in range(0, len(grid), 50000):
+        if i == 0:
+            ws.update(range_name="A1", values=grid[:50000], value_input_option="RAW")
+        else:
+            ws.append_rows(grid[i:i + 50000], value_input_option="RAW")
+    try:
+        ws.freeze(rows=1)
+        ws.format("1:1", {"textFormat": {"bold": True}})
+    except Exception:
+        pass
+
+
+def _enrich_pseudos(sh, profiles):
+    """Injecte le profil (score/activite/holdings/valeurs) dans 🟣C-PSEUDOS,
+    join par wallet_imx. Enrichit TOUTE ligne presente — y compris une whale
+    ajoutee manuellement sans pseudo. Preserve les colonnes StackR existantes."""
+    from scraper.stackr import PSEUDOS_TAB, PSEUDOS_HEADER
+    ws = _open_worksheet(sh, PSEUDOS_TAB, cols=len(PSEUDOS_HEADER))
+    rows = ws.get_all_records() if ws.row_count > 1 else []
+    if not rows:
+        return 0
+    updated = 0
+    for r in rows:
+        w = str(r.get("wallet_imx", "")).strip().lower()
+        pr = profiles.get(w)
+        if not pr:
+            continue
+        for c in PSEUDO_PROFILE_COLS:
+            r[c] = pr.get(c, "")
+        updated += 1
+    grid = [PSEUDOS_HEADER] + [[r.get(c, "") for c in PSEUDOS_HEADER] for r in rows]
+    ws.clear()
+    for i in range(0, len(grid), 20000):
+        if i == 0:
+            ws.update(range_name="A1", values=grid[:20000], value_input_option="RAW")
+        else:
+            ws.append_rows(grid[i:i + 20000], value_input_option="RAW")
+    try:
+        ws.freeze(rows=1)
+        ws.format("1:1", {"textFormat": {"bold": True}})
+    except Exception:
+        pass
+    return updated
 
 
 def main() -> int:
@@ -522,17 +590,19 @@ def main() -> int:
         return 1
 
     sh = _client().open_by_key(sheet_id)
-    ledger, prof, whales, corner, size_rows, meta = build_all(folder, sh, top, today)
+    ledger, prof, whales, corner, size_rows, profiles = build_all(folder, sh, top, today)
 
     _save_ledger(ledger, os.environ.get("LEDGER_OUT", "data/ledger.csv.gz"))
-    _save_profiles(prof, meta,
+    _save_profiles(profiles,
                    os.environ.get("PROFILES_OUT", "data/wallet_profiles.csv.gz"))
-    _write(sh, WHALES_TAB, WHALES_HEADER, whales)
-    _write(sh, CORNER_TAB, CORNER_HEADER, corner)
-    _write(sh, SIZE_TAB, SIZE_HEADER, size_rows)
+    _write(sh, WHALES_TAB, WHALES_HEADER, whales)          # typologie 🐋
+    _write(sh, CORNER_TAB, CORNER_HEADER, corner)          # 🎯
+    _write_size_history(sh, size_rows, today.strftime("%Y-%m"))   # 📈 historique
+    enriched = _enrich_pseudos(sh, profiles)               # 🟣 profils
 
     summary = {"status": "OK", "editions": len(ledger), "wallets": len(prof),
                "whales": len(whales), "collectibles": len(corner),
+               "pseudos_enriched": enriched,
                "duration": f"{time.time()-t0:.0f}s"}
     try:
         append_log(sheet_id, "ledger", "OK",

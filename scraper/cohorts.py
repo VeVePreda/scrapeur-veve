@@ -10,7 +10,7 @@ mois / annee, a partir du registre wallet -> first_seen (fusion des 3 sources) :
 
 Fusion : pour chaque wallet, first_seen = la DATE LA PLUS ANCIENNE vue dans
 n'importe quelle source (un vetéran 2022 vu sur IMX prime sur sa réapparition
-2026 sur CollectChain). Ecrit l'agregat dans l'onglet 📊A-COHORTES du Sheet.
+2026 sur CollectChain). Ecrit l'agregat dans l'onglet 📅A-COHORTES du Sheet.
 
 /!\ Chiffres EXACTS uniquement quand les 2 scans profonds sont TERMINES
 (sinon first_seen des anciens wallets est encore trop recent). Avant : apercu.
@@ -18,7 +18,7 @@ n'importe quelle source (un vetéran 2022 vu sur IMX prime sur sa réapparition
 Env : GOOGLE_SERVICE_ACCOUNT_JSON, SHEET_ID,
       REGISTRY_URLS (URLs raw des CSV distants, separees par des virgules),
       REGISTRY_LOCAL (chemins locaux, defaut data/wallet_registry_daily.csv),
-      COHORTS_TAB (defaut 📊A-COHORTES).
+      COHORTS_TAB (defaut 📅A-COHORTES).
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ import requests
 
 from scraper.sheets import _client, _open_worksheet, _now, append_log
 
-COHORTS_TAB = os.environ.get("COHORTS_TAB", "📊A-COHORTES")
+COHORTS_TAB = os.environ.get("COHORTS_TAB", "📅A-COHORTES")
 HEADER = ["grain", "period", "new_wallets", "cumulative", "pct_total"]
 DEFAULT_URLS = [
     "https://raw.githubusercontent.com/astronemagame-maker/astronema/main/data/wallet_registry_deep.csv",
@@ -54,6 +54,8 @@ def _iter_rows(text: str):
 def _merge_first_seen() -> Dict[str, str]:
     """{wallet -> plus ancienne first_seen} sur toutes les sources."""
     first: Dict[str, str] = {}
+    # NB: `or` et pas get(k, defaut) — une env var DEFINIE mais VIDE ("") doit
+    # retomber sur le defaut (sinon 0 source quand l'input workflow est vide).
     urls = [u.strip() for u in (os.environ.get("REGISTRY_URLS")
             or ",".join(DEFAULT_URLS)).split(",") if u.strip()]
     locals_ = [p.strip() for p in (os.environ.get("REGISTRY_LOCAL")
