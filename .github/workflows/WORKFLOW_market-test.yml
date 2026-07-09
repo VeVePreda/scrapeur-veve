@@ -1,0 +1,32 @@
+name: Market probe (sans auth)
+
+# Diagnostic ponctuel du chantier "prix des ventes secondaires" : teste si les
+# requetes Market VeVe (grille + offres d'un collectible) repondent SANS cookie.
+# N'ecrit rien dans le Sheet. Lire le log et le coller dans le chat.
+
+on:
+  workflow_dispatch:
+    inputs:
+      collectible_id:
+        description: "UUID d'un collectible a sonder (vide = 1er de la grille)"
+        default: ""
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PROBE_COLLECTIBLE_ID: ${{ github.event.inputs.collectible_id }}
+      # VEVE_AUTH volontairement ABSENT : le but est de tester sans auth.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Probe market (no auth)
+        run: python -m scraper.market_probe
