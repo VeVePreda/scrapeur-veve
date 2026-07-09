@@ -60,15 +60,74 @@ BURN_TO = {ZERO, BURN_SINK}
 
 WHALES_TAB = "📊A-WHALES"
 CORNER_TAB = "📊A-CORNERISATION"
+SIZE_TAB = "📊A-WALLET-SIZE"
 WHALES_HEADER = ["rank", "wallet", "pseudo", "holdings", "distinct_collectibles",
                  "acquired", "sold", "retention", "median_hold_days",
-                 "collectorScore", "last_active", "activityStatus", "listed"]
+                 "collectorScore", "last_active", "activityStatus", "listed",
+                 "qty_bucket", "value_store", "value_floor"]
 CORNER_HEADER = (["veve_uuid", "name", "category", "circulating", "holders",
                   "gini"]
                  + [f"top{i}_{s}" for i in range(1, 11) for s in ("cnt", "pct")]
-                 + ["pct_small", "pct_mid", "pct_whale",
+                 + ["qty_dominant", "qty_dominant_pct",
+                    "vstore_dominant", "vstore_dominant_pct",
+                    "vfloor_dominant", "vfloor_dominant_pct",
                     "score_dominant", "score_dominant_pct",
                     "activity_dominant", "activity_dominant_pct"])
+SIZE_HEADER = ["dimension", "bucket", "wallets", "pct_wallets", "total", "pct_total"]
+
+# Tranches de QUANTITE (nb d'exemplaires detenus) — demande Preda.
+QTY_BUCKETS = [(1, 1, "1"), (2, 10, "2-10"), (11, 50, "11-50"),
+               (51, 100, "51-100"), (101, 250, "101-250"), (251, 500, "251-500"),
+               (501, 1000, "501-1000"), (1001, 5000, "1001-5000"),
+               (5001, float("inf"), "5001+")]
+# Tranches de VALEUR (USD) — echelle log large.
+VALUE_BUCKETS = [(0, 100, "<100"), (100, 500, "100-500"), (500, 1000, "500-1k"),
+                 (1000, 5000, "1k-5k"), (5000, 25000, "5k-25k"),
+                 (25000, 100000, "25k-100k"), (100000, 500000, "100k-500k"),
+                 (500000, float("inf"), "500k+")]
+QTY_ORDER = [b[2] for b in QTY_BUCKETS]
+VALUE_ORDER = [b[2] for b in VALUE_BUCKETS]
+
+
+def qty_bucket(h: int) -> str:
+    for lo, hi, lbl in QTY_BUCKETS:
+        if lo <= h <= hi:
+            return lbl
+    return QTY_BUCKETS[-1][2]
+
+
+def value_bucket(v: float) -> str:
+    for lo, hi, lbl in VALUE_BUCKETS:
+        if lo <= v < hi:
+            return lbl
+    return VALUE_BUCKETS[-1][2]
+
+
+def _num(x):
+    try:
+        return float(str(x).replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+
+
+def _read_prices(sh):
+    """{uuid -> (store_price, floor_price)} depuis l'onglet cache _DynState."""
+    store, floor = {}, {}
+    try:
+        ws = sh.worksheet("_DynState")
+    except Exception:
+        return store, floor
+    for r in ws.get_all_records():
+        u = str(r.get("veve_uuid", "")).strip().lower()
+        if not u:
+            continue
+        sp = _num(r.get("veve_store_price"))
+        fp = _num(r.get("market_lowestOffer"))
+        if sp is not None:
+            store[u] = sp
+        if fp is not None:
+            floor[u] = fp
+    return store, floor
 
 SCORES = ["Diamond-Hands", "Serious Collector", "Collector", "Trader",
           "Flipper", "Seasoned Flipper", "Aggressive Flipper"]
@@ -221,10 +280,6 @@ def _gini(counts: List[int]) -> float:
     return round((2 * cum) / (n * s) - (n + 1) / n, 4)
 
 
-def _size_bucket(holdings: int) -> str:
-    return "small" if holdings <= 10 else "mid" if holdings < 100 else "whale"
-
-
 # ---------------------------------------------------------------------------
 # Sheet I/O
 # ---------------------------------------------------------------------------
@@ -291,17 +346,41 @@ def build_all(folder: str, sh, top: int, today: _dt.date):
     print(f"Rejeu : {len(ledger)} editions, {len(prof)} wallets, {n} transferts.",
           flush=True)
 
+    pseudos = _read_pseudos(sh)
+    names = _read_names(sh)
+    store_price, floor_price = _read_prices(sh)
+    print(f"Prix : {len(store_price)} store, {len(floor_price)} floor.", flush=True)
+
+    # valeur de chaque portefeuille (store & floor) depuis per_uuid
+    value_store = Counter()
+    value_floor = Counter()
+    for uid, holders in per_uuid.items():
+        ps = store_price.get(uid)
+        pf = floor_price.get(uid)
+        pf_eff = pf if pf is not None else ps      # floor sinon store
+        for w, c in holders.items():
+            if ps is not None:
+                value_store[w] += c * ps
+            if pf_eff is not None:
+                value_floor[w] += c * pf_eff
+
     # profil enrichi par wallet
-    score = {}
-    activity = {}
-    size = {}
+    score, activity, qbk, vsbk, vfbk = {}, {}, {}, {}, {}
     for w, p in prof.items():
         score[w] = collector_score(p)
         activity[w] = activity_status(p["last"], today)
-        size[w] = _size_bucket(p["holdings"])
+        qbk[w] = qty_bucket(p["holdings"])
+        vsbk[w] = value_bucket(value_store.get(w, 0))
+        vfbk[w] = value_bucket(value_floor.get(w, 0))
 
-    pseudos = _read_pseudos(sh)
-    names = _read_names(sh)
+    # holdings/listed/distinct par wallet (1 passe sur le grand livre)
+    listed_cnt = Counter()
+    distinct = defaultdict(set)
+    for (u, e), (hd, ls) in ledger.items():
+        if hd:
+            distinct[hd].add(u)
+            if ls:
+                listed_cnt[hd] += 1
 
     # WHALES : top par holdings
     whales = []
@@ -311,11 +390,11 @@ def build_all(folder: str, sh, top: int, today: _dt.date):
         p = prof[w]
         acq = p["mints"] + p["buys"]
         md = round(statistics.median(p["durations"]), 1) if p["durations"] else ""
-        listed = sum(1 for (u, e), (hd, ls) in ledger.items() if hd == w and ls)
-        whales.append([rank, w, pseudos.get(w, ""), h,
-                       len({u for (u, e), (hd, _l) in ledger.items() if hd == w}),
+        whales.append([rank, w, pseudos.get(w, ""), h, len(distinct[w]),
                        acq, p["sells"], round(h / acq, 3) if acq else "",
-                       md, score[w], p["last"], activity[w], listed])
+                       md, score[w], p["last"], activity[w], listed_cnt.get(w, 0),
+                       qbk[w], round(value_store.get(w, 0), 2),
+                       round(value_floor.get(w, 0), 2)])
 
     # CORNERISATION : 1 ligne/collectible
     corner = []
@@ -330,21 +409,69 @@ def build_all(folder: str, sh, top: int, today: _dt.date):
                 row += [cnt, round(100.0 * cnt / circ, 2) if circ else 0]
             else:
                 row += ["", ""]
-        # ventilation par taille / score / activite (ponderee par nb d'editions)
-        by_size, by_score, by_act = Counter(), Counter(), Counter()
+        # ventilation de l'offre par bucket qty / valeur / score / activite
+        b_qty, b_vs, b_vf, b_sc, b_ac = (Counter(), Counter(), Counter(),
+                                         Counter(), Counter())
         for w, c in counts:
-            by_size[size.get(w, "small")] += c
-            by_score[score.get(w, "n/a")] += c
-            by_act[activity.get(w, "Ghost")] += c
-        row += [round(100.0 * by_size["small"] / circ, 1) if circ else 0,
-                round(100.0 * by_size["mid"] / circ, 1) if circ else 0,
-                round(100.0 * by_size["whale"] / circ, 1) if circ else 0]
-        sd, sp = _dominant(by_score, SCORES + ["n/a"])
-        ad, ap = _dominant(by_act, ACTIVITIES)
-        row += [sd, sp, ad, ap]
+            b_qty[qbk.get(w, "1")] += c
+            b_vs[vsbk.get(w, "<100")] += c
+            b_vf[vfbk.get(w, "<100")] += c
+            b_sc[score.get(w, "n/a")] += c
+            b_ac[activity.get(w, "Ghost")] += c
+        for dist, order in ((b_qty, QTY_ORDER), (b_vs, VALUE_ORDER),
+                            (b_vf, VALUE_ORDER), (b_sc, SCORES + ["n/a"]),
+                            (b_ac, ACTIVITIES)):
+            d, pct = _dominant(dist, order)
+            row += [d, pct]
         corner.append(row)
     corner.sort(key=lambda r: -r[3])
-    return ledger, prof, whales, corner, score, activity
+
+    # DISTRIBUTION GLOBALE des wallets par taille (quantite + valeur)
+    size_rows = _size_distribution(prof, value_store, value_floor)
+
+    profiles_meta = (score, activity, qbk, vsbk, vfbk, value_store, value_floor)
+    return ledger, prof, whales, corner, size_rows, profiles_meta
+
+
+def _size_distribution(prof, value_store, value_floor):
+    """Reproduit la table 'wallet_size' : par bucket, nb wallets + total detenu."""
+    rows = []
+    # QUANTITE
+    w_by, tok_by = Counter(), Counter()
+    tot_w = tot_tok = 0
+    for w, p in prof.items():
+        h = p["holdings"]
+        if h <= 0:
+            continue
+        b = qty_bucket(h)
+        w_by[b] += 1
+        tok_by[b] += h
+        tot_w += 1
+        tot_tok += h
+    for _lo, _hi, b in QTY_BUCKETS:
+        rows.append(["quantity", b, w_by.get(b, 0),
+                     round(100.0 * w_by.get(b, 0) / tot_w, 2) if tot_w else 0,
+                     tok_by.get(b, 0),
+                     round(100.0 * tok_by.get(b, 0) / tot_tok, 2) if tot_tok else 0])
+    # VALEUR (store puis floor)
+    for dim, values in (("value_store", value_store), ("value_floor", value_floor)):
+        w_by, val_by = Counter(), Counter()
+        tot_w = tot_val = 0.0
+        for w in prof:
+            v = values.get(w, 0)
+            if v <= 0:
+                continue
+            b = value_bucket(v)
+            w_by[b] += 1
+            val_by[b] += v
+            tot_w += 1
+            tot_val += v
+        for _lo, _hi, b in VALUE_BUCKETS:
+            rows.append([dim, b, w_by.get(b, 0),
+                         round(100.0 * w_by.get(b, 0) / tot_w, 2) if tot_w else 0,
+                         round(val_by.get(b, 0), 2),
+                         round(100.0 * val_by.get(b, 0) / tot_val, 2) if tot_val else 0])
+    return rows
 
 
 def _save_ledger(ledger, path):
@@ -356,19 +483,23 @@ def _save_ledger(ledger, path):
             w.writerow([u, e, h, ls])
 
 
-def _save_profiles(prof, score, activity, path):
+def _save_profiles(prof, meta, path):
+    score, activity, qbk, vsbk, vfbk, vstore, vfloor = meta
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with gzip.open(path, "wt", encoding="utf-8", newline="") as f:
         w = csv.writer(f, lineterminator="\n")
         w.writerow(["wallet", "holdings", "acquired", "sold", "retention",
                     "median_hold_days", "collectorScore", "last_active",
-                    "activityStatus"])
+                    "activityStatus", "qty_bucket", "value_store",
+                    "value_store_bucket", "value_floor", "value_floor_bucket"])
         for wl, p in prof.items():
             acq = p["mints"] + p["buys"]
             md = round(statistics.median(p["durations"]), 1) if p["durations"] else ""
             w.writerow([wl, p["holdings"], acq, p["sells"],
                         round(p["holdings"] / acq, 3) if acq else "",
-                        md, score[wl], p["last"], activity[wl]])
+                        md, score[wl], p["last"], activity[wl], qbk[wl],
+                        round(vstore.get(wl, 0), 2), vsbk[wl],
+                        round(vfloor.get(wl, 0), 2), vfbk[wl]])
 
 
 def main() -> int:
@@ -391,13 +522,14 @@ def main() -> int:
         return 1
 
     sh = _client().open_by_key(sheet_id)
-    ledger, prof, whales, corner, score, activity = build_all(folder, sh, top, today)
+    ledger, prof, whales, corner, size_rows, meta = build_all(folder, sh, top, today)
 
     _save_ledger(ledger, os.environ.get("LEDGER_OUT", "data/ledger.csv.gz"))
-    _save_profiles(prof, score, activity,
+    _save_profiles(prof, meta,
                    os.environ.get("PROFILES_OUT", "data/wallet_profiles.csv.gz"))
     _write(sh, WHALES_TAB, WHALES_HEADER, whales)
     _write(sh, CORNER_TAB, CORNER_HEADER, corner)
+    _write(sh, SIZE_TAB, SIZE_HEADER, size_rows)
 
     summary = {"status": "OK", "editions": len(ledger), "wallets": len(prof),
                "whales": len(whales), "collectibles": len(corner),
