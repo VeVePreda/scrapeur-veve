@@ -941,10 +941,8 @@ def main() -> int:
     except Exception as e:
         print(f"formatting warning: {e}", flush=True)
 
-    try:
-        _write_dashboard(sh, profiles, whale_blocks, corner, today)
-    except Exception as e:
-        print(f"dashboard warning: {e}", flush=True)
+    # 🏠ACCUEIL supprime (10/07, choix Preda) : la synthese vit sur 📊 STATS
+    # (module stats_page, daily step 7). _write_dashboard n'est plus appele.
 
     summary = {"status": "OK", "editions": len(ledger),
                "holders": len(profiles), "wallets_behavior": len(prof),
