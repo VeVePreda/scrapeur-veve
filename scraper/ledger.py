@@ -47,6 +47,7 @@ from collections import Counter, defaultdict
 from typing import Dict, List, Tuple
 
 from scraper.sheets import _client, _open_worksheet, append_log
+from scraper import sheet_format as _fmt
 
 try:
     from scraper.collectchain import ZERO, MARKET_ESCROW, BURN_SINK
@@ -631,6 +632,17 @@ def main() -> int:
     _write(sh, CORNER_TAB, CORNER_HEADER, corner)          # 🎯
     _write_size_history(sh, size_rows, today.strftime("%Y-%m"))   # 📈 historique
     enriched = _enrich_pseudos(sh, profiles)               # 🟣 profils
+
+    # --- confort visuel : couleurs de tiers + heatmap Gini + formats nombres ---
+    try:
+        from scraper.stackr import PSEUDOS_HEADER
+        _fmt.format_tab(sh, WHALES_TAB, WHALE_BLOCK_COLS + [""] + WHALE_BLOCK_COLS
+                        + [""] + WHALE_BLOCK_COLS, header_rows=2)
+        _fmt.format_tab(sh, CORNER_TAB, CORNER_HEADER, header_rows=1)
+        _fmt.format_tab(sh, SIZE_TAB, SIZE_HEADER, header_rows=1)
+        _fmt.format_tab(sh, "🟣C-PSEUDOS", PSEUDOS_HEADER, header_rows=1)
+    except Exception as e:
+        print(f"formatting warning: {e}", flush=True)
 
     summary = {"status": "OK", "editions": len(ledger), "wallets": len(prof),
                "whales_top": top, "collectibles": len(corner),

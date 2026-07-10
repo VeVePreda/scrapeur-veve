@@ -34,6 +34,7 @@ from typing import Dict, List
 import requests
 
 from scraper.sheets import _client, _open_worksheet, _now, append_log
+from scraper import sheet_format as _fmt
 
 COHORTS_TAB = os.environ.get("COHORTS_TAB", "📅A-COHORTES")
 HEADER = ["grain", "period", "new_wallets", "cumulative", "pct_total"]
@@ -155,6 +156,11 @@ def main() -> int:
         ws.format("1:1", {"textFormat": {"bold": True}})
     except Exception:
         pass
+
+    try:
+        _fmt.format_tab(sh, COHORTS_TAB, HEADER, header_rows=1)
+    except Exception as e:
+        print(f"formatting warning: {e}", flush=True)
 
     months = sum(1 for r in rows if r[0] == "month")
     summary = {"status": "OK", "wallets": len(first), "rows": len(rows),
