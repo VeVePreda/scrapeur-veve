@@ -8,6 +8,8 @@ name: VeVe daily sync (catalogue + chain + pseudos)
 #   3. stackr     — StackR pseudo <-> wallet resolution (writes 🟣C-PSEUDOS)
 #   4. dynamic    — daily edition-counter refresh (GraphQL) into 🟠H-PRIX
 #   5. wallets    — enrich 🟣C-PSEUDOS with on-chain first_seen / last_active
+#   6. commit     — data/wallet_registry_daily.csv
+#   7. stats      — page 📊 STATS (KPI 7 jours, tableau groupe, sante 🩺)
 #
 # The fast-moving dynamic data (floor/listings) has its own 3-hourly workflow.
 # The VeVe market step was removed (scrap account blocked, no session).
@@ -103,3 +105,7 @@ jobs:
             git pull --rebase origin main && git push && break
             sleep $((i * 5))
           done
+
+      - name: 7) Page 📊 STATS (activite 7 jours + sante des sources)
+        if: ${{ always() }}
+        run: python -m scraper.stats_page
