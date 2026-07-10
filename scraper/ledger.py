@@ -61,10 +61,13 @@ BURN_TO = {ZERO, BURN_SINK}
 WHALES_TAB = "🐋A-WHALES"
 CORNER_TAB = "🎯A-CORNERISATION"
 SIZE_TAB = "📈H-WALLET-SIZE"
-# Typologie : un classement par type de whale (accumulatrice / valeur).
-WHALES_HEADER = ["type", "rank", "wallet", "pseudo", "metric_value", "holdings",
-                 "distinct_collectibles", "value_store", "value_floor",
-                 "collectorScore", "activityStatus"]
+# Typologie whales : 3 tableaux HORIZONTAUX cote a cote (top 100 chacun),
+# separes par une colonne vide. 10 colonnes par bloc.
+WHALE_BLOCK_COLS = ["rank", "wallet", "pseudo", "metric", "holdings",
+                    "distinct", "value_store", "value_floor", "score", "activity"]
+WHALE_TYPES = [("Whale Accumulatrice", "holdings"),
+               ("Whale Valeur Floor", "value_floor"),
+               ("Whale Valeur Store", "value_store")]
 SIZE_HEADER = ["snapshot_month", "dimension", "bucket", "wallets", "pct_wallets",
                "total", "pct_total"]
 # Colonnes de profil injectees dans 🟣C-PSEUDOS (join wallet_imx).
@@ -406,17 +409,15 @@ def build_all(folder: str, sh, top: int, today: _dt.date):
             "qty_bucket": qbk[w], "pseudo": pseudos.get(w, ""),
             "last_active": p["last"], "listed": listed_cnt.get(w, 0)}
 
-    # TYPOLOGIE des whales : 3 classements independants
-    whales = []
-    for typ, key in (("accumulatrice", "holdings"),
-                     ("valeur_floor", "value_floor"),
-                     ("valeur_store", "value_store")):
+    # TYPOLOGIE des whales : 3 blocs (top `top` par critere)
+    whale_blocks = []
+    for title, key in WHALE_TYPES:
         ranked = sorted(profiles.items(), key=lambda kv: -kv[1][key])[:top]
-        for rank, (w, pr) in enumerate(ranked, 1):
-            whales.append([typ, rank, w, pr["pseudo"], pr[key], pr["holdings"],
-                           pr["distinct_collectibles"], pr["value_store"],
-                           pr["value_floor"], pr["collectorScore"],
-                           pr["activityStatus"]])
+        rows = [[rank, w, pr["pseudo"], pr[key], pr["holdings"],
+                 pr["distinct_collectibles"], pr["value_store"], pr["value_floor"],
+                 pr["collectorScore"], pr["activityStatus"]]
+                for rank, (w, pr) in enumerate(ranked, 1)]
+        whale_blocks.append((title, rows))
 
     # CORNERISATION : 1 ligne/collectible
     corner = []
@@ -451,7 +452,7 @@ def build_all(folder: str, sh, top: int, today: _dt.date):
     # DISTRIBUTION GLOBALE des wallets par taille (quantite + valeur)
     size_rows = _size_distribution(prof, value_store, value_floor)
 
-    return ledger, prof, whales, corner, size_rows, profiles
+    return ledger, prof, whale_blocks, corner, size_rows, profiles
 
 
 def _size_distribution(prof, value_store, value_floor):
@@ -570,6 +571,37 @@ def _enrich_pseudos(sh, profiles):
     return updated
 
 
+def _write_whales_horizontal(sh, blocks):
+    """3 tableaux cote a cote separes d'une colonne vide (top 100 chacun).
+    Ligne 1 = titres, ligne 2 = en-tetes de colonnes, puis les donnees."""
+    ncol = len(WHALE_BLOCK_COLS)
+    title_row, header_row = [], []
+    for bi, (title, _rows) in enumerate(blocks):
+        if bi > 0:
+            title_row.append("")
+            header_row.append("")
+        title_row += [title] + [""] * (ncol - 1)
+        header_row += list(WHALE_BLOCK_COLS)
+    maxlen = max((len(rows) for _t, rows in blocks), default=0)
+    data = []
+    for i in range(maxlen):
+        line = []
+        for bi, (_title, rows) in enumerate(blocks):
+            if bi > 0:
+                line.append("")
+            line += rows[i] if i < len(rows) else [""] * ncol
+        data.append(line)
+    grid = [title_row, header_row] + data
+    ws = _open_worksheet(sh, WHALES_TAB, cols=len(title_row))
+    ws.clear()
+    ws.update(range_name="A1", values=grid, value_input_option="RAW")
+    try:
+        ws.freeze(rows=2)
+        ws.format("1:2", {"textFormat": {"bold": True}})
+    except Exception:
+        pass
+
+
 def main() -> int:
     t0 = time.time()
     sheet_id = os.environ.get("SHEET_ID")
@@ -577,7 +609,7 @@ def main() -> int:
         print("ERROR: SHEET_ID requis.", file=sys.stderr)
         return 2
     folder = os.environ.get("ARCHIVE_DIR", "dl")
-    top = int(os.environ.get("WHALES_TOP", "200"))
+    top = int(os.environ.get("WHALES_TOP", "100"))
     rd = os.environ.get("RUN_DATE")
     today = _dt.date.fromisoformat(rd) if rd else _dt.date.today()
 
@@ -590,18 +622,18 @@ def main() -> int:
         return 1
 
     sh = _client().open_by_key(sheet_id)
-    ledger, prof, whales, corner, size_rows, profiles = build_all(folder, sh, top, today)
+    ledger, prof, whale_blocks, corner, size_rows, profiles = build_all(folder, sh, top, today)
 
     _save_ledger(ledger, os.environ.get("LEDGER_OUT", "data/ledger.csv.gz"))
     _save_profiles(profiles,
                    os.environ.get("PROFILES_OUT", "data/wallet_profiles.csv.gz"))
-    _write(sh, WHALES_TAB, WHALES_HEADER, whales)          # typologie 🐋
+    _write_whales_horizontal(sh, whale_blocks)             # typologie 🐋 (3 tableaux)
     _write(sh, CORNER_TAB, CORNER_HEADER, corner)          # 🎯
     _write_size_history(sh, size_rows, today.strftime("%Y-%m"))   # 📈 historique
     enriched = _enrich_pseudos(sh, profiles)               # 🟣 profils
 
     summary = {"status": "OK", "editions": len(ledger), "wallets": len(prof),
-               "whales": len(whales), "collectibles": len(corner),
+               "whales_top": top, "collectibles": len(corner),
                "pseudos_enriched": enriched,
                "duration": f"{time.time()-t0:.0f}s"}
     try:
