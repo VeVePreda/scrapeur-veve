@@ -1,0 +1,16 @@
+Confort visuel du Sheet — repo preda
+=====================================
+3 fichiers scraper/ :
+  - sheet_format.py  (NOUVEAU) : palettes + regles de couleur automatiques
+  - ledger.py        : appelle le formatage sur 🐋A-WHALES, 🎯A-CORNERISATION,
+                       📈H-WALLET-SIZE, 🟣C-PSEUDOS
+  - cohorts.py       : formatage 📅A-COHORTES
+
+Ce que ca fait (se reapplique a chaque run des workflows ledger/cohorts) :
+  - CollectorScore colore par tier (violet Diamond-Hands -> bordeaux Aggressive)
+  - activityStatus colore (vert Active -> rouge Ghost)
+  - Gini en heatmap (vert distribue -> rouge cornerise)
+  - nombres avec separateur de milliers, pourcentages formates
+Relancer les workflows "grand livre" (ledger) et "cohortes" pour voir le rendu.
+Les couleurs sont dans sheet_format.py (SCORE_COLORS / ACTIVITY_COLORS) —
+dis-moi si tu veux les ajuster.
