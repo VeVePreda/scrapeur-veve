@@ -1,0 +1,84 @@
+name: Analytics - grand livre (holdings)
+
+# DEUX sources (chacune tolerante si absente, il en faut au moins une) :
+#   1. Release "holders-snapshot" (repo public paolo)     -> etat PRESENT exact
+#      (qui detient quel exemplaire AUJOURD'HUI) : cornerisation, whales,
+#      wallet-size exacts des que le scan holders est termine.
+#   2. Release "chain-archive"   (repo public astronema)  -> HISTORIQUE des
+#      transferts : comportement (CollectorScore, durees, last_active) +
+#      resolution du vendeur des tokens en escrow.
+# Ecrit : data/ledger.csv.gz + data/wallet_profiles.csv.gz (commites),
+# onglets 🐋A-WHALES / 🎯A-CORNERISATION / 📈H-WALLET-SIZE / 🟣C-PSEUDOS / 🏠ACCUEIL.
+
+on:
+  workflow_dispatch:
+    inputs:
+      archive_repo:
+        description: "Repo owner/name de l'archive chain-archive"
+        default: "astronemagame-maker/astronema"
+      snapshot_repo:
+        description: "Repo owner/name du snapshot holders-snapshot"
+        default: "lepaolo/paolo"
+      whales_top:
+        description: "Nombre de whales a lister"
+        default: "100"
+
+permissions:
+  contents: write
+
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      SHEET_ID: ${{ secrets.SHEET_ID }}
+      WHALES_TOP: ${{ github.event.inputs.whales_top || '100' }}
+      ARCHIVE_DIR: dl
+      SNAPSHOT_DIR: dl_snap
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Telecharger l'archive transferts (Release chain-archive)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dl
+          REPO="${{ github.event.inputs.archive_repo || 'astronemagame-maker/astronema' }}"
+          gh release download chain-archive --repo "$REPO" --dir dl --pattern '*.csv.gz' \
+            || echo "Archive transferts indisponible - on continue (snapshot seul)."
+          echo "Archive :" && ls -lh dl/ || true
+
+      - name: Telecharger le snapshot holders (Release holders-snapshot)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dl_snap
+          REPO="${{ github.event.inputs.snapshot_repo || 'lepaolo/paolo' }}"
+          gh release download holders-snapshot --repo "$REPO" --dir dl_snap --pattern '*.csv.gz' \
+            || echo "Snapshot holders indisponible - on continue (rejeu seul)."
+          echo "Snapshot :" && ls -lh dl_snap/ || true
+
+      - name: Construire le grand livre + agregats
+        run: python -m scraper.ledger
+
+      - name: Commit du grand livre
+        if: ${{ always() }}
+        run: |
+          git config user.name "veve-ledger-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/ledger.csv.gz data/wallet_profiles.csv.gz
+          if git diff --cached --quiet; then echo "Rien a committer."; exit 0; fi
+          git commit -m "ledger: grand livre + profils $(date -u +%FT%H:%M)"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && break
+            sleep $((i * 5))
+          done
