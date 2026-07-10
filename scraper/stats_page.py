@@ -9,9 +9,13 @@ Refonte demandee par Preda (2026-07-10) :
         TRANSACTION : Global | Mint | Market | Burn   (Global = M+M+B)
         ACTIF       : Unique | Nouveaux
         REVENUE     : Total | Drop | Market
+        OMI BURN    : Global | OMI→NFT | OMI→GEM      (ajout Preda 10/07)
     (exit Panier moyen, % nouveaux, tx/actif) ;
   * Revenue Market = colonne PRESENTE mais VIDE tant que les prix de vente
     reels ne sont pas collectes (chantier 7) -> Total = Drop pour l'instant ;
+  * OMI BURN Global = omi_burned du jour depuis 🔥H-BURNS (dates PT aussi) ;
+    OMI→NFT / OMI→GEM = colonnes VIDES en attendant la decomposition des
+    burns (analyse de l'amont 0x61E7C72569, chantier burns) ;
   * modules de droite en donnees 7 JOURS (🏆 top series mints, 📦 repartition) ;
   * bloc 🩺 sante des sources en bas de page (module health).
 
@@ -52,11 +56,12 @@ TOP_SERIES = int(os.environ.get("STATS_TOP_SERIES", "8"))
 TABLE_START_ROW = 10                 # 1re ligne de donnees du tableau quotidien
 GROUP_ROW = 8                        # ligne des groupes (fusionnee)
 HEADER_ROW = 9                       # ligne des colonnes
-MODULE_COL = "L"                     # colonne des modules de droite
+MODULE_COL = "O"                     # colonne des modules de droite
 
 ACTIVITY_TAB = "ChainActivity"
 ITEMS_TAB = "ChainItems"
 DYN_STATE_TAB = "_DynState"
+BURNS_TAB = "🔥H-BURNS"
 
 MINT_F = ["mint_collectible", "mint_comic"]
 MARKET_F = ["market_in_collectible", "market_in_comic"]   # 1 vente = 1 in
@@ -97,6 +102,20 @@ def read_store_prices(sh) -> Dict[str, float]:
         if u and p is not None:
             out[u] = p
     return out
+
+
+def read_omi_burns(sh) -> Dict[str, float]:
+    """{date_pt -> OMI brules ce jour} depuis 🔥H-BURNS (toutes sources)."""
+    out: Dict[str, float] = defaultdict(float)
+    for r in _records(sh, BURNS_TAB):
+        d = str(r.get("date", "")).strip()
+        try:
+            v = float(str(r.get("omi_burned", "")).replace(",", ".") or 0)
+        except (TypeError, ValueError):
+            v = 0.0
+        if d and v:
+            out[d] += v
+    return dict(out)
 
 
 # ---------------------------------------------------------------------------
@@ -159,12 +178,13 @@ def _week_dates(daily: List[Dict[str, Any]]) -> List[str]:
     return [d["date"] for d in daily if d["date"] >= start]
 
 
-def compute_week(daily, revenue) -> Dict[str, Any]:
+def compute_week(daily, revenue, omi=None) -> Dict[str, Any]:
     days = set(_week_dates(daily))
     rows = [d for d in daily if d["date"] in days]
     accounts = set()
     for d in rows:
         accounts |= d["accounts"]
+    omi = omi or {}
     return {
         "start": min(days) if days else "",
         "end": max(days) if days else "",
@@ -175,6 +195,7 @@ def compute_week(daily, revenue) -> Dict[str, Any]:
         "burn": sum(d["burn"] for d in rows),
         "uniques": len(accounts),
         "new": sum(d["new"] for d in rows),
+        "omi": round(sum(omi.get(d["date"], 0) for d in rows)),
     }
 
 
@@ -210,32 +231,38 @@ def compute_split(items, week_days: set) -> Dict[str, int]:
 # Construction de la page
 # ---------------------------------------------------------------------------
 
-def build_table_grid(daily, revenue, week, now_utc: str) -> List[List]:
-    """Grille A1:J.. : titre, bande KPI 7 jours, tableau quotidien groupe."""
+def build_table_grid(daily, revenue, week, omi, now_utc: str) -> List[List]:
+    """Grille A1:M.. : titre, bande KPI 7 jours, tableau quotidien groupe."""
     g: List[List] = []
     g.append(["📊  STATS VEVE — ACTIVITÉ ON-CHAIN", "", "", "", "", "", "",
-              "", "", "", "", f"maj : {now_utc}"])
+              "", "", "", "", "", "", "", f"maj : {now_utc}"])
     g.append(["Jours pacifiques terminés uniquement · Revenue drop = mints × "
-              "prix store · Revenue market : en attente des prix réels "
-              "(chantier 7)"])
+              "prix store · Revenue market et OMI→NFT/GEM : en attente "
+              "(chantiers prix & décompo burns)"])
     g.append([])
     g.append([f"▼  7 DERNIERS JOURS TERMINÉS — du {week['start']} au "
               f"{week['end']}"])
     g.append(["Revenue drop", "Transactions", "Mints", "Market", "Burns",
-              "Actifs uniques", "Nouveaux"])
+              "Actifs uniques", "Nouveaux", "OMI brûlés"])
     g.append([week["revenue"], week["tx"], week["mint"], week["market"],
-              week["burn"], week["uniques"], week["new"]])
+              week["burn"], week["uniques"], week["new"], week["omi"]])
     g.append([])
-    g.append(["", "TRANSACTION", "", "", "", "ACTIF", "", "REVENUE", "", ""])
+    g.append(["", "TRANSACTION", "", "", "", "ACTIF", "", "REVENUE", "", "",
+              "OMI BURN", "", ""])
     g.append(["Date", "Global", "Mint", "Market", "Burn", "Unique",
-              "Nouveaux", "Total", "Drop", "Market"])
+              "Nouveaux", "Total", "Drop", "Market",
+              "Global", "OMI→NFT", "OMI→GEM"])
     for d in daily:
         drop = round(revenue.get(d["date"], 0))
+        o = omi.get(d["date"])
         g.append([d["date"], d["tx"], d["mint"], d["market"], d["burn"],
                   d["uniques"], d["new"],
                   drop,           # Total = Drop tant que Market est vide
                   drop,
-                  ""])            # Revenue Market : chantier 7
+                  "",             # Revenue Market : chantier 7
+                  round(o) if o is not None else "",
+                  "",             # OMI→NFT : decompo a venir
+                  ""])            # OMI→GEM : decompo a venir
     return g
 
 
@@ -258,6 +285,10 @@ def build_modules_grid(top_series, split, week) -> List[List]:
     g.append(["", ""])
     g.append(["ℹ️  NOTES", ""])
     g.append(["• Transactions Global = mints + ventes marché + burns.", ""])
+    g.append(["• OMI burn = 🔥H-BURNS (StackR/Base, jours PT) ; OMI→NFT et "
+              "OMI→GEM : décomposition à venir.", ""])
+    g.append(["• Le dernier jour OMI peut se compléter au run suivant "
+              "(cron burns à 05:31 UTC).", ""])
     g.append(["• Revenue drop = mints × prix store (collectibles ET comics "
               "quand le prix est connu).", ""])
     g.append(["• Revenue market : vide en attendant les prix de vente réels "
@@ -280,29 +311,30 @@ def _fmt_requests(ws_id: int, n_daily: int) -> List[Dict]:
 
     last = TABLE_START_ROW - 1 + max(n_daily, 1)
     reqs: List[Dict] = [
-        {"unmergeCells": {"range": rng(0, 60, 0, 14)}},
-        {"mergeCells": {"range": rng(0, 1, 0, 10), "mergeType": "MERGE_ALL"}},
-        {"mergeCells": {"range": rng(1, 2, 0, 10), "mergeType": "MERGE_ALL"}},
-        {"mergeCells": {"range": rng(3, 4, 0, 10), "mergeType": "MERGE_ALL"}},
+        {"unmergeCells": {"range": rng(0, 60, 0, 18)}},
+        {"mergeCells": {"range": rng(0, 1, 0, 13), "mergeType": "MERGE_ALL"}},
+        {"mergeCells": {"range": rng(1, 2, 0, 13), "mergeType": "MERGE_ALL"}},
+        {"mergeCells": {"range": rng(3, 4, 0, 13), "mergeType": "MERGE_ALL"}},
         {"mergeCells": {"range": rng(7, 8, 1, 5), "mergeType": "MERGE_ALL"}},
         {"mergeCells": {"range": rng(7, 8, 5, 7), "mergeType": "MERGE_ALL"}},
         {"mergeCells": {"range": rng(7, 8, 7, 10), "mergeType": "MERGE_ALL"}},
-        {"mergeCells": {"range": rng(7, 8, 11, 13), "mergeType": "MERGE_ALL"}},
+        {"mergeCells": {"range": rng(7, 8, 10, 13), "mergeType": "MERGE_ALL"}},
+        {"mergeCells": {"range": rng(7, 8, 14, 16), "mergeType": "MERGE_ALL"}},
         # titre + bande semaine
-        {"repeatCell": {"range": rng(0, 1, 0, 10),
+        {"repeatCell": {"range": rng(0, 1, 0, 13),
                         "cell": {"userEnteredFormat": {"textFormat": {
                             "bold": True, "fontSize": 14}}},
                         "fields": "userEnteredFormat.textFormat"}},
-        {"repeatCell": {"range": rng(3, 4, 0, 10),
+        {"repeatCell": {"range": rng(3, 4, 0, 13),
                         "cell": {"userEnteredFormat": {
                             "backgroundColor": bg(232, 240, 254),
                             "textFormat": {"bold": True}}},
                         "fields": "userEnteredFormat(backgroundColor,textFormat)"}},
-        {"repeatCell": {"range": rng(4, 5, 0, 7),
+        {"repeatCell": {"range": rng(4, 5, 0, 8),
                         "cell": {"userEnteredFormat": {"textFormat": {
                             "bold": True, "foregroundColor": bg(102, 102, 102)}}},
                         "fields": "userEnteredFormat.textFormat"}},
-        {"repeatCell": {"range": rng(5, 6, 0, 7),
+        {"repeatCell": {"range": rng(5, 6, 0, 8),
                         "cell": {"userEnteredFormat": {"textFormat": {
                             "bold": True, "fontSize": 12}}},
                         "fields": "userEnteredFormat.textFormat"}},
@@ -328,8 +360,16 @@ def _fmt_requests(ws_id: int, n_daily: int) -> List[Dict]:
                             "textFormat": {"bold": True}}},
                         "fields": "userEnteredFormat(backgroundColor,"
                                   "horizontalAlignment,textFormat)"}},
+        # groupe OMI BURN (rouge clair)
+        {"repeatCell": {"range": rng(7, 8, 10, 13),
+                        "cell": {"userEnteredFormat": {
+                            "backgroundColor": bg(244, 204, 204),
+                            "horizontalAlignment": "CENTER",
+                            "textFormat": {"bold": True}}},
+                        "fields": "userEnteredFormat(backgroundColor,"
+                                  "horizontalAlignment,textFormat)"}},
         # ligne 9 : en-tetes de colonnes
-        {"repeatCell": {"range": rng(8, 9, 0, 10),
+        {"repeatCell": {"range": rng(8, 9, 0, 13),
                         "cell": {"userEnteredFormat": {
                             "backgroundColor": bg(243, 243, 243),
                             "textFormat": {"bold": True}}},
@@ -343,18 +383,22 @@ def _fmt_requests(ws_id: int, n_daily: int) -> List[Dict]:
                         "cell": {"userEnteredFormat": {"numberFormat": {
                             "type": "NUMBER", "pattern": "#,##0 $"}}},
                         "fields": "userEnteredFormat.numberFormat"}},
+        {"repeatCell": {"range": rng(TABLE_START_ROW - 1, last, 10, 13),
+                        "cell": {"userEnteredFormat": {"numberFormat": {
+                            "type": "NUMBER", "pattern": "#,##0"}}},
+                        "fields": "userEnteredFormat.numberFormat"}},
         {"repeatCell": {"range": rng(5, 6, 0, 1),
                         "cell": {"userEnteredFormat": {"numberFormat": {
                             "type": "NUMBER", "pattern": "#,##0 $"}}},
                         "fields": "userEnteredFormat.numberFormat"}},
-        {"repeatCell": {"range": rng(5, 6, 1, 7),
+        {"repeatCell": {"range": rng(5, 6, 1, 8),
                         "cell": {"userEnteredFormat": {"numberFormat": {
                             "type": "NUMBER", "pattern": "#,##0"}}},
                         "fields": "userEnteredFormat.numberFormat"}},
         # largeur de la colonne des modules
         {"updateDimensionProperties": {
             "range": {"sheetId": ws_id, "dimension": "COLUMNS",
-                      "startIndex": 11, "endIndex": 12},
+                      "startIndex": 14, "endIndex": 15},
             "properties": {"pixelSize": 330}, "fields": "pixelSize"}},
         # gel des 9 premieres lignes
         {"updateSheetProperties": {
@@ -377,16 +421,17 @@ def write_stats(sh) -> Dict[str, Any]:
     if not daily:
         raise RuntimeError("ChainActivity vide — page 📊 STATS non touchee.")
     revenue = compute_revenue(items, prices)
-    week = compute_week(daily, revenue)
+    omi = read_omi_burns(sh)
+    week = compute_week(daily, revenue, omi)
     wdays = set(_week_dates(daily))
     top_series = compute_top_series(items, wdays)
     split = compute_split(items, wdays)
 
     now_utc = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
-    table = build_table_grid(daily, revenue, week, now_utc)
+    table = build_table_grid(daily, revenue, week, omi, now_utc)
     modules = build_modules_grid(top_series, split, week)
 
-    ws = _open_worksheet(sh, STATS_TAB, cols=14)
+    ws = _open_worksheet(sh, STATS_TAB, cols=17)
     ws.clear()
     ws.update(range_name="A1", values=table, value_input_option="RAW")
     ws.update(range_name=f"{MODULE_COL}{GROUP_ROW}", values=modules,
