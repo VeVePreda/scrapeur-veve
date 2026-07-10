@@ -1,12 +1,15 @@
 name: Analytics - grand livre (holdings)
 
-# DEUX sources (chacune tolerante si absente, il en faut au moins une) :
+# TROIS sources (chacune tolerante si absente, il en faut au moins une) :
 #   1. Release "holders-snapshot" (repo public paolo)     -> etat PRESENT exact
 #      (qui detient quel exemplaire AUJOURD'HUI) : cornerisation, whales,
 #      wallet-size exacts des que le scan holders est termine.
 #   2. Release "chain-archive"   (repo public astronema)  -> HISTORIQUE des
 #      transferts : comportement (CollectorScore, durees, last_active) +
 #      resolution du vendeur des tokens en escrow.
+#   3. Release "chain-archive-daily" (CE repo)            -> CONTINUITE : les
+#      journees produites par chain_run apres le mur du scan profond.
+#      Chevauchements deduplique par (block, log_index) dans replay().
 # Ecrit : data/ledger.csv.gz + data/wallet_profiles.csv.gz (commites),
 # onglets 🐋A-WHALES / 🎯A-CORNERISATION / 📈H-WALLET-SIZE / 🟣C-PSEUDOS / 🏠ACCUEIL.
 
@@ -66,6 +69,14 @@ jobs:
           gh release download holders-snapshot --repo "$REPO" --dir dl_snap --pattern '*.csv.gz' \
             || echo "Snapshot holders indisponible - on continue (rejeu seul)."
           echo "Snapshot :" && ls -lh dl_snap/ || true
+
+      - name: Telecharger la continuite quotidienne (Release chain-archive-daily, ce repo)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download chain-archive-daily --dir dl --pattern '*.csv.gz' \
+            || echo "Pas d'archive quotidienne (Release absente) - ok."
+          echo "dl :" && ls -lh dl/ || true
 
       - name: Construire le grand livre + agregats
         run: python -m scraper.ledger
