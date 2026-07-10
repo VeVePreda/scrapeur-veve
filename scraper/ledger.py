@@ -179,10 +179,14 @@ def _ts(x: str):
 # ---------------------------------------------------------------------------
 
 def _archive_files(folder: str) -> List[str]:
-    files = glob.glob(os.path.join(folder, "*transfers*run*.csv.gz"))
+    """Tranches du scan profond (*run*) + continuite quotidienne (*daily*).
+    Les chevauchements entre les deux sont deduplique par (block, log_index)
+    dans replay()."""
+    files = (glob.glob(os.path.join(folder, "*transfers*run*.csv.gz"))
+             + glob.glob(os.path.join(folder, "*transfers*daily*.csv.gz")))
     if not files:
         files = glob.glob(os.path.join(folder, "*.csv.gz"))
-    return sorted(files)
+    return sorted(set(files))
 
 
 def _snapshot_files(folder: str) -> List[str]:
@@ -250,6 +254,19 @@ def merge_state(replay_ledger, snap):
     return merged, stats
 
 
+def _blkey(r) -> Tuple[int, int] | None:
+    """Identite on-chain d'un transfert : (block, log_index) — unique sur la
+    chaine. Sert a dedupliquer les archives chevauchantes (scan profond vs
+    continuite quotidienne) et a ordonner les evenements d'une meme seconde."""
+    b = str(r.get("block") or "").strip()
+    if not b:
+        return None
+    try:
+        return (int(b), int(str(r.get("log_index") or "0").strip() or 0))
+    except ValueError:
+        return None
+
+
 def replay(folder: str):
     """Retourne (ledger, prof, n_transfers).
 
@@ -257,6 +274,7 @@ def replay(folder: str):
     prof   : {wallet -> dict(mints,buys,sells,durations[],first,last)}
              = COMPORTEMENT seul ; les holdings courants sont derives ensuite
              du grand livre fusionne (rejeu + snapshot).
+    Les lignes en double entre archives (meme block+log_index) sont ignorees.
     """
     # 1) collecter la sequence chrono de chaque edition
     seq: Dict[Tuple[str, str], List] = defaultdict(list)
@@ -273,7 +291,8 @@ def replay(folder: str):
                     continue
                 seq[(uid, ed)].append((ts, (r.get("from") or "").strip().lower(),
                                        (r.get("to") or "").strip().lower(),
-                                       (r.get("date_pt") or "").strip()))
+                                       (r.get("date_pt") or "").strip(),
+                                       _blkey(r)))
                 n += 1
 
     ledger: Dict[Tuple[str, str], Tuple[str, int]] = {}
@@ -286,12 +305,20 @@ def replay(folder: str):
                            "durations": [], "first": "", "last": ""}
         return p
 
+    dups = 0
     for (uid, ed), trs in seq.items():
-        trs.sort(key=lambda x: x[0])           # chrono ASC
+        # chrono ASC ; a la meme seconde, ordre on-chain (block, log_index) —
+        # important pour le dump de migration (des milliers de tx/seconde).
+        trs.sort(key=lambda x: (x[0], x[4] or (0, 0)))
         holder = None                           # proprietaire reel courant
         seg_start = None
         listed = 0
-        for ts, frm, to, day in trs:
+        prev_key = None
+        for ts, frm, to, day, key in trs:
+            if key is not None and key == prev_key:
+                dups += 1                        # doublon d'archives chevauchantes
+                continue
+            prev_key = key
             # activite on-chain (min/max) pour les wallets reels
             for w in (frm, to):
                 if w and w not in SYSTEM:
@@ -330,6 +357,9 @@ def replay(folder: str):
             ledger[(uid, ed)] = (holder, listed)
         else:
             ledger[(uid, ed)] = ("", 0)          # brulee / systeme
+    if dups:
+        print(f"Rejeu : {dups} doublons d'archives ignores (chevauchement "
+              f"scan profond / continuite quotidienne).", flush=True)
     return ledger, prof, n
 
 

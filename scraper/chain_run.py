@@ -12,17 +12,69 @@ Env:
     SHEET_ID              spreadsheet id (same as the catalogue sheet)
     CHAIN_MODE            backfill | daily          (default: daily)
     CHAIN_BACKFILL_DAYS   days for backfill mode    (default: 31)
+    CHAIN_ARCHIVE         "true" (defaut) = archiver les journees PT completes
+                          traitees en archive/transfers_daily_<date>.csv.gz
+                          (continuite de l'archive du scan profond ; le workflow
+                          les uploade dans la Release chain-archive-daily)
+    CHAIN_ARCHIVE_DIR     dossier de sortie (defaut "archive")
 """
 
 from __future__ import annotations
 
+import csv
 import datetime as _dt
+import gzip
 import os
 import sys
 import time
 
 from scraper import collectchain as cc
 from scraper import chain_sheets as cs
+
+# Colonnes de l'archive des transferts — IDENTIQUES a celles du scan profond
+# (wallet_scan / Release chain-archive du repo astronema) pour que ledger.py
+# lise les deux sources uniformement.
+ARCHIVE_HEADER = ["block", "log_index", "ts_utc", "date_pt", "kind", "category",
+                  "veve_uuid", "edition", "from", "to"]
+
+
+def _archive_records(records, min_complete_day: str):
+    """CONTINUITE DE L'ARCHIVE : ecrit les transferts traites dans
+    archive/transfers_daily_<date_pt>.csv.gz — UN fichier par journee PT.
+
+    Idempotent : re-traiter une journee (backfill) reecrit le meme fichier,
+    remplace dans la Release par --clobber. `min_complete_day` = journee PT
+    contenant le cutoff, potentiellement PARTIELLE -> exclue, ainsi que tout
+    ce qui est plus ancien (on n'archive que des journees completes ; le scan
+    profond ou un backfill plus large les fournit). Les chevauchements avec le
+    scan profond sont deduplique par (block, log_index) dans ledger.replay.
+    Retourne {date_pt: nb_lignes}.
+    """
+    if os.environ.get("CHAIN_ARCHIVE", "true").strip().lower() != "true":
+        return {}
+    outdir = os.environ.get("CHAIN_ARCHIVE_DIR", "archive")
+    by_day = {}
+    for r in records:
+        if r["date"] <= min_complete_day:
+            continue                      # journee du cutoff = partielle
+        by_day.setdefault(r["date"], []).append(r)
+    if not by_day:
+        return {}
+    os.makedirs(outdir, exist_ok=True)
+    counts = {}
+    for day, recs in sorted(by_day.items()):
+        recs.sort(key=lambda r: (r["ts"], r["block"] or 0, r["log_index"] or 0))
+        path = os.path.join(outdir, f"transfers_daily_{day}.csv.gz")
+        with gzip.open(path, "wt", encoding="utf-8", newline="") as f:
+            w = csv.writer(f, lineterminator="\n")
+            w.writerow(ARCHIVE_HEADER)
+            for r in recs:
+                w.writerow([r["block"], r["log_index"] or 0,
+                            r["ts"].strftime("%Y-%m-%d %H:%M:%S"), r["date"],
+                            r["kind"], r["category"], r["veve_uuid"],
+                            r["edition"], r["from"], r["to"]])
+        counts[day] = len(recs)
+    return counts
 
 
 def main() -> int:
@@ -76,6 +128,17 @@ def main() -> int:
             added = cs.append_activity(sheet_id, rows)
             cs.append_items(sheet_id, cc.aggregate_items(records))
             pruned = cs.prune_activity(sheet_id) + cs.prune_items(sheet_id)
+
+        # CONTINUITE DE L'ARCHIVE : les journees PT completes traitees ce run
+        # partent en archive/ (upload Release chain-archive-daily par le workflow).
+        cutoff_pt_day = cutoff.replace(tzinfo=_dt.timezone.utc) \
+            .astimezone(cc.PT).strftime("%Y-%m-%d")
+        arch = _archive_records(records, cutoff_pt_day)
+        if arch:
+            summary["archived_days"] = len(arch)
+            summary["archived_rows"] = sum(arch.values())
+            print(f"Archive quotidienne : {len(arch)} journee(s), "
+                  f"{sum(arch.values())} transferts -> archive/.", flush=True)
 
         # Market escrow deposits -> (veve_uuid, edition) -> seller wallet, for the
         # pseudo<->wallet join with the Market listings.
