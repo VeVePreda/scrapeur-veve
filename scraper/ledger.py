@@ -1,9 +1,25 @@
 """
 Analytics — GRAND LIVRE + PROFILS + CORNERISATION (finalites 2/4/5/6).
 
-Rejoue l'archive des transferts CollectChain (Release "chain-archive" du repo
-astronema) pour reconstruire, par EDITION (uuid, edition), toute la chaine de
-proprietaires. En derive :
+DEUX sources complementaires :
+
+  1. SNAPSHOT HOLDERS (Release "holders-snapshot" du repo paolo, holders_scan)
+     = l'etat PRESENT exact : pour chaque token, son proprietaire ACTUEL.
+     PRIORITAIRE pour tout ce qui est "etat courant" (holdings, cornerisation,
+     wallet-size, whales par holdings). Exact des que le scan holders est fini
+     — sans attendre le scan des transferts.
+  2. ARCHIVE TRANSFERTS (Release "chain-archive" du repo astronema, wallet_scan)
+     = l'HISTORIQUE : rejouee par EDITION (uuid, edition) pour le COMPORTEMENT
+     (mints/achats/ventes, durees de detention -> CollectorScore, last_active
+     -> activityStatus) et pour resoudre le VENDEUR des tokens en escrow.
+
+Fusion : le snapshot prime sur le rejeu pour le detenteur courant ; les cles
+absentes du snapshot gardent la valeur du rejeu (snapshot partiel tolere ;
+sans snapshot, comportement identique a l'ancien rejeu seul). Un wallet vu au
+snapshot mais pas encore dans l'archive a un profil "etat seul" :
+collectorScore=n/a, activityStatus="" (comportement inconnu, PAS Ghost).
+
+En derive :
 
   * le grand livre       -> data/ledger.csv.gz        (uuid, edition, holder, listed)
   * le profil par wallet -> data/wallet_profiles.csv.gz + onglet 📊A-WHALES
@@ -26,11 +42,14 @@ ActivityStatus (jours depuis last_active on-chain, seuils Preda) :
 
 Taille de portefeuille : small<=10 . mid 11-99 . whale>=100 (nb total detenu).
 
-/!\ EXACT quand le scan CollectChain est TERMINE. Avant : partiel.
+/!\\ Etat courant EXACT quand le snapshot holders est TERMINE (ou, a defaut,
+    quand le scan des transferts l'est). Comportement (scores, durees) exact
+    seulement quand le scan des transferts est termine.
 
 Env : GOOGLE_SERVICE_ACCOUNT_JSON, SHEET_ID, ARCHIVE_DIR (defaut "dl"),
-      WHALES_TOP (200), LEDGER_OUT (data/ledger.csv.gz),
-      PROFILES_OUT (data/wallet_profiles.csv.gz), RUN_DATE (override du jour, test).
+      SNAPSHOT_DIR (defaut "dl_snap"), WHALES_TOP (200),
+      LEDGER_OUT (data/ledger.csv.gz), PROFILES_OUT (data/wallet_profiles.csv.gz),
+      RUN_DATE (override du jour, test).
 """
 
 from __future__ import annotations
@@ -166,12 +185,78 @@ def _archive_files(folder: str) -> List[str]:
     return sorted(files)
 
 
-def replay(folder: str):
-    """Retourne (ledger, profiles, per_uuid, n_transfers).
+def _snapshot_files(folder: str) -> List[str]:
+    files = glob.glob(os.path.join(folder, "*holders*run*.csv.gz"))
+    if not files:
+        files = glob.glob(os.path.join(folder, "*.csv.gz"))
+    return sorted(files)
 
-    ledger    : {(uuid,edition) -> (holder, listed)}
-    profiles  : {wallet -> dict(mints,buys,sells,holdings,durations[],first,last)}
-    per_uuid  : {uuid -> Counter(holder -> nb editions detenues)}
+
+def load_snapshot(folder: str):
+    """Charge le snapshot des detenteurs ACTUELS (archive holders_scan).
+
+    Retourne (snap, snap_names, skipped) :
+      snap       : {(uuid, edition) -> owner}  (owner minuscule, brut : peut
+                   etre l'escrow, le coffre ou 0x0 — interprete par merge_state)
+      snap_names : {uuid -> (name, category)}  fallback noms pour la cornerisation
+      skipped    : lignes sans uuid/edition/token_id (non cle-ables)
+    Dedup par token_id : le fichier le plus recent (runNNN croissant) gagne.
+    """
+    by_token: Dict[str, Tuple[str, str, str]] = {}
+    snap_names: Dict[str, Tuple[str, str]] = {}
+    skipped = 0
+    for path in _snapshot_files(folder):
+        with gzip.open(path, "rt", encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                uid = (r.get("veve_uuid") or "").strip().lower()
+                ed = (r.get("edition") or "").strip()
+                tid = (r.get("token_id") or "").strip()
+                if not uid or not ed or not tid:
+                    skipped += 1
+                    continue
+                by_token[tid] = (uid, ed, (r.get("owner") or "").strip().lower())
+                if uid not in snap_names and (r.get("name") or "").strip():
+                    snap_names[uid] = ((r.get("name") or "").strip(),
+                                       (r.get("category") or "").strip())
+    snap: Dict[Tuple[str, str], str] = {}
+    for uid, ed, owner in by_token.values():
+        snap[(uid, ed)] = owner
+    return snap, snap_names, skipped
+
+
+def merge_state(replay_ledger, snap):
+    """Fusionne rejeu + snapshot : le snapshot (etat PRESENT) prime.
+
+    - owner normal          -> detenteur = owner, listed=0
+    - owner escrow          -> token EN VENTE ; vendeur resolu via le rejeu
+                               (depot vu dans l'archive) sinon inconnu ("")
+    - owner coffre/0x0/vide -> brulee
+    Les cles absentes du snapshot gardent la valeur du rejeu (snapshot partiel
+    tolere ; sans snapshot, merged == rejeu).
+    """
+    merged = dict(replay_ledger)
+    stats: Counter = Counter()
+    for key, owner in snap.items():
+        if not owner or owner in BURN_TO:
+            merged[key] = ("", 0)
+            stats["burned"] += 1
+        elif owner == MARKET_ESCROW:
+            holder = (replay_ledger.get(key) or ("", 0))[0]
+            merged[key] = (holder, 1)
+            stats["escrow_resolved" if holder else "escrow_unresolved"] += 1
+        else:
+            merged[key] = (owner, 0)
+            stats["owned"] += 1
+    return merged, stats
+
+
+def replay(folder: str):
+    """Retourne (ledger, prof, n_transfers).
+
+    ledger : {(uuid,edition) -> (holder, listed)}   etat final vu par l'ARCHIVE
+    prof   : {wallet -> dict(mints,buys,sells,durations[],first,last)}
+             = COMPORTEMENT seul ; les holdings courants sont derives ensuite
+             du grand livre fusionne (rejeu + snapshot).
     """
     # 1) collecter la sequence chrono de chaque edition
     seq: Dict[Tuple[str, str], List] = defaultdict(list)
@@ -193,12 +278,11 @@ def replay(folder: str):
 
     ledger: Dict[Tuple[str, str], Tuple[str, int]] = {}
     prof: Dict[str, Dict] = {}
-    per_uuid: Dict[str, Counter] = defaultdict(Counter)
 
     def P(w):
         p = prof.get(w)
         if p is None:
-            p = prof[w] = {"mints": 0, "buys": 0, "sells": 0, "holdings": 0,
+            p = prof[w] = {"mints": 0, "buys": 0, "sells": 0,
                            "durations": [], "first": "", "last": ""}
         return p
 
@@ -244,22 +328,23 @@ def replay(folder: str):
         # etat final de l'edition
         if holder and holder not in SYSTEM:
             ledger[(uid, ed)] = (holder, listed)
-            P(holder)["holdings"] += 1
-            per_uuid[uid][holder] += 1
         else:
             ledger[(uid, ed)] = ("", 0)          # brulee / systeme
-    return ledger, prof, per_uuid, n
+    return ledger, prof, n
 
 
 # ---------------------------------------------------------------------------
 # Scoring
 # ---------------------------------------------------------------------------
 
-def collector_score(p: Dict) -> str:
+def collector_score(p: Dict, holdings: int) -> str:
+    """Score depuis le comportement `p` + les holdings COURANTS (fusionnes).
+    NB : tant que l'archive est partielle, acquis peut etre sous-estime
+    (retention>1 possible) — se resorbe quand le scan des transferts avance."""
     acq = p["mints"] + p["buys"]
     if acq < 3:
         return "n/a"
-    r = p["holdings"] / acq if acq else 0.0
+    r = holdings / acq if acq else 0.0
     idx = (0 if r >= 0.95 else 1 if r >= 0.75 else 2 if r >= 0.50 else
            3 if r >= 0.30 else 4 if r >= 0.15 else 5 if r >= 0.05 else 6)
     # affinage vitesse : revend vite -> +1 cran vers flipper (borne a Flipper mini)
@@ -352,10 +437,40 @@ def _dominant(dist: Counter, order: List[str]):
 # Main
 # ---------------------------------------------------------------------------
 
-def build_all(folder: str, sh, top: int, today: _dt.date):
-    ledger, prof, per_uuid, n = replay(folder)
-    print(f"Rejeu : {len(ledger)} editions, {len(prof)} wallets, {n} transferts.",
-          flush=True)
+NO_BEHAVIOR = {"mints": 0, "buys": 0, "sells": 0, "durations": [],
+               "first": "", "last": ""}
+
+
+def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date):
+    ledger_replay, prof, n = replay(folder)
+    print(f"Rejeu : {len(ledger_replay)} editions, {len(prof)} wallets, "
+          f"{n} transferts.", flush=True)
+
+    snap, snap_names, skipped = load_snapshot(snap_folder)
+    if snap:
+        ledger, sstats = merge_state(ledger_replay, snap)
+        print(f"Snapshot holders : {len(snap)} editions — etat PRESENT prioritaire "
+              f"(owned={sstats.get('owned', 0)}, burned={sstats.get('burned', 0)}, "
+              f"escrow_resolu={sstats.get('escrow_resolved', 0)}, "
+              f"escrow_inconnu={sstats.get('escrow_unresolved', 0)}, "
+              f"ignorees={skipped}).", flush=True)
+    else:
+        ledger = ledger_replay
+        print("Pas de snapshot holders — etat courant = rejeu seul.", flush=True)
+
+    # etat courant PAR WALLET, derive du grand livre FUSIONNE
+    per_uuid: Dict[str, Counter] = defaultdict(Counter)
+    holdings_cnt: Counter = Counter()
+    listed_cnt: Counter = Counter()
+    distinct = defaultdict(set)
+    for (u, _e), (hd, ls) in ledger.items():
+        if not hd:
+            continue
+        per_uuid[u][hd] += 1
+        holdings_cnt[hd] += 1
+        distinct[hd].add(u)
+        if ls:
+            listed_cnt[hd] += 1
 
     pseudos = _read_pseudos(sh)
     names = _read_names(sh)
@@ -375,35 +490,29 @@ def build_all(folder: str, sh, top: int, today: _dt.date):
             if pf_eff is not None:
                 value_floor[w] += c * pf_eff
 
-    # profil enrichi par wallet
+    # profil enrichi par wallet : HOLDERS actuels (fusionnes), comportement si
+    # l'archive l'a vu ; sinon "etat seul" (score n/a, activite inconnue "")
     score, activity, qbk, vsbk, vfbk = {}, {}, {}, {}, {}
-    for w, p in prof.items():
-        score[w] = collector_score(p)
-        activity[w] = activity_status(p["last"], today)
-        qbk[w] = qty_bucket(p["holdings"])
+    for w, h in holdings_cnt.items():
+        p = prof.get(w, NO_BEHAVIOR)
+        score[w] = collector_score(p, h)
+        activity[w] = activity_status(p["last"], today) if p["last"] else ""
+        qbk[w] = qty_bucket(h)
         vsbk[w] = value_bucket(value_store.get(w, 0))
         vfbk[w] = value_bucket(value_floor.get(w, 0))
 
-    # holdings/listed/distinct par wallet (1 passe sur le grand livre)
-    listed_cnt = Counter()
-    distinct = defaultdict(set)
-    for (u, e), (hd, ls) in ledger.items():
-        if hd:
-            distinct[hd].add(u)
-            if ls:
-                listed_cnt[hd] += 1
-
     # profil complet par wallet (pour 🟣C-PSEUDOS + typologie)
     profiles = {}
-    for w, p in prof.items():
-        if p["holdings"] <= 0:
+    for w, h in holdings_cnt.items():
+        if h <= 0:
             continue
+        p = prof.get(w, NO_BEHAVIOR)
         acq = p["mints"] + p["buys"]
         md = round(statistics.median(p["durations"]), 1) if p["durations"] else ""
         profiles[w] = {
-            "holdings": p["holdings"], "distinct_collectibles": len(distinct[w]),
+            "holdings": h, "distinct_collectibles": len(distinct[w]),
             "acquired": acq, "sold": p["sells"],
-            "retention": round(p["holdings"] / acq, 3) if acq else "",
+            "retention": round(h / acq, 3) if acq else "",
             "median_hold_days": md, "collectorScore": score[w],
             "activityStatus": activity[w],
             "value_store": round(value_store.get(w, 0), 2),
@@ -426,7 +535,7 @@ def build_all(folder: str, sh, top: int, today: _dt.date):
     for uid, holders in per_uuid.items():
         counts = sorted(holders.items(), key=lambda x: -x[1])
         circ = sum(c for _w, c in counts)
-        nm, cat = names.get(uid, ("", ""))
+        nm, cat = names.get(uid) or snap_names.get(uid) or ("", "")
         row = [uid, nm, cat, circ, len(holders), _gini([c for _w, c in counts])]
         for i in range(10):
             if i < len(counts):
@@ -442,7 +551,7 @@ def build_all(folder: str, sh, top: int, today: _dt.date):
             b_vs[vsbk.get(w, "<100")] += c
             b_vf[vfbk.get(w, "<100")] += c
             b_sc[score.get(w, "n/a")] += c
-            b_ac[activity.get(w, "Ghost")] += c
+            b_ac[activity.get(w, "")] += c
         for dist, order in ((b_qty, QTY_ORDER), (b_vs, VALUE_ORDER),
                             (b_vf, VALUE_ORDER), (b_sc, SCORES + ["n/a"]),
                             (b_ac, ACTIVITIES)):
@@ -452,19 +561,20 @@ def build_all(folder: str, sh, top: int, today: _dt.date):
     corner.sort(key=lambda r: -r[3])
 
     # DISTRIBUTION GLOBALE des wallets par taille (quantite + valeur)
-    size_rows = _size_distribution(prof, value_store, value_floor)
+    size_rows = _size_distribution(profiles, value_store, value_floor)
 
     return ledger, prof, whale_blocks, corner, size_rows, profiles
 
 
-def _size_distribution(prof, value_store, value_floor):
-    """Reproduit la table 'wallet_size' : par bucket, nb wallets + total detenu."""
+def _size_distribution(profiles, value_store, value_floor):
+    """Reproduit la table 'wallet_size' : par bucket, nb wallets + total detenu.
+    Base = les HOLDERS actuels (profiles, issus du grand livre fusionne)."""
     rows = []
     # QUANTITE
     w_by, tok_by = Counter(), Counter()
     tot_w = tot_tok = 0
-    for w, p in prof.items():
-        h = p["holdings"]
+    for w, pr in profiles.items():
+        h = pr["holdings"]
         if h <= 0:
             continue
         b = qty_bucket(h)
@@ -481,7 +591,7 @@ def _size_distribution(prof, value_store, value_floor):
     for dim, values in (("value_store", value_store), ("value_floor", value_floor)):
         w_by, val_by = Counter(), Counter()
         tot_w = tot_val = 0.0
-        for w in prof:
+        for w in profiles:
             v = values.get(w, 0)
             if v <= 0:
                 continue
@@ -758,20 +868,29 @@ def main() -> int:
         print("ERROR: SHEET_ID requis.", file=sys.stderr)
         return 2
     folder = os.environ.get("ARCHIVE_DIR", "dl")
+    snap_folder = os.environ.get("SNAPSHOT_DIR", "dl_snap")
     top = int(os.environ.get("WHALES_TOP", "100"))
     rd = os.environ.get("RUN_DATE")
     today = _dt.date.fromisoformat(rd) if rd else _dt.date.today()
 
-    if not _archive_files(folder):
-        print(f"Aucune archive dans '{folder}'.", file=sys.stderr)
+    have_archive = bool(_archive_files(folder))
+    have_snap = bool(_snapshot_files(snap_folder))
+    print(f"Sources : archive transferts={'OUI' if have_archive else 'non'} "
+          f"({folder}), snapshot holders={'OUI' if have_snap else 'non'} "
+          f"({snap_folder}).", flush=True)
+    if not have_archive and not have_snap:
+        print(f"Aucune source : ni archive dans '{folder}' ni snapshot dans "
+              f"'{snap_folder}'.", file=sys.stderr)
         try:
-            append_log(sheet_id, "ledger", "FAILED_NO_DATA", f"no gz in {folder}")
+            append_log(sheet_id, "ledger", "FAILED_NO_DATA",
+                       f"no gz in {folder} nor {snap_folder}")
         except Exception:
             pass
         return 1
 
     sh = _client().open_by_key(sheet_id)
-    ledger, prof, whale_blocks, corner, size_rows, profiles = build_all(folder, sh, top, today)
+    ledger, prof, whale_blocks, corner, size_rows, profiles = build_all(
+        folder, snap_folder, sh, top, today)
 
     _save_ledger(ledger, os.environ.get("LEDGER_OUT", "data/ledger.csv.gz"))
     _save_profiles(profiles,
@@ -797,7 +916,9 @@ def main() -> int:
     except Exception as e:
         print(f"dashboard warning: {e}", flush=True)
 
-    summary = {"status": "OK", "editions": len(ledger), "wallets": len(prof),
+    summary = {"status": "OK", "editions": len(ledger),
+               "holders": len(profiles), "wallets_behavior": len(prof),
+               "snapshot": "yes" if have_snap else "no",
                "whales_top": top, "collectibles": len(corner),
                "pseudos_enriched": enriched,
                "duration": f"{time.time()-t0:.0f}s"}
