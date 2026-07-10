@@ -62,6 +62,7 @@ BURN_TO = {ZERO, BURN_SINK}
 WHALES_TAB = "🐋A-WHALES"
 CORNER_TAB = "🎯A-CORNERISATION"
 SIZE_TAB = "📈H-WALLET-SIZE"
+DASH_TAB = "🏠ACCUEIL"
 # Typologie whales : 3 tableaux HORIZONTAUX cote a cote (top 100 chacun),
 # separes par une colonne vide. 10 colonnes par bloc.
 WHALE_BLOCK_COLS = ["rank", "wallet", "pseudo", "metric", "holdings",
@@ -603,6 +604,153 @@ def _write_whales_horizontal(sh, blocks):
         pass
 
 
+def _bar(pct, width=18):
+    """Petite barre Unicode proportionnelle a un pourcentage (0-100)."""
+    n = int(round((pct or 0) / 100.0 * width))
+    return "█" * n + "░" * (width - n)
+
+
+def _count_col_a(sh, tab):
+    try:
+        return max(0, len(sh.worksheet(tab).col_values(1)) - 1)
+    except Exception:
+        return 0
+
+
+def _read_marque_counts(sh):
+    marques = licences = 0
+    try:
+        for r in sh.worksheet("🟤C-MARQUE").get_all_records():
+            k = str(r.get("kind", "")).strip().lower()
+            if k.startswith("marque"):
+                marques += 1
+            elif k.startswith("licence"):
+                licences += 1
+    except Exception:
+        pass
+    return marques, licences
+
+
+def _read_pseudo_counts(sh):
+    total = named = 0
+    try:
+        for r in sh.worksheet("🟣C-PSEUDOS").get_all_records():
+            total += 1
+            if str(r.get("username", "")).strip():
+                named += 1
+    except Exception:
+        pass
+    return total, named
+
+
+def _read_new_this_month(sh, today):
+    """new_wallets du mois courant depuis 📅A-COHORTES (grain=month)."""
+    ym = today.strftime("%Y-%m")
+    try:
+        for r in sh.worksheet("📅A-COHORTES").get_all_records():
+            if str(r.get("grain")) == "month" and str(r.get("period")) == ym:
+                return int(r.get("new_wallets") or 0)
+    except Exception:
+        pass
+    return None
+
+
+def _dist_block(title, counts, order):
+    """Lignes [label, count, pct, barre] triees selon `order`."""
+    total = sum(counts.values()) or 1
+    rows = [[title, "", "", ""]]
+    for k in order:
+        c = counts.get(k, 0)
+        if c == 0 and k not in counts:
+            continue
+        pct = round(100.0 * c / total, 1)
+        rows.append([k, c, pct, _bar(pct)])
+    return rows
+
+
+def _write_dashboard(sh, profiles, whale_blocks, corner, today):
+    from collections import Counter
+    holders = len(profiles)
+    score_c = Counter(p["collectorScore"] for p in profiles.values())
+    act_c = Counter(p["activityStatus"] for p in profiles.values())
+    qty_c = Counter(p["qty_bucket"] for p in profiles.values())
+
+    n_coll = _count_col_a(sh, "🔵C-COLLECTIBLE")
+    n_comics = _count_col_a(sh, "🟢C-COMICS")
+    n_marques, n_licences = _read_marque_counts(sh)
+    n_pseudo, n_named = _read_pseudo_counts(sh)
+    new_month = _read_new_this_month(sh, today)
+
+    # top 3 whales accumulatrices
+    acc = whale_blocks[0][1] if whale_blocks else []
+    top = []
+    for row in acc[:3]:
+        # row = [rank, wallet, pseudo, metric, holdings, ...]
+        who = row[2] or (row[1][:10] + "...")
+        top.append(f"{who} ({int(row[4]):,})".replace(",", " "))
+
+    # item le plus cornerise (gini max)
+    gi = CORNER_HEADER.index("gini")
+    best = max(corner, key=lambda r: (r[gi] if isinstance(r[gi], (int, float)) else 0),
+              default=None)
+    corner_item = f"{best[1]} (Gini {best[gi]})" if best else "-"
+
+    stamp = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    grid = [
+        ["🏠 VeVe Tracker — Tableau de bord", "", "", f"maj : {stamp}"],
+        [""],
+        ["📦 CATALOGUE", "", "👥 COMMUNAUTE", ""],
+        ["Collectibles", n_coll, "Holders (wallets)", holders],
+        ["Comics", n_comics, "Pseudos connus", f"{n_named} / {n_pseudo}"],
+        ["Marques", n_marques, "Nouveaux ce mois",
+         new_month if new_month is not None else "-"],
+        ["Licences", n_licences, "", ""],
+        [""],
+        ["🐋 TOP WHALES (accumulateurs)", "", "🎯 CONCENTRATION", ""],
+        ["1. " + (top[0] if len(top) > 0 else "-"), "", "Item le + corner.", ""],
+        ["2. " + (top[1] if len(top) > 1 else "-"), "", corner_item, ""],
+        ["3. " + (top[2] if len(top) > 2 else "-"), "", "", ""],
+        [""],
+    ]
+    grid += _dist_block("🧬 COLLECTOR SCORE (part des holders)", score_c,
+                        SCORES + ["n/a"])
+    grid += [[""]]
+    grid += _dist_block("📶 STATUT D'ACTIVITE", act_c, ACTIVITIES)
+    grid += [[""]]
+    grid += _dist_block("💰 TAILLE DE PORTEFEUILLE (quantite)", qty_c, QTY_ORDER)
+
+    ws = _open_worksheet(sh, DASH_TAB, cols=6)
+    ws.clear()
+    ws.update(range_name="A1", values=grid, value_input_option="RAW")
+    try:  # placer l'accueil en 1er onglet
+        sh.batch_update({"requests": [{"updateSheetProperties": {
+            "properties": {"sheetId": ws.id, "index": 0},
+            "fields": "index"}}]})
+    except Exception:
+        pass
+    try:
+        ws.freeze(rows=1)
+        # titres de sections en gras
+        bold_rows = [1] + [i + 1 for i, r in enumerate(grid)
+                           if r and isinstance(r[0], str)
+                           and any(r[0].startswith(e) for e in
+                                   ("📦", "👥", "🐋",
+                                    "🎯", "🧬", "📶",
+                                    "💰"))]
+        reqs = []
+        for rr in bold_rows:
+            reqs.append({"repeatCell": {
+                "range": {"sheetId": ws.id, "startRowIndex": rr - 1, "endRowIndex": rr,
+                          "startColumnIndex": 0, "endColumnIndex": 6},
+                "cell": {"userEnteredFormat": {"textFormat": {"bold": True}}},
+                "fields": "userEnteredFormat.textFormat.bold"}})
+        if reqs:
+            sh.batch_update({"requests": reqs})
+    except Exception as e:
+        print(f"dashboard format warning: {e}", flush=True)
+    return len(grid)
+
+
 def main() -> int:
     t0 = time.time()
     sheet_id = os.environ.get("SHEET_ID")
@@ -643,6 +791,11 @@ def main() -> int:
         _fmt.format_tab(sh, "🟣C-PSEUDOS", PSEUDOS_HEADER, header_rows=1)
     except Exception as e:
         print(f"formatting warning: {e}", flush=True)
+
+    try:
+        _write_dashboard(sh, profiles, whale_blocks, corner, today)
+    except Exception as e:
+        print(f"dashboard warning: {e}", flush=True)
 
     summary = {"status": "OK", "editions": len(ledger), "wallets": len(prof),
                "whales_top": top, "collectibles": len(corner),

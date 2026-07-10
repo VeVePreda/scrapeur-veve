@@ -69,12 +69,13 @@ def _text_rule(rng, value, color):
 
 
 def _gradient_rule(rng):
+    # 2 points (min vert -> max rouge) ; le midpoint NUMBER 0.5 etait rejete par
+    # l'API (Invalid InterpolationPoint.value). MIN/MAX auto-echelle sur la colonne.
     return {"addConditionalFormatRule": {"index": 0, "rule": {
         "ranges": [rng],
         "gradientRule": {
-            "minpoint": {"color": _rgb(0.72, 0.88, 0.78), "type": "NUMBER", "value": "0"},
-            "midpoint": {"color": _rgb(1.0, 0.95, 0.70), "type": "NUMBER", "value": "0.5"},
-            "maxpoint": {"color": _rgb(0.95, 0.60, 0.55), "type": "NUMBER", "value": "1"}}}}}
+            "minpoint": {"color": _rgb(0.72, 0.88, 0.78), "type": "MIN"},
+            "maxpoint": {"color": _rgb(0.95, 0.55, 0.50), "type": "MAX"}}}}}
 
 
 def _numfmt(rng, pattern):
