@@ -10,9 +10,11 @@ name: Analytics - grand livre (holdings)
 #   3. Release "chain-archive-daily" (CE repo)            -> CONTINUITE : les
 #      journees produites par chain_run apres le mur du scan profond.
 #      Chevauchements deduplique par (block, log_index) dans replay().
-# Sorties : Release "ledger-data" (ledger.csv.gz + wallet_profiles.csv.gz —
-# trop gros pour un commit depuis le snapshot : 161 Mo > limite 100 Mo),
-# onglets 🐋A-WHALES / 🎯A-CORNERISATION / 📈H-WALLET-SIZE / 🟣C-PSEUDOS.
+#   4. Release "imx-archive"     (repo public paolo)      -> ERE IMX 2021->2026
+#      pour le PULSE MENSUEL uniquement (l'histoire complete sur STATS) ;
+#      grand livre / profils / scores restent CollectChain.
+# Ecrit : data/ledger.csv.gz + data/wallet_profiles.csv.gz (commites),
+# onglets 🐋A-WHALES / 🎯A-CORNERISATION / 📈H-WALLET-SIZE / 🟣C-PSEUDOS / 🏠ACCUEIL.
 
 on:
   workflow_dispatch:
@@ -22,6 +24,9 @@ on:
         default: "astronemagame-maker/astronema"
       snapshot_repo:
         description: "Repo owner/name du snapshot holders-snapshot"
+        default: "lepaolo/paolo"
+      imx_repo:
+        description: "Repo owner/name de l'archive IMX (imx-archive)"
         default: "lepaolo/paolo"
       whales_top:
         description: "Nombre de whales a lister"
@@ -40,6 +45,7 @@ jobs:
       WHALES_TOP: ${{ github.event.inputs.whales_top || '100' }}
       ARCHIVE_DIR: dl
       SNAPSHOT_DIR: dl_snap
+      IMX_DIR: dl_imx
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -78,6 +84,16 @@ jobs:
           gh release download chain-archive-daily --dir dl --pattern '*.csv.gz' \
             || echo "Pas d'archive quotidienne (Release absente) - ok."
           echo "dl :" && ls -lh dl/ || true
+
+      - name: Telecharger l'archive IMX 2021-2026 (Release imx-archive, paolo)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dl_imx
+          REPO="${{ github.event.inputs.imx_repo || 'lepaolo/paolo' }}"
+          gh release download imx-archive --repo "$REPO" --dir dl_imx --pattern '*.csv.gz' \
+            || echo "Archive IMX indisponible - pulse limite a l'ere CollectChain."
+          echo "IMX :" && ls -lh dl_imx/ | head -5 && du -sh dl_imx/ || true
 
       - name: Construire le grand livre + agregats
         run: python -m scraper.ledger
