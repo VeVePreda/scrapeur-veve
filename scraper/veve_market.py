@@ -32,6 +32,7 @@ Env: GOOGLE_SERVICE_ACCOUNT_JSON, SHEET_ID, VEVE_AUTH (optional),
 
 from __future__ import annotations
 
+import datetime as _dt
 import os
 import sys
 import time
@@ -78,6 +79,79 @@ from scraper.stackr import PSEUDOS_TAB, PSEUDOS_HEADER  # unified pseudo directo
 
 MARKET_PSEUDOS_TAB = "MarketPseudos"  # legacy tab, deleted on sight (now merged into Pseudos)
 ESCROW_TAB = "_EscrowListings"  # (veve_uuid, edition) -> seller wallet, from chain
+
+# ---- MODE CIBLE (optim 11/07, demande Preda : discretion + temps) ----
+# La landing (25 requetes) donne deja totalListings + floor par produit :
+# on memorise cet etat dans un onglet cache et on ne visite les OFFRES que
+# des produits ou quelque chose a change. Balayage COMPLET : le dimanche
+# (jour pacifique), quand l'etat est vide, ou si MARKET_FULL=true
+# (MARKET_FULL=false interdit meme le dimanche).
+MARKET_STATE_TAB = "_MarketState"
+MARKET_STATE_HEADER = ["veve_uuid", "listings", "floor"]
+
+
+def _canon_floor(v) -> str:
+    try:
+        return str(round(float(str(v).replace(",", ".")), 4))
+    except (TypeError, ValueError):
+        return ""
+
+
+def _full_sweep_today() -> bool:
+    env = os.environ.get("MARKET_FULL", "").strip().lower()
+    if env in ("1", "true", "yes"):
+        return True
+    if env in ("0", "false", "no"):
+        return False
+    try:
+        from zoneinfo import ZoneInfo
+        return _dt.datetime.now(ZoneInfo("America/Los_Angeles")).weekday() == 6
+    except Exception:
+        return False
+
+
+def _read_state(sh) -> Dict[str, tuple]:
+    """{uuid -> (listings, floor canon)} du run precedent (lecture NON
+    formatee : locale FR)."""
+    try:
+        ws = sh.worksheet(MARKET_STATE_TAB)
+    except Exception:
+        return {}
+    try:
+        from gspread.utils import ValueRenderOption
+        recs = ws.get_all_records(value_render_option=ValueRenderOption.unformatted)
+    except TypeError:
+        recs = ws.get_all_records()
+    except Exception:
+        return {}
+    out = {}
+    for r in recs:
+        u = str(r.get("veve_uuid", "")).strip()
+        if u:
+            try:
+                li = int(float(str(r.get("listings") or 0).replace(",", ".")))
+            except (TypeError, ValueError):
+                li = 0
+            out[u] = (li, _canon_floor(r.get("floor")))
+    return out
+
+
+def _write_state(sh, products) -> None:
+    """Memorise l'etat landing (nombres NATIFS + RAW : locale FR safe)."""
+    ws = _open_worksheet(sh, MARKET_STATE_TAB, cols=len(MARKET_STATE_HEADER))
+    grid = [list(MARKET_STATE_HEADER)]
+    for p in products:
+        try:
+            fl = float(str(p.get("floor") or 0).replace(",", "."))
+        except (TypeError, ValueError):
+            fl = 0.0
+        grid.append([p["id"], int(p.get("listings") or 0), fl])
+    ws.clear()
+    ws.update(range_name="A1", values=grid, value_input_option="RAW")
+    try:
+        ws.hide()
+    except Exception:
+        pass
 
 
 def _headers(op: str) -> Dict[str, str]:
@@ -140,7 +214,8 @@ def list_products_with_listings(max_products: int = 0) -> List[Dict[str, Any]]:
             n = e.get("node") or {}
             if n.get("id"):
                 out.append({"id": n["id"], "name": n.get("name", ""),
-                            "listings": n.get("totalMarketListings", 0)})
+                            "listings": n.get("totalMarketListings", 0),
+                            "floor": n.get("floorMarketPrice", "")})
         if max_products and len(out) >= max_products:
             return out[:max_products]
         pi = conn.get("pageInfo") or {}
@@ -188,6 +263,24 @@ def _write_listings(sheet_id: str, rows: List[List[Any]]) -> None:
         ws.format("1:1", {"textFormat": {"bold": True}})
     except Exception:
         pass
+
+
+def _read_kept_listings(sh, drop_uuids: set, live_uuids: set) -> List[List[Any]]:
+    """Offres du run precedent a CONSERVER en mode cible : produits ni
+    re-visites (drop_uuids) ni disparus de la landing (plus de listings)."""
+    try:
+        ws = sh.worksheet(MARKET_LISTINGS_TAB)
+        vals = ws.get_all_values()
+    except Exception:
+        return []
+    kept = []
+    for row in vals[1:]:
+        if len(row) < 2:
+            continue
+        u = str(row[1]).strip()
+        if u and u not in drop_uuids and u in live_uuids:
+            kept.append(list(row))
+    return kept
 
 
 def _load_escrow(sh) -> Dict[tuple, str]:
@@ -317,7 +410,24 @@ def main() -> int:
         return 0
     print(f"{len(products)} products with listings.", flush=True)
 
-    escrow = _load_escrow(_client().open_by_key(sheet_id))
+    sh = _client().open_by_key(sheet_id)
+    full = _full_sweep_today()
+    state = {} if full else _read_state(sh)
+    if state:
+        targets = [p for p in products
+                   if state.get(p["id"]) != (int(p.get("listings") or 0),
+                                             _canon_floor(p.get("floor")))]
+        mode = "cible"
+        print(f"Mode CIBLE : {len(targets)}/{len(products)} produits ont "
+              f"change depuis le dernier run (balayage complet : dimanche PT "
+              f"ou MARKET_FULL=true).", flush=True)
+    else:
+        targets = list(products)
+        mode = "complet"
+        print(f"Mode COMPLET ({'demande' if full else 'etat vide'}) : "
+              f"{len(targets)} produits.", flush=True)
+
+    escrow = _load_escrow(sh)
     if escrow:
         print(f"Loaded {len(escrow)} on-chain escrow deposits for wallet matching.",
               flush=True)
@@ -327,7 +437,7 @@ def main() -> int:
     seller_onchain: Dict[str, str] = {}
     stamp = _now()
     done = 0
-    for p in products:
+    for p in targets:
         listings = fetch_listings(p["id"])
         for n in listings:
             sid = str(n.get("sellerId", "") or "")
@@ -346,13 +456,25 @@ def main() -> int:
                         seller_onchain[sid] = ow
         done += 1
         if done % 100 == 0:
-            print(f"    ... {done}/{len(products)} products, {len(rows)} listings", flush=True)
+            print(f"    ... {done}/{len(targets)} products, {len(rows)} listings", flush=True)
         time.sleep(PAUSE)
 
+    if mode == "cible":
+        kept = _read_kept_listings(sh, {p["id"] for p in targets},
+                                   {p["id"] for p in products})
+        if kept:
+            print(f"    {len(kept)} offres conservees du run precedent "
+                  f"(produits inchanges).", flush=True)
+        rows = kept + rows
     _write_listings(sheet_id, rows)
+    try:
+        _write_state(sh, products)
+    except Exception as e:
+        print(f"state warning: {e}", flush=True)
     new_pseudos, matched_wallets = _merge_into_pseudos(sheet_id, pseudos, seller_onchain)
 
-    summary = {"status": "OK", "products": len(products), "listings": len(rows),
+    summary = {"status": "OK", "mode": mode, "visites": len(targets),
+               "products": len(products), "listings": len(rows),
                "sellers": len(pseudos), "new_pseudos": new_pseudos,
                "wallets_matched": matched_wallets, "duration": f"{time.time()-t0:.0f}s"}
     try:

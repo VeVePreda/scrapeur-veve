@@ -92,7 +92,8 @@ PSEUDOS_HEADER = ["username", "wallet_imx", "wallet_stackr", "veve_user_id",
                   # --- profil injecte par scraper.ledger (join wallet_imx) ---
                   "holdings", "distinct_collectibles", "acquired", "sold",
                   "retention", "median_hold_days", "collectorScore",
-                  "activityStatus", "engagementLevel", "value_store", "value_floor", "qty_bucket"]
+                  "activityStatus", "engagementLevel", "value_store",
+                  "value_floor", "qty_bucket"]
 
 PAUSE = float(os.environ.get("STACKR_PAUSE", "0.35"))
 MAX_LOOKUPS = int(os.environ.get("STACKR_MAX_LOOKUPS", "200"))
@@ -536,6 +537,21 @@ def main() -> int:
     if not sheet_id:
         print("SHEET_ID env var is not set.", file=sys.stderr)
         return 2
+
+    # FAST-SKIP (optim 11/07, demande Preda) : cookie mort = 401 assure sur
+    # toutes les sources utiles -> on ne lit/reecrit PAS l'onglet Pseudos et
+    # on ne scrape PAS le leaderboard (discretion + ~2 min de daily gagnees).
+    # STACKR_FAST_SKIP=false pour forcer l'ancien comportement (leaderboard).
+    if not ok and os.environ.get("STACKR_FAST_SKIP", "true").lower() != "false":
+        print("Fast-skip : session verifiedVeve refusee -> aucune collecte. "
+              "Renouveler le secret STACKR_COOKIE puis relancer.", flush=True)
+        try:
+            from scraper.sheets import append_log
+            append_log(sheet_id, "pseudos", "SKIPPED",
+                       "cookie StackR expire - fast-skip (0 requete)")
+        except Exception:
+            pass
+        return 0
 
     summary = {"run_at_utc": _now(), "status": "OK", "verified_api": ok}
     try:
