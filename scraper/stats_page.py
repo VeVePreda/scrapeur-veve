@@ -236,7 +236,17 @@ def load_drop_names(sh) -> Dict[str, List[tuple]]:
                 if key in seen:
                     continue
                 seen.add(key)
-                out[d].append((name, kind))
+                # comics du MERCREDI (PT) = parutions vevecomics silencieuses
+                # (calees sur la sortie physique, jamais annoncees) — dissociees
+                # des drops classiques (demande Preda 11/07).
+                k = kind
+                if kind == "comic":
+                    try:
+                        if _dt.date.fromisoformat(d).weekday() == 2:
+                            k = "vevecomic"
+                    except ValueError:
+                        pass
+                out[d].append((name, k))
         except Exception as e:
             print(f"drops {tab} warning: {e}", flush=True)
     return out
@@ -251,7 +261,8 @@ def drop_label(entries) -> str:
         return entries[0][0]
     c = Counter(k for _, k in entries)
     parts = []
-    for kind, plural in (("comic", "comics"), ("collectible", "collectibles")):
+    for kind, plural in (("comic", "comics"), ("collectible", "collectibles"),
+                         ("vevecomic", "vevecomics")):
         nb = c.get(kind, 0)
         if nb == 1:
             parts.append(f"1 {kind}")
@@ -277,7 +288,9 @@ def detect_airdrop_daily(items: List[Dict[str, Any]]) -> Dict[str, int]:
 
 
 def build_pulse_section(pulse_records: List[Dict[str, Any]],
-                        omi: Dict[str, float] = None) -> List[List]:
+                        omi: Dict[str, float] = None,
+                        omi_nft: Dict[str, float] = None,
+                        omi_gem: Dict[str, float] = None) -> List[List]:
     """Section 📅 PAR MOIS (demande Preda 11/07) : les MEMES colonnes/groupes
     que le tableau quotidien, une ligne par mois (DESC), puis un 2e bloc avec
     les metriques VeveFox (acheteurs/vendeurs/minters/drops/accumulation/
@@ -289,6 +302,12 @@ def build_pulse_section(pulse_records: List[Dict[str, Any]],
     omi_m: Dict[str, float] = defaultdict(float)
     for d, v in (omi or {}).items():
         omi_m[d[:7]] += v
+    nft_m: Dict[str, float] = defaultdict(float)
+    for d, v in (omi_nft or {}).items():
+        nft_m[d[:7]] += v
+    gem_m: Dict[str, float] = defaultdict(float)
+    for d, v in (omi_gem or {}).items():
+        gem_m[d[:7]] += v
     recs = sorted(pulse_records, key=lambda r: str(r.get("month", "")),
                   reverse=True)[:PULSE_MONTHS]
     g: List[List] = [
@@ -307,13 +326,22 @@ def build_pulse_section(pulse_records: List[Dict[str, Any]],
         burns = _n(r.get("burns"))
         o = omi_m.get(m)
         nd = _n(r.get("drops"))
-        g.append([m, f"{nd} drops" if nd else "",
+        nv = _n(r.get("drops_vevecomics"))
+        # "12 drops (+36 vevecomics)" — les comics du mercredi (parutions
+        # vevecomics silencieuses) dissocies des drops classiques.
+        cell = f"{nd} drops" if nd else ""
+        if nv:
+            cell = f"{cell} (+{nv} vevecomics)" if cell else f"(+{nv} vevecomics)"
+        onft, ogem = nft_m.get(m), gem_m.get(m)
+        g.append([m, cell,
                   tokens + trades + burns, max(0, tokens - air), air,
                   trades, burns,
                   _n(r.get("actifs")), _n(r.get("nouveaux")), "",
                   _n(r.get("listings")), "",
                   "", "", "",
-                  round(o) if o else "", "", ""])
+                  round(o) if o else "",
+                  round(onft) if onft else "",
+                  round(ogem) if ogem else ""])
     g.append([""])
     g.append(["📈  PULSE VEVEFOX — par mois", "", "", "", "", "", "", "", ""])
     g.append(["Mois", "Acheteurs", "Vendeurs", "Minters", "Drops",
@@ -354,18 +382,31 @@ def build_wallet_size_section(size_records: List[Dict[str, Any]]) -> List[List]:
     return g
 
 
-def read_omi_burns(sh) -> Dict[str, float]:
-    """{date_pt -> OMI brules ce jour} depuis 🔥H-BURNS (toutes sources)."""
+def read_omi_burns(sh):
+    """(total, nft, gem) : {date_pt -> OMI brules} depuis 🔥H-BURNS.
+    v10 : la decompo (colonnes omi_nft / omi_gem ecrites par burns.py v6 sur
+    jetonveve) remplit OMI->NFT / OMI->GEM ; les jours pas encore couverts
+    par le backfill decompo restent vides."""
+    def _f(x):
+        try:
+            return float(str(x).replace(",", ".") or 0)
+        except (TypeError, ValueError):
+            return 0.0
     out: Dict[str, float] = defaultdict(float)
+    nft: Dict[str, float] = defaultdict(float)
+    gem: Dict[str, float] = defaultdict(float)
     for r in _records(sh, BURNS_TAB):
         d = str(r.get("date", "")).strip()
-        try:
-            v = float(str(r.get("omi_burned", "")).replace(",", ".") or 0)
-        except (TypeError, ValueError):
-            v = 0.0
-        if d and v:
+        if not d:
+            continue
+        if str(r.get("omi_nft", "")).strip() != "":
+            nft[d] += _f(r.get("omi_nft"))
+        if str(r.get("omi_gem", "")).strip() != "":
+            gem[d] += _f(r.get("omi_gem"))
+        v = _f(r.get("omi_burned"))
+        if v:
             out[d] += v
-    return dict(out)
+    return dict(out), dict(nft), dict(gem)
 
 
 # ---------------------------------------------------------------------------
@@ -584,10 +625,12 @@ def compute_split(items, week_days: set) -> Dict[str, int]:
 # ---------------------------------------------------------------------------
 
 def build_table_grid(daily, revenue, week, omi, listing, airdrop, drops,
-                     now_utc: str) -> List[List]:
+                     now_utc: str, omi_nft=None, omi_gem=None) -> List[List]:
     """Grille A1:R.. : titre, bande KPI 7 jours, tableau quotidien groupe.
     Les mints d'airdrop sortent de la colonne Mint vers Airdrop (le Global
     reste complet — separer sans jeter, choix Preda)."""
+    omi_nft = omi_nft or {}
+    omi_gem = omi_gem or {}
     g: List[List] = []
     g.append(["📊  STATS VEVE — ACTIVITÉ ON-CHAIN", "", "", "", "", "", "",
               "", "", "", "", "", "", "", "", "", "", "", "",
@@ -627,8 +670,8 @@ def build_table_grid(daily, revenue, week, omi, listing, airdrop, drops,
                   drop,
                   "",             # Revenue Market : chantier 7
                   round(o) if o is not None else "",
-                  "",             # OMI→NFT : decompo a venir
-                  ""])            # OMI→GEM : decompo a venir
+                  round(omi_nft[d["date"]]) if d["date"] in omi_nft else "",
+                  round(omi_gem[d["date"]]) if d["date"] in omi_gem else ""])
     return g
 
 
@@ -661,14 +704,17 @@ def build_modules_grid(sante_rows, split) -> List[List]:
               "jour.", ""])
     g.append(["• Drop = série(s) sortie(s) ce jour (catalogues, jour "
               "pacifique) — plusieurs le même jour : « 2x comics + "
-              "1 collectible » · par Mois : nombre de drops détectés "
-              "on-chain.", ""])
+              "1 collectible » · vevecomics = comics du MERCREDI (parutions "
+              "silencieuses de la page vevecomics, calées sur la sortie "
+              "physique) · par Mois : drops on-chain (+vevecomics à part).", ""])
     g.append(["• Semaine du bandeau = dernière semaine COMPLÈTE du jeudi au "
               "mercredi (fenêtre calendaire fixe).", ""])
     g.append(["• Revenue drop = mints × prix store · Revenue market : vide en "
               "attendant les prix réels (chantier 7).", ""])
-    g.append(["• OMI burn = 🔥H-BURNS (jours PT) ; OMI→NFT / OMI→GEM : décompo "
-              "à venir ; le dernier jour se complète au run suivant.", ""])
+    g.append(["• OMI burn = 🔥H-BURNS (jours PT) · OMI→NFT = 2 % du prix de "
+              "chaque vente StackR · OMI→GEM = conversions (100 % brûlé) ; "
+              "vide tant que le backfill décompo n'a pas couvert le jour ; "
+              "le dernier jour se complète au run suivant.", ""])
     g.append(["🧭 ACTIVITÉ (🟣C-PSEUDOS, 🎯) : Actif ≤7 j · Engagé ≤30 j · "
               "Somnolant ≤90 j · Inactif ≤180 j · Désinscrit ≤365 j · "
               "Fantôme au-delà (dernière transaction).", ""])
@@ -811,7 +857,7 @@ def write_stats(sh) -> Dict[str, Any]:
     if not daily:
         raise RuntimeError("ChainActivity vide — page 📊 STATS non touchee.")
     revenue = compute_revenue(items, prices)
-    omi = read_omi_burns(sh)
+    omi, omi_nft, omi_gem = read_omi_burns(sh)
     listing = read_listing_daily(sh)
     airdrop = detect_airdrop_daily(items)
     week = compute_week(daily, revenue, omi, listing, airdrop)
@@ -821,7 +867,7 @@ def write_stats(sh) -> Dict[str, Any]:
 
     now_utc = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     table = build_table_grid(daily, revenue, week, omi, listing, airdrop,
-                             drops, now_utc)
+                             drops, now_utc, omi_nft, omi_gem)
     try:
         sante_rows = _health.build_rows(sh)
     except Exception as e:
@@ -836,7 +882,7 @@ def write_stats(sh) -> Dict[str, Any]:
     ws.update(range_name=f"{MODULE_COL}{GROUP_ROW}", values=modules,
               value_input_option="RAW")
     # 📅 PAR MOIS (sous le tableau quotidien), si le ledger l'a produit
-    pulse = build_pulse_section(_records(sh, PULSE_TAB), omi)
+    pulse = build_pulse_section(_records(sh, PULSE_TAB), omi, omi_nft, omi_gem)
     if pulse:
         ws.update(range_name=f"A{PULSE_ROW}", values=pulse,
                   value_input_option="RAW")

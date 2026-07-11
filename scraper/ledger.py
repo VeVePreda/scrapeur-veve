@@ -183,7 +183,8 @@ PULSE_TAB = "_MonthlyPulse"
 PULSE_HEADER = ["month", "actifs", "nouveaux", "trades", "acheteurs",
                 "vendeurs", "tokens_emis", "tokens_airdrop",
                 "minters_uniques", "drops", "burns", "listings",
-                "acc_net_moy", "acc_net_pos", "acc_net_neg", "churn_pct"]
+                "acc_net_moy", "acc_net_pos", "acc_net_neg", "churn_pct",
+                "drops_vevecomics"]
 # AIRDROP (seuils valides par Preda 11/07) : un (jour, uuid) est un airdrop si
 # mints >= MIN_MINTS ET minters uniques >= RATIO x mints (~1 exemplaire par
 # wallet, ex. Black Pink Heart, Happy New Year Tier1 Gini 0.008). Les mints
@@ -347,7 +348,8 @@ def replay(folder: str, imx_folder: str = ""):
     seen_keys = set()
     monthly: Dict[str, Dict] = {}
     first_month: Dict[str, str] = {}
-    uuid_first_mint: Dict[str, str] = {}
+    uuid_first_mint: Dict[str, str] = {}   # uuid -> 1er JOUR de mint (v10)
+    uuid_cat: Dict[str, str] = {}          # uuid -> category (comic/collectible)
     mint_day_uuid: Counter = Counter()   # candidats airdrop (compteur leger)
     for path in _archive_files(folder):
         with gzip.open(path, "rt", encoding="utf-8") as f:
@@ -390,8 +392,9 @@ def replay(folder: str, imx_folder: str = ""):
                         mint_day_uuid[(day, uid)] += 1
                         if m < first_month.get(to, "9999"):
                             first_month[to] = m
-                    if m < uuid_first_mint.get(uid, "9999"):
-                        uuid_first_mint[uid] = m
+                    if day < uuid_first_mint.get(uid, "9999"):
+                        uuid_first_mint[uid] = day
+                        uuid_cat[uid] = (r.get("category") or "").strip()
                 elif kind == "market":
                     mo["market"] += 1
                     for w, delta, grp in ((to, 1, "buyers"),
@@ -489,7 +492,7 @@ def replay(folder: str, imx_folder: str = ""):
         print(f"Pulse IMX : {n_imx} transferts 2021->{MIGRATION_DAY} integres "
               f"({len(monthly)} mois au pulse).", flush=True)
     return ledger, prof, n, _build_pulse(monthly, first_month,
-                                         uuid_first_mint, airdrops)
+                                         uuid_first_mint, uuid_cat, airdrops)
 
 
 def _ingest_imx(folder: str, monthly: Dict, first_month: Dict) -> int:
@@ -625,11 +628,28 @@ def _detect_airdrops(folder: str, mint_day_uuid: Counter) -> Dict:
     return out
 
 
-def _build_pulse(monthly, first_month, uuid_first_mint,
+def _build_pulse(monthly, first_month, uuid_first_mint, uuid_cat=None,
                  airdrops=None) -> List[List]:
-    """Lignes du pulse mensuel (chronologique ASC) pour _MonthlyPulse."""
+    """Lignes du pulse mensuel (chronologique ASC) pour _MonthlyPulse.
+
+    Drops v10 (demande Preda 11/07) : les COMICS sortis un MERCREDI (jour PT)
+    sont les parutions silencieuses de la page vevecomics (jamais annoncees,
+    calees sur la sortie physique) -> comptes A PART (drops_vevecomics), les
+    drops classiques restent dans `drops`."""
     new_by_m = Counter(first_month.values())
-    drops_by_m = Counter(uuid_first_mint.values())
+    uuid_cat = uuid_cat or {}
+    drops_by_m: Counter = Counter()
+    wed_by_m: Counter = Counter()
+    for uid, day in uuid_first_mint.items():
+        try:
+            wed = _dt.date.fromisoformat(day[:10]).weekday() == 2
+        except (ValueError, TypeError):
+            wed = False
+        m_key = day[:7]
+        if wed and uuid_cat.get(uid) == "comic":
+            wed_by_m[m_key] += 1
+        else:
+            drops_by_m[m_key] += 1
     air_by_m: Counter = Counter()
     for (day, _uid), cnt in (airdrops or {}).items():
         air_by_m[day[:7]] += cnt
@@ -650,7 +670,8 @@ def _build_pulse(monthly, first_month, uuid_first_mint,
                      len(mo["buyers"]), len(mo["sellers"]),
                      mo["mints"], air_by_m.get(m, 0),
                      len(mo["minters"]), drops_by_m.get(m, 0),
-                     mo["burns"], mo["listings"], avg, pos, neg, churn])
+                     mo["burns"], mo["listings"], avg, pos, neg, churn,
+                     wed_by_m.get(m, 0)])
         prev_actives = act
     return rows
 
