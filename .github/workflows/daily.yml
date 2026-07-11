@@ -97,6 +97,15 @@ jobs:
           VEVE_AUTH: ${{ secrets.VEVE_AUTH }}
         run: python -m scraper.veve_market
 
+      # Chantier 7 : ventes REELLES du marche StackR (endpoint public
+      # getAllLatestSales_v2) -> data/stackr_sales.csv + onglet _MarketRevenue
+      # (colonne Revenue Market de 📊 STATS). ~5 requetes/jour.
+      - name: 3c) Ventes StackR (prix reels -> Revenue Market)
+        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'ventes')) }}
+        env:
+          STACKR_COOKIE: ${{ secrets.STACKR_COOKIE }}
+        run: python -m scraper.stackr_sales
+
       - name: 4) Dynamic edition counters (daily GraphQL pass)
         if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'editions')) }}
         env:
@@ -110,10 +119,11 @@ jobs:
       - name: 6) Commit registre wallets (data/)
         if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'registre')) }}
         run: |
-          [ -f data/wallet_registry_daily.csv ] || { echo "Pas de registre a committer (journee chain sans transfert)."; exit 0; }
           git config user.name "veve-daily-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data/wallet_registry_daily.csv
+          [ -f data/wallet_registry_daily.csv ] && git add data/wallet_registry_daily.csv
+          [ -f data/stackr_sales.csv ] && git add data/stackr_sales.csv
+          git diff --cached --quiet && { echo "Rien a committer."; exit 0; }
           if git diff --cached --quiet; then echo "Rien a committer."; exit 0; fi
           git commit -m "registry: maj quotidienne wallets"
           for i in 1 2 3; do

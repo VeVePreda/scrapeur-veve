@@ -1,0 +1,59 @@
+name: Ventes StackR - backfill
+
+# Recupere l'HISTORIQUE des ventes StackR (chantier 7). Choisir le timeframe
+# le plus large que l'API accepte (7d, 30d, 1y, all... a tester du plus large
+# au plus etroit). Dedup par id : relancable sans risque de doublon.
+
+on:
+  workflow_dispatch:
+    inputs:
+      timeframe:
+        description: "Fenetre (1d, 7d, 30d, 1y, all...)"
+        default: "30d"
+      max_pages:
+        description: "Cap pages (0 = tout)"
+        default: "0"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: veve-sales
+  cancel-in-progress: false
+
+jobs:
+  sales:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      SHEET_ID: ${{ secrets.SHEET_ID }}
+      STACKR_COOKIE: ${{ secrets.STACKR_COOKIE }}
+      SALES_TIMEFRAME: ${{ github.event.inputs.timeframe || '30d' }}
+      SALES_MAX_PAGES: ${{ github.event.inputs.max_pages || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Etat le plus recent
+        run: git pull --rebase origin main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Collecte des ventes
+        run: python -m scraper.stackr_sales
+      - name: Commit historique ventes
+        if: ${{ success() }}
+        run: |
+          git config user.name "veve-sales-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/stackr_sales.csv
+          if git diff --cached --quiet; then echo "Rien a committer."; exit 0; fi
+          git commit -m "sales: StackR $(date -u +%FT%H:%M)"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && break
+            sleep $((i * 5))
+          done
