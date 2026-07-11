@@ -114,7 +114,17 @@ def fetch_sales(timeframe: str, max_pages: int = 0) -> List[Dict[str, Any]]:
         payload = {"json": j, "meta": {"values": {
             "elementType": ["undefined"], "edition": ["undefined"],
             "rarity": ["undefined"]}, "v": 1}}
-        data = _get("publicVeve.getAllLatestSales_v2", payload)
+        try:
+            data = _get("publicVeve.getAllLatestSales_v2", payload)
+        except RuntimeError as e:
+            # MUR SERVEUR constate le 11/07 : HTTP 500 systematique vers le
+            # curseur ~750 (pagination profonde cassee cote StackR, toutes
+            # fenetres). On GARDE la recolte partielle : le quotidien 1d
+            # (~300 ventes) ne touche jamais ce mur ; l'historique lointain
+            # viendra de la decompo burns (volume OMI par settle).
+            print("    MUR au curseur %s : %s — on garde les %d ventes "
+                  "recoltees." % (cursor, str(e)[:90], len(out)), flush=True)
+            break
         items = (((data.get("result") or {}).get("data") or {})
                  .get("json") or {}).get("items") or []
         if not items:
