@@ -178,9 +178,16 @@ ENGAGEMENTS = ["Fidèle", "Régulier", "Occasionnel", "Sporadique", "Unique"]
 # Pulse mensuel (VeveFox "Monthly Market Pulse") — onglet cache lu par 📊 STATS.
 PULSE_TAB = "_MonthlyPulse"
 PULSE_HEADER = ["month", "actifs", "nouveaux", "trades", "acheteurs",
-                "vendeurs", "tokens_emis", "minters_uniques", "drops",
-                "burns", "listings", "acc_net_moy", "acc_net_pos",
-                "acc_net_neg", "churn_pct"]
+                "vendeurs", "tokens_emis", "tokens_airdrop",
+                "minters_uniques", "drops", "burns", "listings",
+                "acc_net_moy", "acc_net_pos", "acc_net_neg", "churn_pct"]
+# AIRDROP (seuils valides par Preda 11/07) : un (jour, uuid) est un airdrop si
+# mints >= MIN_MINTS ET minters uniques >= RATIO x mints (~1 exemplaire par
+# wallet, ex. Black Pink Heart, Happy New Year Tier1 Gini 0.008). Les mints
+# d'airdrop sont SEPARES (jamais jetes) : tokens_airdrop au pulse, colonne
+# Airdrop sur 📊 STATS.
+AIRDROP_MIN_MINTS = int(os.environ.get("AIRDROP_MIN_MINTS", "2000"))
+AIRDROP_MINTER_RATIO = float(os.environ.get("AIRDROP_MINTER_RATIO", "0.9"))
 # Bareme d'activite en FRANCAIS (Preda 2026-07-10) — remplace
 # Active/Engaged/Dormant/Lapsed/Inactive/Ghost.
 ACTIVITIES = ["Actif", "Engagé", "Somnolant", "Inactif", "Désinscrit", "Fantôme"]
@@ -318,6 +325,7 @@ def replay(folder: str):
     monthly: Dict[str, Dict] = {}
     first_month: Dict[str, str] = {}
     uuid_first_mint: Dict[str, str] = {}
+    mint_day_uuid: Counter = Counter()   # candidats airdrop (compteur leger)
     for path in _archive_files(folder):
         with gzip.open(path, "rt", encoding="utf-8") as f:
             for r in csv.DictReader(f):
@@ -354,6 +362,7 @@ def replay(folder: str):
                         mo["minters"].add(to)
                         mo["actives"].add(to)
                         mo["net"][to] += 1
+                        mint_day_uuid[(day, uid)] += 1
                         if m < first_month.get(to, "9999"):
                             first_month[to] = m
                     if m < uuid_first_mint.get(uid, "9999"):
@@ -448,13 +457,53 @@ def replay(folder: str):
     if dups:
         print(f"Rejeu : {dups} doublons d'archives ignores (chevauchement "
               f"scan profond / continuite quotidienne).", flush=True)
-    return ledger, prof, n, _build_pulse(monthly, first_month, uuid_first_mint)
+    airdrops = _detect_airdrops(folder, mint_day_uuid)
+    return ledger, prof, n, _build_pulse(monthly, first_month,
+                                         uuid_first_mint, airdrops)
 
 
-def _build_pulse(monthly, first_month, uuid_first_mint) -> List[List]:
+def _detect_airdrops(folder: str, mint_day_uuid: Counter) -> Dict:
+    """{(day, uuid) -> mints} des AIRDROPS detectes.
+
+    1re passe (deja faite) : compteur leger de mints par (jour, uuid).
+    2e passe CIBLEE : pour les seuls candidats >= AIRDROP_MIN_MINTS, compter
+    les minters DISTINCTS (trop couteux en memoire pour 12M+ mints en 1 passe).
+    Airdrop si minters >= AIRDROP_MINTER_RATIO x mints (~1 par wallet)."""
+    candidates = {k for k, v in mint_day_uuid.items()
+                  if v >= AIRDROP_MIN_MINTS}
+    if not candidates:
+        return {}
+    minters: Dict[Tuple[str, str], set] = {k: set() for k in candidates}
+    for path in _archive_files(folder):
+        with gzip.open(path, "rt", encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                if (r.get("kind") or "").strip() != "mint":
+                    continue
+                day = (r.get("date_pt") or "").strip()
+                uid = (r.get("veve_uuid") or "").strip().lower()
+                k = (day, uid)
+                if k in minters:
+                    to = (r.get("to") or "").strip().lower()
+                    if to and to not in SYSTEM:
+                        minters[k].add(to)
+    out = {}
+    for k in candidates:
+        m = mint_day_uuid[k]
+        if len(minters[k]) >= AIRDROP_MINTER_RATIO * m:
+            out[k] = m
+            print(f"    AIRDROP detecte : {k[0]} {k[1][:8]}… "
+                  f"{m} mints / {len(minters[k])} wallets.", flush=True)
+    return out
+
+
+def _build_pulse(monthly, first_month, uuid_first_mint,
+                 airdrops=None) -> List[List]:
     """Lignes du pulse mensuel (chronologique ASC) pour _MonthlyPulse."""
     new_by_m = Counter(first_month.values())
     drops_by_m = Counter(uuid_first_mint.values())
+    air_by_m: Counter = Counter()
+    for (day, _uid), cnt in (airdrops or {}).items():
+        air_by_m[day[:7]] += cnt
     rows: List[List] = []
     prev_actives = None
     for m in sorted(monthly):
@@ -470,7 +519,8 @@ def _build_pulse(monthly, first_month, uuid_first_mint) -> List[List]:
         avg = round(sum(net.values()) / len(net), 2) if net else 0
         rows.append([m, len(act), new_by_m.get(m, 0), mo["market"],
                      len(mo["buyers"]), len(mo["sellers"]),
-                     mo["mints"], len(mo["minters"]), drops_by_m.get(m, 0),
+                     mo["mints"], air_by_m.get(m, 0),
+                     len(mo["minters"]), drops_by_m.get(m, 0),
                      mo["burns"], mo["listings"], avg, pos, neg, churn])
         prev_actives = act
     return rows

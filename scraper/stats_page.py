@@ -66,11 +66,15 @@ TOP_SERIES = int(os.environ.get("STATS_TOP_SERIES", "8"))
 TABLE_START_ROW = 10                 # 1re ligne de donnees du tableau quotidien
 GROUP_ROW = 8                        # ligne des groupes (fusionnee)
 HEADER_ROW = 9                       # ligne des colonnes
-MODULE_COL = "S"                     # colonne des modules de droite (tableau A:Q)
+MODULE_COL = "T"                     # colonne des modules de droite (tableau A:R)
 LISTING_TAB = "_ListingDaily"        # source du groupe LISTING (chain_run)
 PULSE_TAB = "_MonthlyPulse"          # source du 📅 pulse mensuel (ledger)
 PULSE_ROW = 49                       # ancre de la section pulse (sous le tableau)
 PULSE_MONTHS = int(os.environ.get("STATS_PULSE_MONTHS", "13"))
+# AIRDROP (seuils Preda 11/07) : (jour, uuid) avec mints >= MIN et minters
+# uniques >= RATIO x mints — detecte ici depuis ChainItems (fenetre 35 j).
+AIRDROP_MIN_MINTS = int(os.environ.get("AIRDROP_MIN_MINTS", "2000"))
+AIRDROP_MINTER_RATIO = float(os.environ.get("AIRDROP_MINTER_RATIO", "0.9"))
 
 # Registres wallet -> first_seen, pour distinguer Nouveaux et Anciens
 # (revenants). Local = commite par le daily ; raws publics = scans profonds.
@@ -151,6 +155,20 @@ def read_listing_daily(sh) -> Dict[str, tuple]:
     return out
 
 
+def detect_airdrop_daily(items: List[Dict[str, Any]]) -> Dict[str, int]:
+    """{date -> mints d'airdrop} depuis ChainItems : un (jour, item) avec
+    mints >= AIRDROP_MIN_MINTS et minters uniques >= 90 % des mints = airdrop
+    (~1 exemplaire par wallet). Separe, jamais jete (choix Preda)."""
+    out: Dict[str, int] = defaultdict(int)
+    for r in items:
+        m = _n(r.get("mints"))
+        u = _n(r.get("unique_minters"))
+        d = str(r.get("date", "")).strip()
+        if d and m >= AIRDROP_MIN_MINTS and u >= AIRDROP_MINTER_RATIO * m:
+            out[d] += m
+    return dict(out)
+
+
 def build_pulse_section(pulse_records: List[Dict[str, Any]]) -> List[List]:
     """Section 📅 PULSE MENSUEL (facon VeveFox) : 13 derniers mois DESC avec
     variations M/M sur actifs / trades / tokens emis. Source = _MonthlyPulse
@@ -177,6 +195,7 @@ def build_pulse_section(pulse_records: List[Dict[str, Any]]) -> List[List]:
             _n(r.get("acheteurs")), _n(r.get("vendeurs")),
             _n(r.get("tokens_emis")),
             pct(r.get("tokens_emis"), prev.get("tokens_emis")),
+            _n(r.get("tokens_airdrop")),
             _n(r.get("minters_uniques")), _n(r.get("drops")),
             _n(r.get("burns")), _n(r.get("listings")),
             r.get("acc_net_moy", ""), _n(r.get("acc_net_pos")),
@@ -186,8 +205,8 @@ def build_pulse_section(pulse_records: List[Dict[str, Any]]) -> List[List]:
         ["📅  PULSE MENSUEL — depuis la genèse (archive on-chain, recalculé "
          "par le workflow ledger)"],
         ["Mois", "Actifs", "Δ%", "Nouveaux", "Trades", "Δ%", "Acheteurs",
-         "Vendeurs", "Tokens émis", "Δ%", "Minters", "Drops", "Burns",
-         "Listings", "Acc. nette moy", "Net+", "Net−", "Churn %"],
+         "Vendeurs", "Tokens émis", "Δ%", "Airdrops", "Minters", "Drops",
+         "Burns", "Listings", "Acc. nette moy", "Net+", "Net−", "Churn %"],
     ] + rows
     return g
 
@@ -347,7 +366,8 @@ def _week_dates(daily: List[Dict[str, Any]]) -> List[str]:
     return [d["date"] for d in daily if d["date"] >= start]
 
 
-def compute_week(daily, revenue, omi=None, listing=None) -> Dict[str, Any]:
+def compute_week(daily, revenue, omi=None, listing=None,
+                 airdrop=None) -> Dict[str, Any]:
     days = set(_week_dates(daily))
     rows = [d for d in daily if d["date"] in days]
     accounts = set()
@@ -355,9 +375,11 @@ def compute_week(daily, revenue, omi=None, listing=None) -> Dict[str, Any]:
         accounts |= d["accounts"]
     omi = omi or {}
     listing = listing or {}
+    airdrop = airdrop or {}
     li = [listing.get(d["date"]) for d in rows]
     li = [x for x in li if x]
     return {
+        "airdrop": sum(airdrop.get(d["date"], 0) for d in rows),
         "listings": sum(x[0] for x in li),
         "pure_listers": sum(x[1] for x in li),
         "pure_listings": sum(x[2] for x in li),
@@ -407,12 +429,14 @@ def compute_split(items, week_days: set) -> Dict[str, int]:
 # Construction de la page
 # ---------------------------------------------------------------------------
 
-def build_table_grid(daily, revenue, week, omi, listing,
+def build_table_grid(daily, revenue, week, omi, listing, airdrop,
                      now_utc: str) -> List[List]:
-    """Grille A1:Q.. : titre, bande KPI 7 jours, tableau quotidien groupe."""
+    """Grille A1:R.. : titre, bande KPI 7 jours, tableau quotidien groupe.
+    Les mints d'airdrop sortent de la colonne Mint vers Airdrop (le Global
+    reste complet — separer sans jeter, choix Preda)."""
     g: List[List] = []
     g.append(["📊  STATS VEVE — ACTIVITÉ ON-CHAIN", "", "", "", "", "", "",
-              "", "", "", "", "", "", "", "", "", "", "",
+              "", "", "", "", "", "", "", "", "", "", "", "",
               f"maj : {now_utc}"])
     g.append(["Jours pacifiques terminés uniquement · Revenue drop = mints × "
               "prix store · Revenue market et OMI→NFT/GEM : en attente "
@@ -420,23 +444,28 @@ def build_table_grid(daily, revenue, week, omi, listing,
     g.append([])
     g.append([f"▼  7 DERNIERS JOURS TERMINÉS — du {week['start']} au "
               f"{week['end']}"])
-    g.append(["Revenue drop", "Transactions", "Mints", "Market", "Burns",
-              "Actifs uniques", "Nouveaux", "Anciens", "Listings",
+    g.append(["Revenue drop", "Transactions", "Mints", "Airdrops", "Market",
+              "Burns", "Actifs uniques", "Nouveaux", "Anciens", "Listings",
               "Listeurs purs", "OMI brûlés"])
-    g.append([week["revenue"], week["tx"], week["mint"], week["market"],
-              week["burn"], week["uniques"], week["new"], week["old"],
-              week["listings"], week["pure_listers"], week["omi"]])
+    g.append([week["revenue"], week["tx"],
+              max(0, week["mint"] - week["airdrop"]), week["airdrop"],
+              week["market"], week["burn"], week["uniques"], week["new"],
+              week["old"], week["listings"], week["pure_listers"],
+              week["omi"]])
     g.append([])
-    g.append(["", "TRANSACTION", "", "", "", "ACTIF", "", "", "LISTING", "",
-              "", "REVENUE", "", "", "OMI BURN", "", ""])
-    g.append(["Date", "Global", "Mint", "Market", "Burn", "Unique",
-              "Nouveaux", "Anciens", "Listings", "Purs", "Listings purs",
-              "Total", "Drop", "Market", "Global", "OMI→NFT", "OMI→GEM"])
+    g.append(["", "TRANSACTION", "", "", "", "", "ACTIF", "", "", "LISTING",
+              "", "", "REVENUE", "", "", "OMI BURN", "", ""])
+    g.append(["Date", "Global", "Mint", "Airdrop", "Market", "Burn",
+              "Unique", "Nouveaux", "Anciens", "Listings", "Purs",
+              "Listings purs", "Total", "Drop", "Market",
+              "Global", "OMI→NFT", "OMI→GEM"])
     for d in daily:
         drop = round(revenue.get(d["date"], 0))
         o = omi.get(d["date"])
         li = listing.get(d["date"])
-        g.append([d["date"], d["tx"], d["mint"], d["market"], d["burn"],
+        air = airdrop.get(d["date"], 0)
+        g.append([d["date"], d["tx"], max(0, d["mint"] - air), air,
+                  d["market"], d["burn"],
                   d["uniques"], d["new"], d["old"],
                   li[0] if li else "", li[1] if li else "",
                   li[2] if li else "",
@@ -470,6 +499,9 @@ def build_modules_grid(sante_rows, split) -> List[List]:
               "définitive quand le scan CollectChain sera terminé.", ""])
     g.append(["• Transactions Global = mints + ventes marché + burns (lister "
               "n'est PAS une transaction — groupe LISTING à part).", ""])
+    g.append(["• Airdrop = (jour, item) avec ≥ 2 000 mints ET ≥ 90 % de "
+              "minters uniques (~1/wallet) — séparé de Mint, compté dans "
+              "Global (jamais jeté).", ""])
     g.append(["• LISTING : Listings = nouveaux dépôts escrow du jour · Purs = "
               "comptes ayant listé sans mint/achat/vente ce jour · Listings "
               "purs = dépôts faits par ces comptes. Données depuis le 11/07 "
@@ -622,12 +654,14 @@ def write_stats(sh) -> Dict[str, Any]:
     revenue = compute_revenue(items, prices)
     omi = read_omi_burns(sh)
     listing = read_listing_daily(sh)
-    week = compute_week(daily, revenue, omi, listing)
+    airdrop = detect_airdrop_daily(items)
+    week = compute_week(daily, revenue, omi, listing, airdrop)
     wdays = set(_week_dates(daily))
     split = compute_split(items, wdays)
 
     now_utc = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
-    table = build_table_grid(daily, revenue, week, omi, listing, now_utc)
+    table = build_table_grid(daily, revenue, week, omi, listing, airdrop,
+                             now_utc)
     try:
         sante_rows = _health.build_rows(sh)
     except Exception as e:
