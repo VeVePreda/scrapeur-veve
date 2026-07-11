@@ -92,7 +92,7 @@ PSEUDOS_HEADER = ["username", "wallet_imx", "wallet_stackr", "veve_user_id",
                   # --- profil injecte par scraper.ledger (join wallet_imx) ---
                   "holdings", "distinct_collectibles", "acquired", "sold",
                   "retention", "median_hold_days", "collectorScore",
-                  "activityStatus", "value_store", "value_floor", "qty_bucket"]
+                  "activityStatus", "engagementLevel", "value_store", "value_floor", "qty_bucket"]
 
 PAUSE = float(os.environ.get("STACKR_PAUSE", "0.35"))
 MAX_LOOKUPS = int(os.environ.get("STACKR_MAX_LOOKUPS", "200"))
