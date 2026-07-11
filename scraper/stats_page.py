@@ -75,6 +75,8 @@ PULSE_MONTHS = int(os.environ.get("STATS_PULSE_MONTHS", "13"))
 # uniques >= RATIO x mints — detecte ici depuis ChainItems (fenetre 35 j).
 AIRDROP_MIN_MINTS = int(os.environ.get("AIRDROP_MIN_MINTS", "2000"))
 AIRDROP_MINTER_RATIO = float(os.environ.get("AIRDROP_MINTER_RATIO", "0.9"))
+# Jour du dump de migration IMX->CC : re-mints automatiques, pas des airdrops.
+MIGRATION_DAY = os.environ.get("CC_MIGRATION_DAY", "2026-01-28")
 
 # Registres wallet -> first_seen, pour distinguer Nouveaux et Anciens
 # (revenants). Local = commite par le daily ; raws publics = scans profonds.
@@ -164,6 +166,8 @@ def detect_airdrop_daily(items: List[Dict[str, Any]]) -> Dict[str, int]:
         m = _n(r.get("mints"))
         u = _n(r.get("unique_minters"))
         d = str(r.get("date", "")).strip()
+        if d == MIGRATION_DAY:
+            continue           # re-mints de migration, pas des airdrops
         if d and m >= AIRDROP_MIN_MINTS and u >= AIRDROP_MINTER_RATIO * m:
             out[d] += m
     return dict(out)
@@ -273,8 +277,11 @@ def compute_daily(activity: List[Dict[str, Any]],
     old_by_day: Counter = Counter()
     for a, d in first_in_window.items():
         fs, prev = registry.get(a, ("", ""))
-        if not fs and not prev:
-            new_by_day[d] += 1              # inconnu de tous les registres
+        # NOUVEAU = inconnu de tous les registres, OU ne CE jour-la (le
+        # registre deep couvre desormais toute la fenetre : "connu" ne veut
+        # plus dire "pas nouveau" — fix 11/07, les Nouveaux etaient a 0).
+        if (not fs and not prev) or (fs and fs[:10] >= d):
+            new_by_day[d] += 1
             continue
         gap = _days_between(prev, d) if prev else None
         if gap is not None and gap > REVENANT_GAP_DAYS:

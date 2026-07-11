@@ -188,6 +188,12 @@ PULSE_HEADER = ["month", "actifs", "nouveaux", "trades", "acheteurs",
 # Airdrop sur 📊 STATS.
 AIRDROP_MIN_MINTS = int(os.environ.get("AIRDROP_MIN_MINTS", "2000"))
 AIRDROP_MINTER_RATIO = float(os.environ.get("AIRDROP_MINTER_RATIO", "0.9"))
+# Jour du DUMP de migration IMX->CollectChain : des re-mints automatiques
+# (1 par proprietaire) qui matchent la regle airdrop par accident (12 faux
+# positifs constates au run du 11/07) et gonflent le pulse. EXCLU de la
+# detection airdrop ET des compteurs mint du pulse (le grand livre, lui,
+# garde ces mints : ils fondent la propriete).
+MIGRATION_DAY = os.environ.get("CC_MIGRATION_DAY", "2026-01-28")
 # Bareme d'activite en FRANCAIS (Preda 2026-07-10) — remplace
 # Active/Engaged/Dormant/Lapsed/Inactive/Ghost.
 ACTIVITIES = ["Actif", "Engagé", "Somnolant", "Inactif", "Désinscrit", "Fantôme"]
@@ -357,6 +363,8 @@ def replay(folder: str):
                     "actives": set(), "minters": set(), "buyers": set(),
                     "sellers": set(), "net": Counter()})
                 if kind == "mint":
+                    if day == MIGRATION_DAY:
+                        continue   # re-mints de migration : pas de l'activite
                     if to and to not in SYSTEM:
                         mo["mints"] += 1
                         mo["minters"].add(to)
