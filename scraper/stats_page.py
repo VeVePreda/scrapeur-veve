@@ -70,7 +70,9 @@ MODULE_COL = "T"                     # colonne des modules de droite (tableau A:
 LISTING_TAB = "_ListingDaily"        # source du groupe LISTING (chain_run)
 PULSE_TAB = "_MonthlyPulse"          # source du 📅 pulse mensuel (ledger)
 PULSE_ROW = 49                       # ancre de la section pulse (sous le tableau)
-PULSE_MONTHS = int(os.environ.get("STATS_PULSE_MONTHS", "13"))
+# 60 mois par defaut : l'histoire complete 2021->2026 (pulse IMX) tient
+# dans la zone mensuelle (gs v6 formate jusqu'a la ligne 120).
+PULSE_MONTHS = int(os.environ.get("STATS_PULSE_MONTHS", "60"))
 # AIRDROP (seuils Preda 11/07) : (jour, uuid) avec mints >= MIN et minters
 # uniques >= RATIO x mints — detecte ici depuis ChainItems (fenetre 35 j).
 AIRDROP_MIN_MINTS = int(os.environ.get("AIRDROP_MIN_MINTS", "2000"))

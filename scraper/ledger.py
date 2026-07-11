@@ -227,6 +227,20 @@ def _archive_files(folder: str) -> List[str]:
     return sorted(set(files))
 
 
+# Contrat NFT VeVe sur Immutable X (ere 2021 -> migration 2026-01-28).
+IMX_CONTRACT = "0xa7aefead2f25972d80516628417ac46b3f2604af"
+
+
+def _imx_files(folder: str) -> List[str]:
+    """Tranches du scan IMX de paolo (imx_transfers_runNNN.csv.gz)."""
+    if not folder:
+        return []
+    files = glob.glob(os.path.join(folder, "*imx*run*.csv.gz"))
+    if not files:
+        files = glob.glob(os.path.join(folder, "*.csv.gz"))
+    return sorted(set(files))
+
+
 def _snapshot_files(folder: str) -> List[str]:
     files = glob.glob(os.path.join(folder, "*holders*run*.csv.gz"))
     if not files:
@@ -313,7 +327,7 @@ def _week_key(day: str):
         return None
 
 
-def replay(folder: str):
+def replay(folder: str, imx_folder: str = ""):
     """Retourne (ledger, prof, n_transfers, pulse_rows).
 
     ledger : {(uuid,edition) -> (holder, listed)}   etat final vu par l'ARCHIVE
@@ -469,8 +483,112 @@ def replay(folder: str):
         print(f"Rejeu : {dups} doublons d'archives ignores (chevauchement "
               f"scan profond / continuite quotidienne).", flush=True)
     airdrops = _detect_airdrops(folder, mint_day_uuid)
+    seq.clear()                     # libere la RAM avant l'ere IMX (runner 7 Go)
+    n_imx = _ingest_imx(imx_folder, monthly, first_month)
+    if n_imx:
+        print(f"Pulse IMX : {n_imx} transferts 2021->{MIGRATION_DAY} integres "
+              f"({len(monthly)} mois au pulse).", flush=True)
     return ledger, prof, n, _build_pulse(monthly, first_month,
                                          uuid_first_mint, airdrops)
+
+
+def _ingest_imx(folder: str, monthly: Dict, first_month: Dict) -> int:
+    """PULSE IMX 2021->2026 (demande Preda : « l'histoire complete »).
+
+    Fusionne l'archive IMX de paolo (imx_transfers_runNNN.csv.gz : txn_id,
+    txn_time_ms, date_pt, txn_type, from, to, token_id, token_address) dans
+    les MEMES agregats mensuels que CollectChain. Regles :
+      * dedup par txn_id (le 14/12/2021 a ete re-scanne en boucle) ;
+      * filtre contrat VeVe (IMX_CONTRACT) ;
+      * date_pt >= MIGRATION_DAY ignoree (dump de migration + ere CC deja
+        couverte par chain-archive) -> janvier 2026 = IMX 1-27 + CC des le 28 ;
+      * kind par adresses : from 0x0 (ou txn_type mint) = mint · to 0x0/coffre
+        = burn · to escrow = listing · from escrow = vente (vendeur retrouve
+        via le DERNIER deposant du token_id ; escrow->deposant = annulation,
+        no-op) · sinon transfert direct compte comme market ;
+      * drops / airdrops : vides pour l'ere IMX (pas d'uuid dans l'archive) ;
+      * PULSE UNIQUEMENT : grand livre, profils et scores restent CollectChain
+        (pas d'uuid/edition cote IMX ; l'anciennete des veterans vit deja dans
+        wallet_registry_imx).
+    Memoire : wallets internes (1 objet str par wallet), a executer APRES
+    seq.clear() (runner prive 7 Go)."""
+    files = _imx_files(folder)
+    if not files:
+        return 0
+    seen: set = set()
+    canon: Dict[str, str] = {}
+
+    def W(a) -> str:
+        a = (a or "").strip().lower()
+        return canon.setdefault(a, a)
+
+    def touch(mo, m, w, delta):
+        mo["actives"].add(w)
+        mo["net"][w] += delta
+        if m < first_month.get(w, "9999"):
+            first_month[w] = m
+
+    lister: Dict[str, str] = {}      # token_id -> dernier deposant escrow
+    n = 0
+    for path in files:
+        with gzip.open(path, "rt", encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                ca = (r.get("token_address") or "").strip().lower()
+                if ca and ca != IMX_CONTRACT:
+                    continue
+                day = (r.get("date_pt") or "").strip()
+                if not day or day >= MIGRATION_DAY:
+                    continue
+                tid = (r.get("txn_id") or "").strip()
+                if tid:
+                    try:
+                        tkey = int(tid)
+                    except ValueError:
+                        tkey = tid
+                    if tkey in seen:
+                        continue
+                    seen.add(tkey)
+                frm, to = W(r.get("from")), W(r.get("to"))
+                m = day[:7]
+                mo = monthly.setdefault(m, {
+                    "mints": 0, "market": 0, "burns": 0, "listings": 0,
+                    "actives": set(), "minters": set(), "buyers": set(),
+                    "sellers": set(), "net": Counter()})
+                tok = (r.get("token_id") or "").strip()
+                n += 1
+                if (r.get("txn_type") or "").strip() == "mint" or frm == ZERO:
+                    if to and to not in SYSTEM:
+                        mo["mints"] += 1
+                        mo["minters"].add(to)
+                        touch(mo, m, to, 1)
+                elif to in BURN_TO:
+                    mo["burns"] += 1
+                    if frm and frm not in SYSTEM:
+                        touch(mo, m, frm, -1)
+                elif to == MARKET_ESCROW:
+                    mo["listings"] += 1
+                    if tok and frm and frm not in SYSTEM:
+                        lister[tok] = frm
+                elif frm == MARKET_ESCROW:
+                    seller = lister.pop(tok, "") if tok else ""
+                    if seller and seller == to:
+                        continue                 # annulation : retour au deposant
+                    if to and to not in SYSTEM:
+                        mo["market"] += 1
+                        mo["buyers"].add(to)
+                        touch(mo, m, to, 1)
+                        if seller:
+                            mo["sellers"].add(seller)
+                            touch(mo, m, seller, -1)
+                else:                            # transfert direct wallet->wallet
+                    mo["market"] += 1
+                    if to and to not in SYSTEM:
+                        mo["buyers"].add(to)
+                        touch(mo, m, to, 1)
+                    if frm and frm not in SYSTEM:
+                        mo["sellers"].add(frm)
+                        touch(mo, m, frm, -1)
+    return n
 
 
 def _detect_airdrops(folder: str, mint_day_uuid: Counter) -> Dict:
@@ -679,8 +797,9 @@ NO_BEHAVIOR = {"mints": 0, "buys": 0, "sells": 0, "durations": [],
                "first": "", "last": ""}
 
 
-def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date):
-    ledger_replay, prof, n, pulse_rows = replay(folder)
+def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date,
+              imx_folder: str = ""):
+    ledger_replay, prof, n, pulse_rows = replay(folder, imx_folder)
     print(f"Rejeu : {len(ledger_replay)} editions, {len(prof)} wallets, "
           f"{n} transferts.", flush=True)
 
@@ -1129,15 +1248,18 @@ def main() -> int:
         return 2
     folder = os.environ.get("ARCHIVE_DIR", "dl")
     snap_folder = os.environ.get("SNAPSHOT_DIR", "dl_snap")
+    imx_folder = os.environ.get("IMX_DIR", "dl_imx")
     top = int(os.environ.get("WHALES_TOP", "100"))
     rd = os.environ.get("RUN_DATE")
     today = _dt.date.fromisoformat(rd) if rd else _dt.date.today()
 
     have_archive = bool(_archive_files(folder))
     have_snap = bool(_snapshot_files(snap_folder))
+    have_imx = bool(_imx_files(imx_folder))
     print(f"Sources : archive transferts={'OUI' if have_archive else 'non'} "
           f"({folder}), snapshot holders={'OUI' if have_snap else 'non'} "
-          f"({snap_folder}).", flush=True)
+          f"({snap_folder}), archive IMX={'OUI' if have_imx else 'non'} "
+          f"({imx_folder}).", flush=True)
     if not have_archive and not have_snap:
         print(f"Aucune source : ni archive dans '{folder}' ni snapshot dans "
               f"'{snap_folder}'.", file=sys.stderr)
@@ -1150,7 +1272,7 @@ def main() -> int:
 
     sh = _client().open_by_key(sheet_id)
     (ledger, prof, whale_blocks, corner, size_rows, profiles,
-     pulse_rows) = build_all(folder, snap_folder, sh, top, today)
+     pulse_rows) = build_all(folder, snap_folder, sh, top, today, imx_folder)
 
     _save_ledger(ledger, os.environ.get("LEDGER_OUT", "data/ledger.csv.gz"))
     _save_profiles(profiles,
