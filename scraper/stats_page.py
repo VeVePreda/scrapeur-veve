@@ -7,11 +7,14 @@ Refonte demandee par Preda (2026-07-10) :
   * tableau quotidien avec EN-TETE GROUPE sur 2 lignes (ligne 8 = groupes,
     ligne 9 = colonnes) :
         TRANSACTION : Global | Mint | Market | Burn   (Global = M+M+B)
-        ACTIF       : Unique | Nouveaux | Anciens     (Anciens = REVENANTS :
-                      wallet deja connu des registres AVANT la fenetre, sans
-                      activite depuis >= le debut de la fenetre (~35 j), qui
-                      redevient actif — demande Preda 10/07 pour reperer les
-                      desinscrits/fantomes qui se reveillent)
+        ACTIF       : Unique | Nouveaux | Anciens     (Anciens v2, precision
+                      Preda 11/07 : wallets de type DESINSCRIT ou FANTOME qui
+                      redeviennent actifs = transaction PRECEDENTE > 180 j
+                      avant le jour J, d'apres le last_active des registres
+                      deep + IMX — le scan etant newest-first, le last_active
+                      d'un wallet present au registre est sa vraie derniere
+                      activite pre-fenetre. Un wallet connu qui revient apres
+                      un trou <= 180 j n'est NI nouveau NI ancien.)
         REVENUE     : Total | Drop | Market
         OMI BURN    : Global | OMI→NFT | OMI→GEM      (ajout Preda 10/07)
     (exit Panier moyen, % nouveaux, tx/actif) ;
@@ -148,16 +151,31 @@ def read_omi_burns(sh) -> Dict[str, float]:
 # Calculs
 # ---------------------------------------------------------------------------
 
+REVENANT_GAP_DAYS = int(os.environ.get("STATS_REVENANT_GAP", "180"))
+
+
+def _days_between(d1: str, d2: str):
+    try:
+        return (_dt.date.fromisoformat(d2[:10])
+                - _dt.date.fromisoformat(d1[:10])).days
+    except (ValueError, TypeError):
+        return None
+
+
 def compute_daily(activity: List[Dict[str, Any]],
-                  known_first_seen: Dict[str, str] = None) -> List[Dict[str, Any]]:
+                  registry: Dict[str, tuple] = None) -> List[Dict[str, Any]]:
     """ChainActivity (date, account, compteurs) -> 1 dict par date, tri DESC.
 
+    registry : {wallet -> (first_seen, prev_last_active)} — prev_last_active
+    vient des registres deep/IMX (activite PRE-fenetre uniquement).
     La 1re apparition d'un wallet DANS LA FENETRE est classee :
-      * ANCIEN (revenant) si le registre le connait d'AVANT la fenetre — il
-        etait donc silencieux depuis >= le debut de la fenetre (~35 j) ;
-      * NOUVEAU sinon (jamais vu, ou cree dans la fenetre).
+      * ANCIEN = un Désinscrit/Fantôme reveille : sa transaction precedente
+        (prev_last_active) remonte a PLUS de REVENANT_GAP_DAYS (180 j) ;
+      * NOUVEAU = wallet inconnu de tous les registres ;
+      * ni l'un ni l'autre = wallet connu revenu apres un trou <= 180 j
+        (somnolant/inactif qui se reveille — pas compte).
     """
-    known_first_seen = known_first_seen or {}
+    registry = registry or {}
     per: Dict[str, Dict[str, Any]] = {}
     first_in_window: Dict[str, str] = {}
     for r in activity:
@@ -173,15 +191,16 @@ def compute_daily(activity: List[Dict[str, Any]],
         p["accounts"].add(a)
         if a not in first_in_window or d < first_in_window[a]:
             first_in_window[a] = d
-    window_start = min(per) if per else ""
     new_by_day: Counter = Counter()
     old_by_day: Counter = Counter()
     for a, d in first_in_window.items():
-        k = str(known_first_seen.get(a, "")).strip()
-        if k and k[:10] < window_start:
-            old_by_day[d] += 1
-        else:
-            new_by_day[d] += 1
+        fs, prev = registry.get(a, ("", ""))
+        if not fs and not prev:
+            new_by_day[d] += 1              # inconnu de tous les registres
+            continue
+        gap = _days_between(prev, d) if prev else None
+        if gap is not None and gap > REVENANT_GAP_DAYS:
+            old_by_day[d] += 1              # Désinscrit/Fantôme reveille
     out = []
     for d in sorted(per, reverse=True):
         p = per[d]
@@ -195,28 +214,39 @@ def compute_daily(activity: List[Dict[str, Any]],
     return out
 
 
-def load_known_first_seen(wallets: set) -> Dict[str, str]:
-    """{wallet -> first_seen (min)} depuis les registres, restreint aux wallets
-    actifs de la fenetre (memoire legere). Tolerant : chaque source peut manquer
-    — la precision des Anciens s'ameliore avec l'avancement des scans."""
+def load_known_first_seen(wallets: set) -> Dict[str, tuple]:
+    """{wallet -> (first_seen min, prev_last_active max)} depuis les registres,
+    restreint aux wallets actifs de la fenetre (memoire legere).
+
+    prev_last_active = SEULEMENT les registres deep/IMX (activite PRE-fenetre :
+    le scan deep etant newest-first, le last_active d'un wallet present est sa
+    vraie derniere activite avant le debut du scan). Le registre daily LOCAL
+    est exclu du prev_last_active : il est mis a jour par chain_run AVANT cette
+    page, donc contamine par la fenetre — il ne sert qu'au first_seen.
+    Tolerant : chaque source peut manquer."""
     import csv as _csv
     import io as _io
-    out: Dict[str, str] = {}
+    first: Dict[str, str] = {}
+    prev: Dict[str, str] = {}
 
-    def feed(lines, label):
+    def feed(lines, label, with_last):
         n = 0
         for row in _csv.DictReader(lines):
             w = str(row.get("wallet") or "").strip().lower()
             if w in wallets:
                 fs = str(row.get("first_seen") or "").strip()
-                if fs and (w not in out or fs < out[w]):
-                    out[w] = fs
+                if fs and (w not in first or fs < first[w]):
+                    first[w] = fs
+                if with_last:
+                    la = str(row.get("last_active") or "").strip()
+                    if la and (w not in prev or la > prev[w]):
+                        prev[w] = la
                 n += 1
         print(f"    registre {label} : {n} wallets actifs reconnus.", flush=True)
 
     try:
         with open(LOCAL_REGISTRY, encoding="utf-8") as f:
-            feed(f, "daily(local)")
+            feed(f, "daily(local)", with_last=False)
     except Exception as e:
         print(f"    registre local indisponible : {e}", flush=True)
     try:
@@ -226,12 +256,13 @@ def load_known_first_seen(wallets: set) -> Dict[str, str]:
             try:
                 resp = requests.get(url, timeout=180)
                 resp.raise_for_status()
-                feed(_io.StringIO(resp.text), label)
+                feed(_io.StringIO(resp.text), label, with_last=True)
             except Exception as e:
                 print(f"    registre {label} indisponible : {e}", flush=True)
     except Exception:
         pass
-    return out
+    return {w: (first.get(w, ""), prev.get(w, ""))
+            for w in set(first) | set(prev)}
 
 
 def compute_revenue(items: List[Dict[str, Any]],
@@ -361,9 +392,10 @@ def build_modules_grid(sante_rows, split) -> List[List]:
     g.append(["Burns", split.get("burns", 0)])
     g.append([""])
     g.append(["ℹ️  NOTES & LÉGENDES", ""])        # P30
-    g.append(["• Anciens = wallet déjà connu des registres AVANT la fenêtre "
-              "(~35 j), sans activité depuis, qui redevient actif.", ""])
-    g.append(["• Nouveaux = wallet jamais vu (fenêtre + registres). Précision "
+    g.append(["• Anciens = Désinscrits/Fantômes réveillés : wallet actif ce "
+              "jour dont la transaction précédente remonte à plus de 180 j "
+              "(last_active des registres deep + IMX).", ""])
+    g.append(["• Nouveaux = wallet inconnu de tous les registres. Précision "
               "définitive quand le scan CollectChain sera terminé.", ""])
     g.append(["• Transactions Global = mints + ventes marché + burns.", ""])
     g.append(["• Revenue drop = mints × prix store · Revenue market : vide en "
