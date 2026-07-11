@@ -10,8 +10,9 @@ name: Analytics - grand livre (holdings)
 #   3. Release "chain-archive-daily" (CE repo)            -> CONTINUITE : les
 #      journees produites par chain_run apres le mur du scan profond.
 #      Chevauchements deduplique par (block, log_index) dans replay().
-# Ecrit : data/ledger.csv.gz + data/wallet_profiles.csv.gz (commites),
-# onglets 🐋A-WHALES / 🎯A-CORNERISATION / 📈H-WALLET-SIZE / 🟣C-PSEUDOS / 🏠ACCUEIL.
+# Sorties : Release "ledger-data" (ledger.csv.gz + wallet_profiles.csv.gz —
+# trop gros pour un commit depuis le snapshot : 161 Mo > limite 100 Mo),
+# onglets 🐋A-WHALES / 🎯A-CORNERISATION / 📈H-WALLET-SIZE / 🟣C-PSEUDOS.
 
 on:
   workflow_dispatch:
@@ -81,15 +82,16 @@ jobs:
       - name: Construire le grand livre + agregats
         run: python -m scraper.ledger
 
-      - name: Commit du grand livre
+      # Le grand livre depasse desormais 100 Mo (8,6 M d'editions avec le
+      # snapshot holders) -> Release au lieu d'un commit (rejete par GitHub).
+      - name: Publier le grand livre (Release ledger-data)
         if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git config user.name "veve-ledger-bot"
-          git config user.email "actions@users.noreply.github.com"
-          git add data/ledger.csv.gz data/wallet_profiles.csv.gz
-          if git diff --cached --quiet; then echo "Rien a committer."; exit 0; fi
-          git commit -m "ledger: grand livre + profils $(date -u +%FT%H:%M)"
-          for i in 1 2 3; do
-            git pull --rebase origin main && git push && break
-            sleep $((i * 5))
-          done
+          ls data/ledger.csv.gz >/dev/null 2>&1 || { echo "Pas de grand livre a publier."; exit 0; }
+          gh release view ledger-data >/dev/null 2>&1 || \
+            gh release create ledger-data --title "Grand livre + profils wallets" \
+              --notes "data/ledger.csv.gz (veve_uuid,edition,holder,listed) + data/wallet_profiles.csv.gz — regeneres a chaque run du workflow ledger. Trop gros pour un commit (>100 Mo)."
+          gh release upload ledger-data data/ledger.csv.gz data/wallet_profiles.csv.gz --clobber
+          echo "Publie :" && ls -lh data/
