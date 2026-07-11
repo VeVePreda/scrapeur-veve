@@ -68,6 +68,9 @@ GROUP_ROW = 8                        # ligne des groupes (fusionnee)
 HEADER_ROW = 9                       # ligne des colonnes
 MODULE_COL = "S"                     # colonne des modules de droite (tableau A:Q)
 LISTING_TAB = "_ListingDaily"        # source du groupe LISTING (chain_run)
+PULSE_TAB = "_MonthlyPulse"          # source du 📅 pulse mensuel (ledger)
+PULSE_ROW = 49                       # ancre de la section pulse (sous le tableau)
+PULSE_MONTHS = int(os.environ.get("STATS_PULSE_MONTHS", "13"))
 
 # Registres wallet -> first_seen, pour distinguer Nouveaux et Anciens
 # (revenants). Local = commite par le daily ; raws publics = scans profonds.
@@ -146,6 +149,47 @@ def read_listing_daily(sh) -> Dict[str, tuple]:
             out[d] = (_n(r.get("listings")), _n(r.get("pure_listers")),
                       _n(r.get("pure_listings")))
     return out
+
+
+def build_pulse_section(pulse_records: List[Dict[str, Any]]) -> List[List]:
+    """Section 📅 PULSE MENSUEL (facon VeveFox) : 13 derniers mois DESC avec
+    variations M/M sur actifs / trades / tokens emis. Source = _MonthlyPulse
+    (ecrit par le workflow ledger depuis l'archive complete)."""
+    if not pulse_records:
+        return []
+    recs = sorted(pulse_records, key=lambda r: str(r.get("month", "")))
+
+    def pct(cur, prev):
+        try:
+            cur, prev = float(cur), float(prev)
+            return round(100.0 * (cur - prev) / prev, 1) if prev else ""
+        except (TypeError, ValueError):
+            return ""
+
+    rows = []
+    for i, r in enumerate(recs):
+        prev = recs[i - 1] if i else {}
+        rows.append([
+            str(r.get("month", "")), _n(r.get("actifs")),
+            pct(r.get("actifs"), prev.get("actifs")),
+            _n(r.get("nouveaux")), _n(r.get("trades")),
+            pct(r.get("trades"), prev.get("trades")),
+            _n(r.get("acheteurs")), _n(r.get("vendeurs")),
+            _n(r.get("tokens_emis")),
+            pct(r.get("tokens_emis"), prev.get("tokens_emis")),
+            _n(r.get("minters_uniques")), _n(r.get("drops")),
+            _n(r.get("burns")), _n(r.get("listings")),
+            r.get("acc_net_moy", ""), _n(r.get("acc_net_pos")),
+            _n(r.get("acc_net_neg")), r.get("churn_pct", "")])
+    rows = rows[-PULSE_MONTHS:][::-1]          # 13 derniers mois, DESC
+    g: List[List] = [
+        ["📅  PULSE MENSUEL — depuis la genèse (archive on-chain, recalculé "
+         "par le workflow ledger)"],
+        ["Mois", "Actifs", "Δ%", "Nouveaux", "Trades", "Δ%", "Acheteurs",
+         "Vendeurs", "Tokens émis", "Δ%", "Minters", "Drops", "Burns",
+         "Listings", "Acc. nette moy", "Net+", "Net−", "Churn %"],
+    ] + rows
+    return g
 
 
 def read_omi_burns(sh) -> Dict[str, float]:
@@ -441,7 +485,11 @@ def build_modules_grid(sante_rows, split) -> List[List]:
               "Serious ≥75% · Collector ≥50% · Trader ≥30% · Flipper ≥15% · "
               "Seasoned ≥5% · Aggressive <5% (+1 cran flipper si revente "
               "médiane <7 j).", ""])
-    g.append(["• Page recalculée chaque nuit par le daily.", ""])
+    g.append(["🔁 ENGAGEMENT (part des semaines actives depuis la 1ʳᵉ tx) : "
+              "Fidèle ≥50 % · Régulier ≥25 % · Occasionnel ≥10 % · "
+              "Sporadique <10 % · Unique = 1 seule semaine.", ""])
+    g.append(["• Page recalculée chaque nuit par le daily · 📅 Pulse mensuel "
+              "recalculé par le workflow ledger.", ""])
     return g
 
 
@@ -593,6 +641,16 @@ def write_stats(sh) -> Dict[str, Any]:
     ws.update(range_name="A1", values=table, value_input_option="RAW")
     ws.update(range_name=f"{MODULE_COL}{GROUP_ROW}", values=modules,
               value_input_option="RAW")
+    # 📅 PULSE MENSUEL (sous le tableau quotidien), si le ledger l'a produit
+    pulse = build_pulse_section(_records(sh, PULSE_TAB))
+    if pulse:
+        ws.update(range_name=f"A{PULSE_ROW}", values=pulse,
+                  value_input_option="RAW")
+        try:
+            ws.format(f"{PULSE_ROW}:{PULSE_ROW + 1}",
+                      {"textFormat": {"bold": True}})
+        except Exception:
+            pass
     # PRESENTATION : AUCUNE mise en forme ici (choix Preda 10/07 apres l'echec
     # du batch atomique contre les fusions de l'ancienne page). L'habillage est
     # pose UNE FOIS par l'Apps Script stats_format.gs (formatStatsPage) et

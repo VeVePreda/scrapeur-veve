@@ -50,8 +50,18 @@ ACTIVITY_COLORS: Dict[str, dict] = {
     "Ghost":    _rgb(0.90, 0.66, 0.62),
 }
 
+# Engagement (part des semaines actives) : bleu fonce (fidele) -> gris clair
+ENGAGEMENT_COLORS: Dict[str, dict] = {
+    "Fidèle":      _rgb(0.61, 0.76, 0.90),
+    "Régulier":    _rgb(0.74, 0.84, 0.94),
+    "Occasionnel": _rgb(0.86, 0.91, 0.96),
+    "Sporadique":  _rgb(0.93, 0.94, 0.96),
+    "Unique":      _rgb(0.88, 0.88, 0.88),
+}
+
 SCORE_NAMES = {"score", "collectorscore", "score_dominant"}
 ACT_NAMES = {"activity", "activitystatus", "activity_dominant"}
+ENG_NAMES = {"engagement", "engagementlevel", "engagement_dominant"}
 GINI_NAMES = {"gini"}
 PCT_EXACT = {"retention"}
 # colonnes numeriques a formater avec separateur de milliers
@@ -108,6 +118,9 @@ def build_requests(sid: int, header: List[str], header_rows: int) -> List[dict]:
                 reqs.append(_text_rule(rng, tier, color))
         elif key in ACT_NAMES:
             for tier, color in ACTIVITY_COLORS.items():
+                reqs.append(_text_rule(rng, tier, color))
+        elif key in ENG_NAMES:
+            for tier, color in ENGAGEMENT_COLORS.items():
                 reqs.append(_text_rule(rng, tier, color))
         elif key in GINI_NAMES:
             reqs.append(_gradient_rule(rng))

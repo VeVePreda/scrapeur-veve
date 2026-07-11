@@ -96,8 +96,8 @@ SIZE_HEADER = ["snapshot_month", "dimension", "bucket", "wallets", "pct_wallets"
 # Colonnes de profil injectees dans 🟣C-PSEUDOS (join wallet_imx).
 PSEUDO_PROFILE_COLS = ["holdings", "distinct_collectibles", "acquired", "sold",
                        "retention", "median_hold_days", "collectorScore",
-                       "activityStatus", "value_store", "value_floor",
-                       "qty_bucket"]
+                       "activityStatus", "engagementLevel", "value_store",
+                       "value_floor", "qty_bucket"]
 CORNER_HEADER = (["veve_uuid", "name", "category", "circulating", "holders",
                   "gini"]
                  + [f"top{i}_{s}" for i in range(1, 11) for s in ("cnt", "pct")]
@@ -105,7 +105,8 @@ CORNER_HEADER = (["veve_uuid", "name", "category", "circulating", "holders",
                     "vstore_dominant", "vstore_dominant_pct",
                     "vfloor_dominant", "vfloor_dominant_pct",
                     "score_dominant", "score_dominant_pct",
-                    "activity_dominant", "activity_dominant_pct"])
+                    "activity_dominant", "activity_dominant_pct",
+                    "engagement_dominant", "engagement_dominant_pct"])
 
 # Tranches de QUANTITE (nb d'exemplaires detenus) — demande Preda.
 QTY_BUCKETS = [(1, 1, "1"), (2, 10, "2-10"), (11, 50, "11-50"),
@@ -171,6 +172,15 @@ def _read_prices(sh):
 
 SCORES = ["Diamond-Hands", "Serious Collector", "Collector", "Trader",
           "Flipper", "Seasoned Flipper", "Aggressive Flipper"]
+# Engagement (VeveFox "Engagement Level", seuils valides par Preda 11/07) :
+# part des SEMAINES ACTIVES depuis la 1re transaction du wallet.
+ENGAGEMENTS = ["Fidèle", "Régulier", "Occasionnel", "Sporadique", "Unique"]
+# Pulse mensuel (VeveFox "Monthly Market Pulse") — onglet cache lu par 📊 STATS.
+PULSE_TAB = "_MonthlyPulse"
+PULSE_HEADER = ["month", "actifs", "nouveaux", "trades", "acheteurs",
+                "vendeurs", "tokens_emis", "minters_uniques", "drops",
+                "burns", "listings", "acc_net_moy", "acc_net_pos",
+                "acc_net_neg", "churn_pct"]
 # Bareme d'activite en FRANCAIS (Preda 2026-07-10) — remplace
 # Active/Engaged/Dormant/Lapsed/Inactive/Ghost.
 ACTIVITIES = ["Actif", "Engagé", "Somnolant", "Inactif", "Désinscrit", "Fantôme"]
@@ -279,18 +289,35 @@ def _blkey(r) -> Tuple[int, int] | None:
         return None
 
 
+def _week_key(day: str):
+    try:
+        y, w, _ = _dt.date.fromisoformat(day[:10]).isocalendar()
+        return y * 100 + w
+    except (ValueError, TypeError):
+        return None
+
+
 def replay(folder: str):
-    """Retourne (ledger, prof, n_transfers).
+    """Retourne (ledger, prof, n_transfers, pulse_rows).
 
     ledger : {(uuid,edition) -> (holder, listed)}   etat final vu par l'ARCHIVE
-    prof   : {wallet -> dict(mints,buys,sells,durations[],first,last)}
+    prof   : {wallet -> dict(mints,buys,sells,durations[],weeks,first,last)}
              = COMPORTEMENT seul ; les holdings courants sont derives ensuite
              du grand livre fusionne (rejeu + snapshot).
-    Les lignes en double entre archives (meme block+log_index) sont ignorees.
+    pulse_rows : PULSE MENSUEL (facon VeveFox) agrege pendant la lecture —
+             actifs, nouveaux, trades, acheteurs/vendeurs, tokens emis,
+             minters uniques, drops, burns, listings, accumulation nette
+             (moyenne + comptes net+/net-), churn — depuis la genese.
+    Les lignes en double entre archives (meme block+log_index) sont dedupliquees
+    par cle AVANT toute agregation.
     """
-    # 1) collecter la sequence chrono de chaque edition
+    # 1) collecter la sequence chrono de chaque edition + agregats mensuels
     seq: Dict[Tuple[str, str], List] = defaultdict(list)
     n = 0
+    seen_keys = set()
+    monthly: Dict[str, Dict] = {}
+    first_month: Dict[str, str] = {}
+    uuid_first_mint: Dict[str, str] = {}
     for path in _archive_files(folder):
         with gzip.open(path, "rt", encoding="utf-8") as f:
             for r in csv.DictReader(f):
@@ -301,11 +328,56 @@ def replay(folder: str):
                 ts = _ts(r.get("ts_utc"))
                 if ts is None:
                     continue
-                seq[(uid, ed)].append((ts, (r.get("from") or "").strip().lower(),
-                                       (r.get("to") or "").strip().lower(),
-                                       (r.get("date_pt") or "").strip(),
-                                       _blkey(r)))
+                key = _blkey(r)
+                if key is not None:
+                    packed = key[0] * 1000000 + key[1]   # int compact (~14M a terme)
+                    if packed in seen_keys:
+                        continue            # doublon inter-archives
+                    seen_keys.add(packed)
+                frm = (r.get("from") or "").strip().lower()
+                to = (r.get("to") or "").strip().lower()
+                day = (r.get("date_pt") or "").strip()
+                seq[(uid, ed)].append((ts, frm, to, day, key))
                 n += 1
+                # ---- pulse mensuel ----
+                m = day[:7]
+                if not m:
+                    continue
+                kind = (r.get("kind") or "").strip()
+                mo = monthly.setdefault(m, {
+                    "mints": 0, "market": 0, "burns": 0, "listings": 0,
+                    "actives": set(), "minters": set(), "buyers": set(),
+                    "sellers": set(), "net": Counter()})
+                if kind == "mint":
+                    if to and to not in SYSTEM:
+                        mo["mints"] += 1
+                        mo["minters"].add(to)
+                        mo["actives"].add(to)
+                        mo["net"][to] += 1
+                        if m < first_month.get(to, "9999"):
+                            first_month[to] = m
+                    if m < uuid_first_mint.get(uid, "9999"):
+                        uuid_first_mint[uid] = m
+                elif kind == "market":
+                    mo["market"] += 1
+                    for w, delta, grp in ((to, 1, "buyers"),
+                                          (frm, -1, "sellers")):
+                        if w and w not in SYSTEM:
+                            mo[grp].add(w)
+                            mo["actives"].add(w)
+                            mo["net"][w] += delta
+                            if m < first_month.get(w, "9999"):
+                                first_month[w] = m
+                elif kind == "burn":
+                    mo["burns"] += 1
+                    if frm and frm not in SYSTEM:
+                        mo["actives"].add(frm)
+                        mo["net"][frm] -= 1
+                        if m < first_month.get(frm, "9999"):
+                            first_month[frm] = m
+                elif kind == "listing":
+                    mo["listings"] += 1
+                # vault_mint : mouvement systeme, hors pulse.
 
     ledger: Dict[Tuple[str, str], Tuple[str, int]] = {}
     prof: Dict[str, Dict] = {}
@@ -314,7 +386,8 @@ def replay(folder: str):
         p = prof.get(w)
         if p is None:
             p = prof[w] = {"mints": 0, "buys": 0, "sells": 0,
-                           "durations": [], "first": "", "last": ""}
+                           "durations": [], "weeks": set(),
+                           "first": "", "last": ""}
         return p
 
     dups = 0
@@ -331,7 +404,8 @@ def replay(folder: str):
                 dups += 1                        # doublon d'archives chevauchantes
                 continue
             prev_key = key
-            # activite on-chain (min/max) pour les wallets reels
+            # activite on-chain (min/max + semaines actives) pour les reels
+            wk = _week_key(day)
             for w in (frm, to):
                 if w and w not in SYSTEM:
                     p = P(w)
@@ -339,6 +413,8 @@ def replay(folder: str):
                         p["first"] = day
                     if day > p["last"]:
                         p["last"] = day
+                    if wk is not None:
+                        p["weeks"].add(wk)
             if to == MARKET_ESCROW:
                 listed = 1                       # mise en vente : proprio inchange
                 continue
@@ -372,7 +448,46 @@ def replay(folder: str):
     if dups:
         print(f"Rejeu : {dups} doublons d'archives ignores (chevauchement "
               f"scan profond / continuite quotidienne).", flush=True)
-    return ledger, prof, n
+    return ledger, prof, n, _build_pulse(monthly, first_month, uuid_first_mint)
+
+
+def _build_pulse(monthly, first_month, uuid_first_mint) -> List[List]:
+    """Lignes du pulse mensuel (chronologique ASC) pour _MonthlyPulse."""
+    new_by_m = Counter(first_month.values())
+    drops_by_m = Counter(uuid_first_mint.values())
+    rows: List[List] = []
+    prev_actives = None
+    for m in sorted(monthly):
+        mo = monthly[m]
+        act = mo["actives"]
+        churn = ""
+        if prev_actives:
+            gone = sum(1 for w in prev_actives if w not in act)
+            churn = round(100.0 * gone / len(prev_actives), 1)
+        net = mo["net"]
+        pos = sum(1 for v in net.values() if v > 0)
+        neg = sum(1 for v in net.values() if v < 0)
+        avg = round(sum(net.values()) / len(net), 2) if net else 0
+        rows.append([m, len(act), new_by_m.get(m, 0), mo["market"],
+                     len(mo["buyers"]), len(mo["sellers"]),
+                     mo["mints"], len(mo["minters"]), drops_by_m.get(m, 0),
+                     mo["burns"], mo["listings"], avg, pos, neg, churn])
+        prev_actives = act
+    return rows
+
+
+def _write_pulse(sh, rows) -> int:
+    """Ecrit le pulse mensuel dans l'onglet cache _MonthlyPulse (lu par la
+    section 📅 de 📊 STATS). Nombres natifs RAW (locale FR safe)."""
+    ws = _open_worksheet(sh, PULSE_TAB, cols=len(PULSE_HEADER))
+    ws.clear()
+    ws.update(range_name="A1", values=[list(PULSE_HEADER)] + rows,
+              value_input_option="RAW")
+    try:
+        ws.hide()
+    except Exception:
+        pass
+    return len(rows)
 
 
 # ---------------------------------------------------------------------------
@@ -395,6 +510,26 @@ def collector_score(p: Dict, holdings: int) -> str:
         if md < 7 and idx < 4:
             idx += 1
     return SCORES[idx]
+
+
+def engagement_level(p: Dict, today: _dt.date) -> str:
+    """Engagement (VeveFox) : part des SEMAINES ACTIVES depuis la 1re
+    transaction. Fidèle>=50% . Régulier>=25% . Occasionnel>=10% .
+    Sporadique<10% . Unique = une seule semaine active. n/a sans comportement.
+    Legende affichee dans les notes de 📊 STATS uniquement (choix Preda)."""
+    weeks = p.get("weeks") or set()
+    if not weeks:
+        return "n/a"
+    if len(weeks) == 1:
+        return "Unique"
+    try:
+        first = _dt.date.fromisoformat(str(p.get("first", ""))[:10])
+    except (ValueError, TypeError):
+        return "n/a"
+    span = max(1, (today - first).days // 7 + 1)
+    r = len(weeks) / span
+    return ("Fidèle" if r >= 0.5 else "Régulier" if r >= 0.25 else
+            "Occasionnel" if r >= 0.10 else "Sporadique")
 
 
 def activity_status(last: str, today: _dt.date) -> str:
@@ -484,7 +619,7 @@ NO_BEHAVIOR = {"mints": 0, "buys": 0, "sells": 0, "durations": [],
 
 
 def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date):
-    ledger_replay, prof, n = replay(folder)
+    ledger_replay, prof, n, pulse_rows = replay(folder)
     print(f"Rejeu : {len(ledger_replay)} editions, {len(prof)} wallets, "
           f"{n} transferts.", flush=True)
 
@@ -534,11 +669,12 @@ def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date):
 
     # profil enrichi par wallet : HOLDERS actuels (fusionnes), comportement si
     # l'archive l'a vu ; sinon "etat seul" (score n/a, activite inconnue "")
-    score, activity, qbk, vsbk, vfbk = {}, {}, {}, {}, {}
+    score, activity, engage, qbk, vsbk, vfbk = {}, {}, {}, {}, {}, {}
     for w, h in holdings_cnt.items():
         p = prof.get(w, NO_BEHAVIOR)
         score[w] = collector_score(p, h)
         activity[w] = activity_status(p["last"], today) if p["last"] else ""
+        engage[w] = engagement_level(p, today)
         qbk[w] = qty_bucket(h)
         vsbk[w] = value_bucket(value_store.get(w, 0))
         vfbk[w] = value_bucket(value_floor.get(w, 0))
@@ -556,7 +692,7 @@ def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date):
             "acquired": acq, "sold": p["sells"],
             "retention": round(h / acq, 3) if acq else "",
             "median_hold_days": md, "collectorScore": score[w],
-            "activityStatus": activity[w],
+            "activityStatus": activity[w], "engagementLevel": engage[w],
             "value_store": round(value_store.get(w, 0), 2),
             "value_floor": round(value_floor.get(w, 0), 2),
             "qty_bucket": qbk[w], "pseudo": pseudos.get(w, ""),
@@ -586,17 +722,19 @@ def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date):
             else:
                 row += ["", ""]
         # ventilation de l'offre par bucket qty / valeur / score / activite
-        b_qty, b_vs, b_vf, b_sc, b_ac = (Counter(), Counter(), Counter(),
-                                         Counter(), Counter())
+        b_qty, b_vs, b_vf, b_sc, b_ac, b_en = (Counter(), Counter(), Counter(),
+                                               Counter(), Counter(), Counter())
         for w, c in counts:
             b_qty[qbk.get(w, "1")] += c
             b_vs[vsbk.get(w, "<100")] += c
             b_vf[vfbk.get(w, "<100")] += c
             b_sc[score.get(w, "n/a")] += c
             b_ac[activity.get(w, "")] += c
+            b_en[engage.get(w, "n/a")] += c
         for dist, order in ((b_qty, QTY_ORDER), (b_vs, VALUE_ORDER),
                             (b_vf, VALUE_ORDER), (b_sc, SCORES + ["n/a"]),
-                            (b_ac, ACTIVITIES)):
+                            (b_ac, ACTIVITIES),
+                            (b_en, ENGAGEMENTS + ["n/a"])):
             d, pct = _dominant(dist, order)
             row += [d, pct]
         corner.append(row)
@@ -605,7 +743,8 @@ def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date):
     # DISTRIBUTION GLOBALE des wallets par taille (quantite + valeur)
     size_rows = _size_distribution(profiles, value_store, value_floor)
 
-    return ledger, prof, whale_blocks, corner, size_rows, profiles
+    return (ledger, prof, whale_blocks, corner, size_rows, profiles,
+            pulse_rows)
 
 
 def _size_distribution(profiles, value_store, value_floor):
@@ -661,8 +800,9 @@ def _save_ledger(ledger, path):
 
 def _save_profiles(profiles, path):
     cols = ["holdings", "distinct_collectibles", "acquired", "sold", "retention",
-            "median_hold_days", "collectorScore", "activityStatus", "value_store",
-            "value_floor", "qty_bucket", "pseudo", "last_active", "listed"]
+            "median_hold_days", "collectorScore", "activityStatus",
+            "engagementLevel", "value_store", "value_floor", "qty_bucket",
+            "pseudo", "last_active", "listed"]
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with gzip.open(path, "wt", encoding="utf-8", newline="") as f:
         w = csv.writer(f, lineterminator="\n")
@@ -931,8 +1071,8 @@ def main() -> int:
         return 1
 
     sh = _client().open_by_key(sheet_id)
-    ledger, prof, whale_blocks, corner, size_rows, profiles = build_all(
-        folder, snap_folder, sh, top, today)
+    (ledger, prof, whale_blocks, corner, size_rows, profiles,
+     pulse_rows) = build_all(folder, snap_folder, sh, top, today)
 
     _save_ledger(ledger, os.environ.get("LEDGER_OUT", "data/ledger.csv.gz"))
     _save_profiles(profiles,
@@ -941,6 +1081,10 @@ def main() -> int:
     _write(sh, CORNER_TAB, CORNER_HEADER, corner)          # 🎯
     _write_size_history(sh, size_rows, today.strftime("%Y-%m"))   # 📈 historique
     enriched = _enrich_pseudos(sh, profiles)               # 🟣 profils
+    try:
+        _write_pulse(sh, pulse_rows)                       # 📅 pulse (cache)
+    except Exception as e:
+        print(f"pulse warning: {e}", flush=True)
 
     # --- confort visuel : couleurs de tiers + heatmap Gini + formats nombres ---
     try:
