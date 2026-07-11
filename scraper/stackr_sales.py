@@ -63,12 +63,16 @@ def _headers() -> Dict[str, str]:
 
 
 def _get(op: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Les timeframes larges (30d+) sont LOURDS cote serveur (tri de toutes
+    les ventes) : timeout genereux (SALES_TIMEOUT, 90 s) + 4 tentatives."""
     url = BASE + op + "?input=" + urllib.parse.quote(
         json.dumps(payload, separators=(",", ":")))
+    tmo = float(os.environ.get("SALES_TIMEOUT", "90"))
     last = None
-    for attempt in range(1, 4):
+    for attempt in range(1, 5):
+        t_req = time.time()
         try:
-            r = requests.get(url, headers=_headers(), timeout=30)
+            r = requests.get(url, headers=_headers(), timeout=tmo)
             if r.status_code == 200 and "json" in r.headers.get(
                     "content-type", ""):
                 return r.json()
@@ -76,8 +80,10 @@ def _get(op: str, payload: Dict[str, Any]) -> Dict[str, Any]:
                                          r.headers.get("content-type", ""),
                                          r.text[:120])
         except Exception as e:
-            last = str(e)
-        time.sleep(2 * attempt)
+            last = "%s (apres %.0fs)" % (type(e).__name__, time.time() - t_req)
+        print("    %s tentative %d/4 KO : %s — nouvel essai dans %ds..."
+              % (op.split(".")[-1], attempt, last, 5 * attempt), flush=True)
+        time.sleep(5 * attempt)
     raise RuntimeError("%s KO : %s" % (op, last))
 
 
@@ -93,7 +99,12 @@ def fetch_sales(timeframe: str, max_pages: int = 0) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     cursor = None
     pages = 0
+    t0 = time.time()
     pause = float(os.environ.get("SALES_PAUSE", "0.3"))
+    print("Collecte des ventes : timeframe=%s, 50/page, timeout=%ss "
+          "(les fenetres larges mettent du temps a repondre cote StackR "
+          "sur la 1re page — c'est normal, on patiente)..."
+          % (timeframe, os.environ.get("SALES_TIMEOUT", "90")), flush=True)
     while True:
         j = {"limit": "50", "elementType": None, "edition": None,
              "rarity": None, "timeframe": timeframe, "sortby": "timestamp",
@@ -107,10 +118,17 @@ def fetch_sales(timeframe: str, max_pages: int = 0) -> List[Dict[str, Any]]:
         items = (((data.get("result") or {}).get("data") or {})
                  .get("json") or {}).get("items") or []
         if not items:
+            print("    page %d vide — fin de l'historique." % (pages + 1),
+                  flush=True)
             break
         out.extend(items)
         pages += 1
+        oldest = str(items[-1].get("timestamp") or "")[:16]
+        print("    page %3d : +%d ventes (cumul %d), on est remonte au %s "
+              "(%.0fs)" % (pages, len(items), len(out), oldest or "?",
+                           time.time() - t0), flush=True)
         if len(items) < 50:
+            print("    page incomplete — fin de l'historique.", flush=True)
             break
         if max_pages and pages >= max_pages:
             print("    budget pages atteint (%d)." % max_pages, flush=True)
