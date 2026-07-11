@@ -564,9 +564,18 @@ def sync_dynamic(items: List[Dict[str, Any]], spreadsheet_id: str) -> Dict[str, 
     state_ws = _open_worksheet(sh, DYN_STATE_TAB, cols=len(DYN_STATE_HEADER))
 
     # Last-known values per uuid (for a fast diff without re-reading history).
+    # LECTURE NON FORMATEE (fix 2026-07-10) : sur un Sheet en locale FR, le
+    # nombre 6.99 s'affiche "6,99" et gspread.numericise le relit **699**
+    # (virgule avalee comme separateur de milliers EN). La reecriture de l'etat
+    # persistait cette corruption (prix comics x100 dans _DynState) et le faux
+    # "changement" quotidien re-appendait ~15k lignes parasites dans 🟠H-PRIX.
+    # UNFORMATTED_VALUE renvoie les vrais nombres ; l'etat corrompu se soigne
+    # seul des que chaque module refournit ses champs (1 jour).
+    from gspread.utils import ValueRenderOption
     state: Dict[str, Dict[str, Any]] = {}
     if state_ws.row_count > 1:
-        for r in state_ws.get_all_records():
+        for r in state_ws.get_all_records(
+                value_render_option=ValueRenderOption.unformatted):
             rid = str(r.get(KEY_COLUMN, "")).strip()
             if rid:
                 state[rid] = dict(r)
