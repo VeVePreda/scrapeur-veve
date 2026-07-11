@@ -17,6 +17,15 @@ PERIMETRE : ventes du marche StackR (OMI). Les ventes in-app VeVe (gems)
 n'ont pas de source de prix connue -> Revenue Market = borne basse.
 USD = OMI x cours du jour de COLLECTE (approximation assumee).
 
+HISTORIQUE (12/07) : le feed est plafonne a ~750 ventes (mur serveur), mais
+la DECOMPO BURNS de jetonveve (data/burns_split_daily.csv, public) donne le
+volume OMI exact des ventes NFT par jour depuis la genese StackR. On la
+recupere a chaque run et on convertit avec le COURS OMI HISTORIQUE quotidien
+(CryptoCompare histoday, repli gate.io OMI_USDT). Les jours couverts par le
+feed gardent leurs chiffres exacts ; les autres viennent de la decompo
+(source='burns') et se remplissent au fil du backfill decompo. Desactiver :
+SALES_HISTORY=false.
+
 Env : SALES_TIMEFRAME (1d ; backfill : 7d/30d/1y/all selon ce que l'API
       accepte), SALES_MAX_PAGES (0=jusqu'au bout), SALES_PAUSE (0.3),
       STACKR_COOKIE (optionnel, si l'endpoint exigeait une session),
@@ -42,7 +51,10 @@ BASE = "https://www.stackr.world/api/trpc/"
 PT = ZoneInfo("America/Los_Angeles")
 SALES_CSV = os.environ.get("SALES_CSV", "data/stackr_sales.csv")
 REVENUE_TAB = "_MarketRevenue"
-REVENUE_HEADER = ["date", "sales", "omi", "omi_usd", "usd"]
+REVENUE_HEADER = ["date", "sales", "omi", "omi_usd", "usd", "source"]
+SPLIT_URL = os.environ.get("SALES_SPLIT_URL",
+    "https://raw.githubusercontent.com/fanablefrance/jetonveve/main/"
+    "data/burns_split_daily.csv")
 SALES_HEADER = ["id", "ts_utc", "date_pt", "element_id", "element_type",
                 "edition", "name", "rarity", "price_omi", "seller", "buyer",
                 "seller_username", "buyer_username"]
@@ -151,6 +163,69 @@ def fetch_sales(timeframe: str, max_pages: int = 0) -> List[Dict[str, Any]]:
     return out
 
 
+def fetch_split_days() -> Dict[str, tuple]:
+    """{date_pt -> (nft_sales, omi_volume)} depuis la decompo burns de
+    jetonveve (couverture = progression du backfill decompo)."""
+    try:
+        r = requests.get(SPLIT_URL, timeout=30)
+        r.raise_for_status()
+    except Exception as e:
+        print("  decompo burns indisponible (%s) — historique saute." % e,
+              flush=True)
+        return {}
+    import io as _io
+    out: Dict[str, tuple] = {}
+    for row in csv.DictReader(_io.StringIO(r.text)):
+        d = (row.get("date") or "").strip()
+        try:
+            n = int(float(row.get("nft_sales") or 0))
+            vol = float(row.get("omi_volume") or 0)
+        except (TypeError, ValueError):
+            continue
+        if d and vol > 0:
+            out[d] = (n, vol)
+    print("  decompo burns : %d jours de volume ventes." % len(out),
+          flush=True)
+    return out
+
+
+def fetch_omi_history() -> Dict[str, float]:
+    """{date -> cours OMI USD (cloture)} : CryptoCompare puis gate.io."""
+    try:
+        r = requests.get("https://min-api.cryptocompare.com/data/v2/histoday",
+                         params={"fsym": "OMI", "tsym": "USD",
+                                 "allData": "true"}, timeout=30)
+        data = (r.json().get("Data") or {}).get("Data") or []
+        out = {}
+        for c in data:
+            if c.get("close"):
+                d = _dt.datetime.fromtimestamp(
+                    int(c["time"]), _dt.timezone.utc).strftime("%Y-%m-%d")
+                out[d] = float(c["close"])
+        if len(out) > 200:
+            print("  cours historiques : %d jours (cryptocompare)."
+                  % len(out), flush=True)
+            return out
+    except Exception as e:
+        print("  cryptocompare KO (%s), repli gate.io..." % e, flush=True)
+    try:
+        r = requests.get("https://api.gateio.ws/api/v4/spot/candlesticks",
+                         params={"currency_pair": "OMI_USDT", "interval": "1d",
+                                 "limit": "1000"}, timeout=30)
+        out = {}
+        for c in r.json():          # [ts, vol_quote, close, high, low, open,..]
+            d = _dt.datetime.fromtimestamp(
+                int(c[0]), _dt.timezone.utc).strftime("%Y-%m-%d")
+            out[d] = float(c[2])
+        print("  cours historiques : %d jours (gate.io)." % len(out),
+              flush=True)
+        return out
+    except Exception as e:
+        print("  gate.io KO aussi (%s) — historique sans conversion." % e,
+              flush=True)
+        return {}
+
+
 def _pt(ts: str):
     """'2026-07-11T14:56:52.560Z' -> (iso utc, date PT)."""
     try:
@@ -210,21 +285,32 @@ def save_csv(rows: Dict[str, List]) -> None:
 
 
 def build_revenue_grid(rows: Dict[str, List], rate: float,
-                       prev: Dict[str, List] = None) -> List[List]:
-    """_MarketRevenue : agregat par jour PT. Les jours deja presents gardent
-    leur taux historique ; les jours (re)calcules prennent le taux du jour."""
+                       split_days: Dict[str, tuple] = None,
+                       hist_rates: Dict[str, float] = None) -> List[List]:
+    """_MarketRevenue : agregat par jour PT.
+    Priorite : jours couverts par le FEED (exacts, source=feed) ; les autres
+    viennent de la decompo burns (source=burns, cours historique du jour,
+    repli cours actuel)."""
     agg = defaultdict(lambda: [0, 0.0])
     for v in rows.values():
         d = v[2]
         agg[d][0] += 1
         agg[d][1] += float(v[8] or 0)
-    prev = prev or {}
+    split_days = split_days or {}
+    hist_rates = hist_rates or {}
     grid = [list(REVENUE_HEADER)]
-    for d in sorted(agg):
-        n, omi = agg[d]
-        old = prev.get(d)
-        r = float(old[3]) if old and str(old[3]).strip() else rate
-        grid.append([d, int(n), round(omi, 2), r, round(omi * r, 2)])
+    days = sorted(set(agg) | set(split_days))
+    for d in days:
+        if d in agg:
+            n, omi = agg[d]
+            r = hist_rates.get(d, rate)
+            grid.append([d, int(n), round(omi, 2), r, round(omi * r, 2),
+                         "feed"])
+        else:
+            n, omi = split_days[d]
+            r = hist_rates.get(d, rate)
+            grid.append([d, int(n), round(omi, 2), r, round(omi * r, 2),
+                         "burns"])
     return grid
 
 
@@ -235,24 +321,6 @@ def write_sheet(grid: List[List]) -> str:
         return "secrets absents — CSV seul."
     from scraper.sheets import _client, _open_worksheet
     sh = _client().open_by_key(sheet_id)
-    prev: Dict[str, List] = {}
-    try:
-        ws = sh.worksheet(REVENUE_TAB)
-        from gspread.utils import ValueRenderOption
-        for r in ws.get_all_records(
-                value_render_option=ValueRenderOption.unformatted):
-            d = str(r.get("date", "")).strip()
-            if d:
-                prev[d] = [d, r.get("sales"), r.get("omi"),
-                           r.get("omi_usd"), r.get("usd")]
-    except Exception:
-        pass
-    # re-fusion avec les taux historiques
-    for row in grid[1:]:
-        old = prev.get(row[0])
-        if old and str(old[3]).strip():
-            row[3] = float(old[3])
-            row[4] = round(float(row[2]) * row[3], 2)
     ws = _open_worksheet(sh, REVENUE_TAB, cols=len(REVENUE_HEADER))
     ws.clear()
     ws.update(range_name="A1", values=grid, value_input_option="RAW")
@@ -274,7 +342,14 @@ def main() -> int:
     before = len(rows)
     new = merge_sales(rows, items)
     save_csv(rows)
-    grid = build_revenue_grid(rows, rate)
+    split_days, hist_rates = {}, {}
+    if os.environ.get("SALES_HISTORY", "true").lower() != "false":
+        print("Historique via decompo burns + cours OMI quotidiens :",
+              flush=True)
+        split_days = fetch_split_days()
+        if split_days:
+            hist_rates = fetch_omi_history()
+    grid = build_revenue_grid(rows, rate, split_days, hist_rates)
     note = write_sheet(grid)
     print("Sheet:", note, flush=True)
     days = {v[2] for v in rows.values()}
