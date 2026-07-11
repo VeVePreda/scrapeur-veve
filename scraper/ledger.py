@@ -37,8 +37,10 @@ CollectorScore (carte blanche, retention = holdings_now / acquis) :
 Escrow transparent : lister (wallet->escrow) ne compte PAS comme une vente ;
 seule la vente reelle (escrow->acheteur) transfere la propriete.
 
-ActivityStatus (jours depuis last_active on-chain, seuils Preda) :
-    Active<=7 . Engaged<=30 . Dormant<=90 . Lapsed<=180 . Inactive<=365 . Ghost>365
+ActivityStatus (jours depuis last_active on-chain, bareme FRANCAIS fixe par
+Preda le 2026-07-10) :
+    Actif<=7 . Engagé<=30 . Somnolant<=90 . Inactif<=180 . Désinscrit<=365 .
+    Fantôme au-dela (12-24 mois et plus).
 
 Taille de portefeuille : small<=10 . mid 11-99 . whale>=100 (nb total detenu).
 
@@ -141,13 +143,21 @@ def _num(x):
 
 
 def _read_prices(sh):
-    """{uuid -> (store_price, floor_price)} depuis l'onglet cache _DynState."""
+    """{uuid -> (store_price, floor_price)} depuis l'onglet cache _DynState.
+    Lecture NON FORMATEE : en locale FR, "6,99" relu via numericise devenait
+    699 (virgule avalee) — UNFORMATTED_VALUE renvoie les vrais nombres."""
     store, floor = {}, {}
     try:
         ws = sh.worksheet("_DynState")
     except Exception:
         return store, floor
-    for r in ws.get_all_records():
+    try:
+        from gspread.utils import ValueRenderOption
+        rows = ws.get_all_records(
+            value_render_option=ValueRenderOption.unformatted)
+    except TypeError:
+        rows = ws.get_all_records()
+    for r in rows:
         u = str(r.get("veve_uuid", "")).strip().lower()
         if not u:
             continue
@@ -161,7 +171,9 @@ def _read_prices(sh):
 
 SCORES = ["Diamond-Hands", "Serious Collector", "Collector", "Trader",
           "Flipper", "Seasoned Flipper", "Aggressive Flipper"]
-ACTIVITIES = ["Active", "Engaged", "Dormant", "Lapsed", "Inactive", "Ghost"]
+# Bareme d'activite en FRANCAIS (Preda 2026-07-10) — remplace
+# Active/Engaged/Dormant/Lapsed/Inactive/Ghost.
+ACTIVITIES = ["Actif", "Engagé", "Somnolant", "Inactif", "Désinscrit", "Fantôme"]
 
 
 def _ts(x: str):
@@ -389,11 +401,11 @@ def activity_status(last: str, today: _dt.date) -> str:
     try:
         d = _dt.date.fromisoformat(last)
     except (ValueError, TypeError):
-        return "Ghost"
+        return "Fantôme"
     days = (today - d).days
-    return ("Active" if days <= 7 else "Engaged" if days <= 30 else
-            "Dormant" if days <= 90 else "Lapsed" if days <= 180 else
-            "Inactive" if days <= 365 else "Ghost")
+    return ("Actif" if days <= 7 else "Engagé" if days <= 30 else
+            "Somnolant" if days <= 90 else "Inactif" if days <= 180 else
+            "Désinscrit" if days <= 365 else "Fantôme")
 
 
 def _gini(counts: List[int]) -> float:

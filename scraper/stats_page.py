@@ -7,7 +7,11 @@ Refonte demandee par Preda (2026-07-10) :
   * tableau quotidien avec EN-TETE GROUPE sur 2 lignes (ligne 8 = groupes,
     ligne 9 = colonnes) :
         TRANSACTION : Global | Mint | Market | Burn   (Global = M+M+B)
-        ACTIF       : Unique | Nouveaux
+        ACTIF       : Unique | Nouveaux | Anciens     (Anciens = REVENANTS :
+                      wallet deja connu des registres AVANT la fenetre, sans
+                      activite depuis >= le debut de la fenetre (~35 j), qui
+                      redevient actif — demande Preda 10/07 pour reperer les
+                      desinscrits/fantomes qui se reveillent)
         REVENUE     : Total | Drop | Market
         OMI BURN    : Global | OMI→NFT | OMI→GEM      (ajout Preda 10/07)
     (exit Panier moyen, % nouveaux, tx/actif) ;
@@ -16,8 +20,11 @@ Refonte demandee par Preda (2026-07-10) :
   * OMI BURN Global = omi_burned du jour depuis 🔥H-BURNS (dates PT aussi) ;
     OMI→NFT / OMI→GEM = colonnes VIDES en attendant la decomposition des
     burns (analyse de l'amont 0x61E7C72569, chantier burns) ;
-  * modules de droite en donnees 7 JOURS (🏆 top series mints, 📦 repartition) ;
-  * bloc 🩺 sante des sources en bas de page (module health).
+  * zone de droite VISIBLE SANS SCROLL (demande Preda 10/07) : 🩺 sante des
+    sources EN HAUT (le 🏆 top series a ete supprime — ne l'interessait pas),
+    puis 📦 repartition 7 jours, puis ℹ️ notes + LEGENDES (bareme d'activite
+    Actif/Engagé/Somnolant/Inactif/Désinscrit/Fantôme et profils Diamond-Hands
+    etc. — rappels demandes par Preda).
 
 Contrairement a l'ancienne page en formules (#ERROR! fragiles), tout est
 calcule ICI en python depuis ChainActivity / ChainItems / _DynState et ecrit
@@ -56,7 +63,16 @@ TOP_SERIES = int(os.environ.get("STATS_TOP_SERIES", "8"))
 TABLE_START_ROW = 10                 # 1re ligne de donnees du tableau quotidien
 GROUP_ROW = 8                        # ligne des groupes (fusionnee)
 HEADER_ROW = 9                       # ligne des colonnes
-MODULE_COL = "O"                     # colonne des modules de droite
+MODULE_COL = "P"                     # colonne des modules de droite (tableau A:N)
+
+# Registres wallet -> first_seen, pour distinguer Nouveaux et Anciens
+# (revenants). Local = commite par le daily ; raws publics = scans profonds.
+LOCAL_REGISTRY = os.environ.get("STATS_LOCAL_REGISTRY",
+                                "data/wallet_registry_daily.csv")
+REGISTRY_URLS = [u.strip() for u in (os.environ.get("STATS_REGISTRY_URLS") or
+    "https://raw.githubusercontent.com/astronemagame-maker/astronema/main/data/wallet_registry_deep.csv,"
+    "https://raw.githubusercontent.com/lepaolo/paolo/main/data/wallet_registry_imx.csv"
+).split(",") if u.strip()]
 
 ACTIVITY_TAB = "ChainActivity"
 ITEMS_TAB = "ChainItems"
@@ -88,8 +104,18 @@ def _price(x):
 # ---------------------------------------------------------------------------
 
 def _records(sh, tab) -> List[Dict[str, Any]]:
+    """Lecture NON FORMATEE : en locale FR, "6,99" relu via numericise
+    devenait 699 (virgule avalee comme separateur de milliers)."""
     try:
-        return sh.worksheet(tab).get_all_records()
+        ws = sh.worksheet(tab)
+    except Exception:
+        return []
+    try:
+        from gspread.utils import ValueRenderOption
+        return ws.get_all_records(
+            value_render_option=ValueRenderOption.unformatted)
+    except TypeError:
+        return ws.get_all_records()
     except Exception:
         return []
 
@@ -122,13 +148,18 @@ def read_omi_burns(sh) -> Dict[str, float]:
 # Calculs
 # ---------------------------------------------------------------------------
 
-def compute_daily(activity: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def compute_daily(activity: List[Dict[str, Any]],
+                  known_first_seen: Dict[str, str] = None) -> List[Dict[str, Any]]:
     """ChainActivity (date, account, compteurs) -> 1 dict par date, tri DESC.
 
-    nouveaux = comptes dont la 1re apparition dans la fenetre est ce jour-la.
+    La 1re apparition d'un wallet DANS LA FENETRE est classee :
+      * ANCIEN (revenant) si le registre le connait d'AVANT la fenetre — il
+        etait donc silencieux depuis >= le debut de la fenetre (~35 j) ;
+      * NOUVEAU sinon (jamais vu, ou cree dans la fenetre).
     """
+    known_first_seen = known_first_seen or {}
     per: Dict[str, Dict[str, Any]] = {}
-    first_seen: Dict[str, str] = {}
+    first_in_window: Dict[str, str] = {}
     for r in activity:
         d = str(r.get("date", "")).strip()
         a = str(r.get("account", "")).strip().lower()
@@ -140,9 +171,17 @@ def compute_daily(activity: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         p["market"] += sum(_n(r.get(f)) for f in MARKET_F)
         p["burn"] += sum(_n(r.get(f)) for f in BURN_F)
         p["accounts"].add(a)
-        if a not in first_seen or d < first_seen[a]:
-            first_seen[a] = d
-    new_by_day = Counter(first_seen.values())
+        if a not in first_in_window or d < first_in_window[a]:
+            first_in_window[a] = d
+    window_start = min(per) if per else ""
+    new_by_day: Counter = Counter()
+    old_by_day: Counter = Counter()
+    for a, d in first_in_window.items():
+        k = str(known_first_seen.get(a, "")).strip()
+        if k and k[:10] < window_start:
+            old_by_day[d] += 1
+        else:
+            new_by_day[d] += 1
     out = []
     for d in sorted(per, reverse=True):
         p = per[d]
@@ -151,7 +190,47 @@ def compute_daily(activity: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                     "tx": p["mint"] + p["market"] + p["burn"],
                     "uniques": len(p["accounts"]),
                     "accounts": p["accounts"],
-                    "new": new_by_day.get(d, 0)})
+                    "new": new_by_day.get(d, 0),
+                    "old": old_by_day.get(d, 0)})
+    return out
+
+
+def load_known_first_seen(wallets: set) -> Dict[str, str]:
+    """{wallet -> first_seen (min)} depuis les registres, restreint aux wallets
+    actifs de la fenetre (memoire legere). Tolerant : chaque source peut manquer
+    — la precision des Anciens s'ameliore avec l'avancement des scans."""
+    import csv as _csv
+    import io as _io
+    out: Dict[str, str] = {}
+
+    def feed(lines, label):
+        n = 0
+        for row in _csv.DictReader(lines):
+            w = str(row.get("wallet") or "").strip().lower()
+            if w in wallets:
+                fs = str(row.get("first_seen") or "").strip()
+                if fs and (w not in out or fs < out[w]):
+                    out[w] = fs
+                n += 1
+        print(f"    registre {label} : {n} wallets actifs reconnus.", flush=True)
+
+    try:
+        with open(LOCAL_REGISTRY, encoding="utf-8") as f:
+            feed(f, "daily(local)")
+    except Exception as e:
+        print(f"    registre local indisponible : {e}", flush=True)
+    try:
+        import requests
+        for url in REGISTRY_URLS:
+            label = url.rsplit("/", 1)[-1]
+            try:
+                resp = requests.get(url, timeout=180)
+                resp.raise_for_status()
+                feed(_io.StringIO(resp.text), label)
+            except Exception as e:
+                print(f"    registre {label} indisponible : {e}", flush=True)
+    except Exception:
+        pass
     return out
 
 
@@ -195,6 +274,7 @@ def compute_week(daily, revenue, omi=None) -> Dict[str, Any]:
         "burn": sum(d["burn"] for d in rows),
         "uniques": len(accounts),
         "new": sum(d["new"] for d in rows),
+        "old": sum(d["old"] for d in rows),
         "omi": round(sum(omi.get(d["date"], 0) for d in rows)),
     }
 
@@ -232,10 +312,10 @@ def compute_split(items, week_days: set) -> Dict[str, int]:
 # ---------------------------------------------------------------------------
 
 def build_table_grid(daily, revenue, week, omi, now_utc: str) -> List[List]:
-    """Grille A1:M.. : titre, bande KPI 7 jours, tableau quotidien groupe."""
+    """Grille A1:N.. : titre, bande KPI 7 jours, tableau quotidien groupe."""
     g: List[List] = []
     g.append(["📊  STATS VEVE — ACTIVITÉ ON-CHAIN", "", "", "", "", "", "",
-              "", "", "", "", "", "", "", f"maj : {now_utc}"])
+              "", "", "", "", "", "", "", "", f"maj : {now_utc}"])
     g.append(["Jours pacifiques terminés uniquement · Revenue drop = mints × "
               "prix store · Revenue market et OMI→NFT/GEM : en attente "
               "(chantiers prix & décompo burns)"])
@@ -243,20 +323,21 @@ def build_table_grid(daily, revenue, week, omi, now_utc: str) -> List[List]:
     g.append([f"▼  7 DERNIERS JOURS TERMINÉS — du {week['start']} au "
               f"{week['end']}"])
     g.append(["Revenue drop", "Transactions", "Mints", "Market", "Burns",
-              "Actifs uniques", "Nouveaux", "OMI brûlés"])
+              "Actifs uniques", "Nouveaux", "Anciens", "OMI brûlés"])
     g.append([week["revenue"], week["tx"], week["mint"], week["market"],
-              week["burn"], week["uniques"], week["new"], week["omi"]])
+              week["burn"], week["uniques"], week["new"], week["old"],
+              week["omi"]])
     g.append([])
-    g.append(["", "TRANSACTION", "", "", "", "ACTIF", "", "REVENUE", "", "",
-              "OMI BURN", "", ""])
+    g.append(["", "TRANSACTION", "", "", "", "ACTIF", "", "", "REVENUE", "",
+              "", "OMI BURN", "", ""])
     g.append(["Date", "Global", "Mint", "Market", "Burn", "Unique",
-              "Nouveaux", "Total", "Drop", "Market",
+              "Nouveaux", "Anciens", "Total", "Drop", "Market",
               "Global", "OMI→NFT", "OMI→GEM"])
     for d in daily:
         drop = round(revenue.get(d["date"], 0))
         o = omi.get(d["date"])
         g.append([d["date"], d["tx"], d["mint"], d["market"], d["burn"],
-                  d["uniques"], d["new"],
+                  d["uniques"], d["new"], d["old"],
                   drop,           # Total = Drop tant que Market est vide
                   drop,
                   "",             # Revenue Market : chantier 7
@@ -266,42 +347,45 @@ def build_table_grid(daily, revenue, week, omi, now_utc: str) -> List[List]:
     return g
 
 
-def build_modules_grid(top_series, split, week) -> List[List]:
-    """Grille des modules de droite (colonnes L:M), alignee sur la ligne 8."""
-    g: List[List] = []
-    g.append(["🏆  TOP SÉRIES — 7 JOURS (mints)", ""])
-    g.append(["Série", "Mints"])
-    for label, m in top_series:
-        g.append([label, m])
-    for _ in range(TOP_SERIES - len(top_series)):
-        g.append(["", ""])
-    g.append(["", ""])
-    g.append(["📦  RÉPARTITION — 7 JOURS", ""])
+def build_modules_grid(sante_rows, split) -> List[List]:
+    """Zone de droite (colonnes P+), alignee sur la ligne 8, VISIBLE sans
+    scroll : 🩺 sante (14 lignes, 4 colonnes), 📦 repartition, ℹ️ notes +
+    legendes des classements (rappels demandes par Preda)."""
+    g: List[List] = list(sante_rows)              # P8..P21 (titre+entete+12)
+    g.append([""])
+    g.append(["📦  RÉPARTITION — 7 JOURS", ""])   # P23
     g.append(["Collectibles — mints", split.get("mints_collectible", 0)])
     g.append(["Comics — mints", split.get("mints_comic", 0)])
     g.append(["Collectibles — marché", split.get("market_collectible", 0)])
     g.append(["Comics — marché", split.get("market_comic", 0)])
     g.append(["Burns", split.get("burns", 0)])
-    g.append(["", ""])
-    g.append(["ℹ️  NOTES", ""])
+    g.append([""])
+    g.append(["ℹ️  NOTES & LÉGENDES", ""])        # P30
+    g.append(["• Anciens = wallet déjà connu des registres AVANT la fenêtre "
+              "(~35 j), sans activité depuis, qui redevient actif.", ""])
+    g.append(["• Nouveaux = wallet jamais vu (fenêtre + registres). Précision "
+              "définitive quand le scan CollectChain sera terminé.", ""])
     g.append(["• Transactions Global = mints + ventes marché + burns.", ""])
-    g.append(["• OMI burn = 🔥H-BURNS (StackR/Base, jours PT) ; OMI→NFT et "
-              "OMI→GEM : décomposition à venir.", ""])
-    g.append(["• Le dernier jour OMI peut se compléter au run suivant "
-              "(cron burns à 05:31 UTC).", ""])
-    g.append(["• Revenue drop = mints × prix store (collectibles ET comics "
-              "quand le prix est connu).", ""])
-    g.append(["• Revenue market : vide en attendant les prix de vente réels "
-              "(chantier 7).", ""])
-    g.append(["• Nouveaux = wallet jamais vu plus tôt dans la fenêtre "
-              "on-chain (~35 j).", ""])
-    g.append(["• Page recalculée chaque nuit par le daily (plus de formules).",
-              ""])
+    g.append(["• Revenue drop = mints × prix store · Revenue market : vide en "
+              "attendant les prix réels (chantier 7).", ""])
+    g.append(["• OMI burn = 🔥H-BURNS (jours PT) ; OMI→NFT / OMI→GEM : décompo "
+              "à venir ; le dernier jour se complète au run suivant.", ""])
+    g.append(["🧭 ACTIVITÉ (🟣C-PSEUDOS, 🎯) : Actif ≤7 j · Engagé ≤30 j · "
+              "Somnolant ≤90 j · Inactif ≤180 j · Désinscrit ≤365 j · "
+              "Fantôme au-delà (dernière transaction).", ""])
+    g.append(["💎 PROFIL (retention = détenu ÷ acquis) : Diamond-Hands ≥95% · "
+              "Serious ≥75% · Collector ≥50% · Trader ≥30% · Flipper ≥15% · "
+              "Seasoned ≥5% · Aggressive <5% (+1 cran flipper si revente "
+              "médiane <7 j).", ""])
+    g.append(["• Page recalculée chaque nuit par le daily.", ""])
     return g
 
 
 def _fmt_requests(ws_id: int, n_daily: int) -> List[Dict]:
-    """Mises en forme : fusions, groupes colores, formats de nombres, gel."""
+    """[INUTILISE depuis v3] L'habillage est pose par l'Apps Script
+    stats_format.gs (formatStatsPage) — fonction conservee uniquement comme
+    REFERENCE des plages du layout. Ne pas re-cabler sans retirer le reset
+    de l'Apps Script (le batch atomique echouait contre les fusions v1)."""
     def rng(r1, r2, c1, c2):
         return {"sheetId": ws_id, "startRowIndex": r1, "endRowIndex": r2,
                 "startColumnIndex": c1, "endColumnIndex": c2}
@@ -417,36 +501,40 @@ def write_stats(sh) -> Dict[str, Any]:
     activity = _records(sh, ACTIVITY_TAB)
     items = _records(sh, ITEMS_TAB)
     prices = read_store_prices(sh)
-    daily = compute_daily(activity)
+    active = {str(r.get("account", "")).strip().lower()
+              for r in activity if str(r.get("account", "")).strip()}
+    known = load_known_first_seen(active) if active else {}
+    daily = compute_daily(activity, known)
     if not daily:
         raise RuntimeError("ChainActivity vide — page 📊 STATS non touchee.")
     revenue = compute_revenue(items, prices)
     omi = read_omi_burns(sh)
     week = compute_week(daily, revenue, omi)
     wdays = set(_week_dates(daily))
-    top_series = compute_top_series(items, wdays)
     split = compute_split(items, wdays)
 
     now_utc = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     table = build_table_grid(daily, revenue, week, omi, now_utc)
-    modules = build_modules_grid(top_series, split, week)
+    try:
+        sante_rows = _health.build_rows(sh)
+    except Exception as e:
+        print(f"health warning: {e}", flush=True)
+        sante_rows = [["🩺 SANTE DES SOURCES", "", "", ""],
+                      ["indisponible", "", "", ""]] + [[""]] * 12
+    modules = build_modules_grid(sante_rows, split)
 
-    ws = _open_worksheet(sh, STATS_TAB, cols=17)
+    ws = _open_worksheet(sh, STATS_TAB, cols=20)
     ws.clear()
     ws.update(range_name="A1", values=table, value_input_option="RAW")
     ws.update(range_name=f"{MODULE_COL}{GROUP_ROW}", values=modules,
               value_input_option="RAW")
-    try:
-        sh.batch_update({"requests": _fmt_requests(ws.id, len(daily))})
-    except Exception as e:
-        print(f"stats format warning: {e}", flush=True)
+    # PRESENTATION : AUCUNE mise en forme ici (choix Preda 10/07 apres l'echec
+    # du batch atomique contre les fusions de l'ancienne page). L'habillage est
+    # pose UNE FOIS par l'Apps Script stats_format.gs (formatStatsPage) et
+    # survit aux reecritures : clear()/update() ne touchent que les VALEURS.
 
-    # bloc 🩺 sante des sources, sous le tableau (module health)
-    anchor = max(_health.ANCHOR_ROW, TABLE_START_ROW + len(daily) + 2)
-    try:
-        _health.write_health(sh, anchor_row=anchor)
-    except Exception as e:
-        print(f"health warning: {e}", flush=True)
+    # (v4) le bloc 🩺 sante est desormais INTEGRE a la zone de droite (P8),
+    # visible sans scroll — plus d'ecriture separee en bas de page.
 
     # placer 📊 STATS en 1er onglet + supprimer l'ancien 🏠ACCUEIL (choix Preda)
     try:
@@ -464,7 +552,8 @@ def write_stats(sh) -> Dict[str, Any]:
         pass
 
     return {"days": len(daily), "week_tx": week["tx"],
-            "week_revenue": week["revenue"], "top_series": len(top_series)}
+            "week_revenue": week["revenue"], "week_anciens": week["old"],
+            "registres_wallets": len(known)}
 
 
 def main() -> int:

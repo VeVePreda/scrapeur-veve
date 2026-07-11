@@ -31,8 +31,17 @@ SCORE_COLORS: Dict[str, dict] = {
     "Seasoned Flipper":   _rgb(0.93, 0.62, 0.71),
     "Aggressive Flipper": _rgb(0.85, 0.42, 0.52),
 }
-# activityStatus : vert (actif) -> rouge (ghost)
+# activityStatus : vert (actif) -> rouge (fantome). Bareme FRANCAIS
+# (Preda 2026-07-10) — les anciens libelles EN sont gardes en secours le temps
+# que ledger reecrive les onglets.
 ACTIVITY_COLORS: Dict[str, dict] = {
+    "Actif":      _rgb(0.72, 0.88, 0.78),
+    "Engagé":     _rgb(0.82, 0.92, 0.80),
+    "Somnolant":  _rgb(0.92, 0.93, 0.74),
+    "Inactif":    _rgb(0.99, 0.90, 0.73),
+    "Désinscrit": _rgb(0.97, 0.80, 0.72),
+    "Fantôme":    _rgb(0.90, 0.66, 0.62),
+    # legacy EN (transitoire)
     "Active":   _rgb(0.72, 0.88, 0.78),
     "Engaged":  _rgb(0.82, 0.92, 0.80),
     "Dormant":  _rgb(0.92, 0.93, 0.74),
@@ -105,7 +114,9 @@ def build_requests(sid: int, header: List[str], header_rows: int) -> List[dict]:
         elif _is_pct(key):
             reqs.append(_numfmt(rng, '0.0"%"'))
         elif _is_thousand(key):
-            reqs.append(_numfmt(rng, "#,##0.##"))
+            # #,##0 entier (fix demande Preda : les decimales .## paraissaient
+            # etre des virgules de milliers en locale FR)
+            reqs.append(_numfmt(rng, "#,##0"))
     return reqs
 
 
