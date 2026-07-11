@@ -3,13 +3,9 @@ name: VeVe daily sync (catalogue + chain + pseudos)
 # One daily job that runs every step in order:
 #   1. catalogue  — cold catalogues + 🟤C-MARQUE
 #   2. chain      — CollectChain activity + escrow deposits (feeds 🟣C-PSEUDOS)
-#   2b. archive   — journees PT completes -> Release chain-archive-daily
-#                   (continuite de l'archive du scan profond astronema)
 #   3. stackr     — StackR pseudo <-> wallet resolution (writes 🟣C-PSEUDOS)
 #   4. dynamic    — daily edition-counter refresh (GraphQL) into 🟠H-PRIX
 #   5. wallets    — enrich 🟣C-PSEUDOS with on-chain first_seen / last_active
-#   6. commit     — data/wallet_registry_daily.csv
-#   7. stats      — page 📊 STATS (KPI 7 jours, tableau groupe, sante 🩺)
 #
 # The fast-moving dynamic data (floor/listings) has its own 3-hourly workflow.
 # The VeVe market step was removed (scrap account blocked, no session).
@@ -19,7 +15,13 @@ on:
     # 04:11 UTC ≈ 06:11 FR (summer). A few minutes past the hour dodges GitHub's
     # heavy on-the-hour scheduling.
     - cron: "11 4 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      steps:
+        description: "Etapes (all, ou liste : catalogue,chain,stackr,market,editions,registre,stats)"
+        required: false
+        default: "all"
+
 
 permissions:
   contents: write
@@ -36,6 +38,8 @@ jobs:
       GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
       SHEET_ID: ${{ secrets.SHEET_ID }}
       APIFY_PROXY_PASSWORD: ${{ secrets.APIFY_PROXY_PASSWORD }}
+    env:
+      STEPS: ${{ github.event.inputs.steps || 'all' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -52,6 +56,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: 1) Catalogue (cold + Marques)
+        if: ${{ contains(env.STEPS, 'all') || contains(env.STEPS, 'catalogue') }}
         env:
           ENRICH_MODE: new
           WINDOW_DAYS: "8"
@@ -59,13 +64,13 @@ jobs:
         run: python -m scraper.run
 
       - name: 2) CollectChain (activity + escrow deposits)
-        if: ${{ always() }}
+        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'chain')) }}
         env:
           CHAIN_MODE: daily
         run: python -m scraper.chain_run
 
       - name: 2b) Continuite archive (Release chain-archive-daily)
-        if: ${{ always() }}
+        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'chain')) }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -77,25 +82,36 @@ jobs:
           echo "Uploade :" && ls -lh archive/
 
       - name: 3) StackR pseudos
-        if: ${{ always() }}
+        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'stackr')) }}
         env:
           STACKR_MAX_LOOKUPS: "200"
           STACKR_COOKIE: ${{ secrets.STACKR_COOKIE }}
         run: python -m scraper.stackr
 
+      # Mode CIBLE : la landing (25 req) donne listings+floor par produit ;
+      # seuls les produits qui ont change depuis _MarketState sont visites.
+      # Balayage complet : dimanche PT, etat vide, ou MARKET_FULL=true.
+      # Skip propre si la session VeVe (VEVE_AUTH) est morte.
+      - name: 3b) Market listings (pseudo<->wallet, mode cible)
+        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'market')) }}
+        env:
+          VEVE_AUTH: ${{ secrets.VEVE_AUTH }}
+        run: python -m scraper.veve_market
+
       - name: 4) Dynamic edition counters (daily GraphQL pass)
-        if: ${{ always() }}
+        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'editions')) }}
         env:
           DYNAMIC_WITH_EDITIONS: "true"
         run: python -m scraper.dynamic_run
 
       - name: 5) Wallet registry (enrich Pseudos with on-chain activity)
-        if: ${{ always() }}
+        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'registre')) }}
         run: python -m scraper.wallet_registry
 
       - name: 6) Commit registre wallets (data/)
-        if: ${{ always() }}
+        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'registre')) }}
         run: |
+          [ -f data/wallet_registry_daily.csv ] || { echo "Pas de registre a committer (journee chain sans transfert)."; exit 0; }
           git config user.name "veve-daily-bot"
           git config user.email "actions@users.noreply.github.com"
           git add data/wallet_registry_daily.csv
@@ -107,5 +123,5 @@ jobs:
           done
 
       - name: 7) Page 📊 STATS (activite 7 jours + sante des sources)
-        if: ${{ always() }}
+        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'stats')) }}
         run: python -m scraper.stats_page
