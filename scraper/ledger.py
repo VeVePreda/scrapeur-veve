@@ -259,6 +259,11 @@ def load_snapshot(folder: str):
       skipped    : lignes sans uuid/edition/token_id (non cle-ables)
     Dedup par token_id : le fichier le plus recent (runNNN croissant) gagne.
     """
+    # MEMOIRE (fix OOM 11/07, 12,4M lignes sur runner prive 7 Go) :
+    # sys.intern partage les chaines repetees (18k uuids, ~700k wallets au
+    # lieu de 12,4M copies) et by_token est CONSOMME (popitem) en construisant
+    # snap au lieu de coexister avec lui.
+    intern = sys.intern
     by_token: Dict[str, Tuple[str, str, str]] = {}
     snap_names: Dict[str, Tuple[str, str]] = {}
     skipped = 0
@@ -271,13 +276,15 @@ def load_snapshot(folder: str):
                 if not uid or not ed or not tid:
                     skipped += 1
                     continue
-                by_token[tid] = (uid, ed, (r.get("owner") or "").strip().lower())
+                by_token[tid] = (intern(uid), intern(ed),
+                                 intern((r.get("owner") or "").strip().lower()))
                 if uid not in snap_names and (r.get("name") or "").strip():
                     snap_names[uid] = ((r.get("name") or "").strip(),
                                        (r.get("category") or "").strip())
     snap: Dict[Tuple[str, str], str] = {}
-    for uid, ed, owner in by_token.values():
-        snap[(uid, ed)] = owner
+    while by_token:
+        _tid, (uid, ed, owner) = by_token.popitem()
+        snap.setdefault((uid, ed), owner)   # popitem = LIFO : le plus recent
     return snap, snap_names, skipped
 
 
@@ -291,14 +298,17 @@ def merge_state(replay_ledger, snap):
     Les cles absentes du snapshot gardent la valeur du rejeu (snapshot partiel
     tolere ; sans snapshot, merged == rejeu).
     """
-    merged = dict(replay_ledger)
+    # fix OOM 11/07 : fusion EN PLACE dans le rejeu (pas de 3e dict de 11,7M
+    # cles) et le snapshot est CONSOMME au fil de l eau.
+    merged = replay_ledger
     stats: Counter = Counter()
-    for key, owner in snap.items():
+    while snap:
+        key, owner = snap.popitem()
         if not owner or owner in BURN_TO:
             merged[key] = ("", 0)
             stats["burned"] += 1
         elif owner == MARKET_ESCROW:
-            holder = (replay_ledger.get(key) or ("", 0))[0]
+            holder = (merged.get(key) or ("", 0))[0]
             merged[key] = (holder, 1)
             stats["escrow_resolved" if holder else "escrow_unresolved"] += 1
         else:
@@ -367,10 +377,11 @@ def replay(folder: str, imx_folder: str = ""):
                     if packed in seen_keys:
                         continue            # doublon inter-archives
                     seen_keys.add(packed)
-                frm = (r.get("from") or "").strip().lower()
-                to = (r.get("to") or "").strip().lower()
-                day = (r.get("date_pt") or "").strip()
-                seq[(uid, ed)].append((ts, frm, to, day, key))
+                frm = sys.intern((r.get("from") or "").strip().lower())
+                to = sys.intern((r.get("to") or "").strip().lower())
+                day = sys.intern((r.get("date_pt") or "").strip())
+                seq[(sys.intern(uid), sys.intern(ed))].append(
+                    (ts, frm, to, day, key))
                 n += 1
                 # ---- pulse mensuel ----
                 m = day[:7]
@@ -416,6 +427,7 @@ def replay(folder: str, imx_folder: str = ""):
                     mo["listings"] += 1
                 # vault_mint : mouvement systeme, hors pulse.
 
+    seen_keys.clear()          # dedup finie : libere ~0,5-1 Go avant la suite
     ledger: Dict[Tuple[str, str], Tuple[str, int]] = {}
     prof: Dict[str, Dict] = {}
 
