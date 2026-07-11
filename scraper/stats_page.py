@@ -93,6 +93,7 @@ ACTIVITY_TAB = "ChainActivity"
 ITEMS_TAB = "ChainItems"
 DYN_STATE_TAB = "_DynState"
 BURNS_TAB = "🔥H-BURNS"
+MARKET_REV_TAB = "_MarketRevenue"     # ventes StackR reelles (stackr_sales)
 
 MINT_F = ["mint_collectible", "mint_comic"]
 MARKET_F = ["market_in_collectible", "market_in_comic"]   # 1 vente = 1 in
@@ -271,6 +272,22 @@ def drop_label(entries) -> str:
     return " + ".join(parts)
 
 
+def read_market_revenue(sh) -> Dict[str, float]:
+    """{date_pt -> revenue market en USD} depuis _MarketRevenue (chantier 7 :
+    ventes REELLES du marche StackR, prix OMI convertis au cours du jour).
+    Ventes in-app VeVe (gems) sans source de prix -> borne basse."""
+    out: Dict[str, float] = {}
+    for r in _records(sh, MARKET_REV_TAB):
+        d = str(r.get("date", "")).strip()
+        try:
+            v = float(str(r.get("usd", "")).replace(",", ".") or 0)
+        except (TypeError, ValueError):
+            v = 0.0
+        if d and v:
+            out[d] = v
+    return out
+
+
 def detect_airdrop_daily(items: List[Dict[str, Any]]) -> Dict[str, int]:
     """{date -> mints d'airdrop} depuis ChainItems : un (jour, item) avec
     mints >= AIRDROP_MIN_MINTS et minters uniques >= 90 % des mints = airdrop
@@ -290,7 +307,8 @@ def detect_airdrop_daily(items: List[Dict[str, Any]]) -> Dict[str, int]:
 def build_pulse_section(pulse_records: List[Dict[str, Any]],
                         omi: Dict[str, float] = None,
                         omi_nft: Dict[str, float] = None,
-                        omi_gem: Dict[str, float] = None) -> List[List]:
+                        omi_gem: Dict[str, float] = None,
+                        market_rev: Dict[str, float] = None) -> List[List]:
     """Section 📅 PAR MOIS (demande Preda 11/07) : les MEMES colonnes/groupes
     que le tableau quotidien, une ligne par mois (DESC), puis un 2e bloc avec
     les metriques VeveFox (acheteurs/vendeurs/minters/drops/accumulation/
@@ -308,6 +326,9 @@ def build_pulse_section(pulse_records: List[Dict[str, Any]],
     gem_m: Dict[str, float] = defaultdict(float)
     for d, v in (omi_gem or {}).items():
         gem_m[d[:7]] += v
+    mkt_m: Dict[str, float] = defaultdict(float)
+    for d, v in (market_rev or {}).items():
+        mkt_m[d[:7]] += v
     recs = sorted(pulse_records, key=lambda r: str(r.get("month", "")),
                   reverse=True)[:PULSE_MONTHS]
     g: List[List] = [
@@ -333,12 +354,13 @@ def build_pulse_section(pulse_records: List[Dict[str, Any]],
         if nv:
             cell = f"{cell} (+{nv} vevecomics)" if cell else f"(+{nv} vevecomics)"
         onft, ogem = nft_m.get(m), gem_m.get(m)
+        mkt = mkt_m.get(m)
         g.append([m, cell,
                   tokens + trades + burns, max(0, tokens - air), air,
                   trades, burns,
                   _n(r.get("actifs")), _n(r.get("nouveaux")), "",
                   _n(r.get("listings")), "",
-                  "", "", "",
+                  "", "", round(mkt) if mkt else "",
                   round(o) if o else "",
                   round(onft) if onft else "",
                   round(ogem) if ogem else ""])
@@ -625,19 +647,21 @@ def compute_split(items, week_days: set) -> Dict[str, int]:
 # ---------------------------------------------------------------------------
 
 def build_table_grid(daily, revenue, week, omi, listing, airdrop, drops,
-                     now_utc: str, omi_nft=None, omi_gem=None) -> List[List]:
+                     now_utc: str, omi_nft=None, omi_gem=None,
+                     market_rev=None) -> List[List]:
     """Grille A1:R.. : titre, bande KPI 7 jours, tableau quotidien groupe.
     Les mints d'airdrop sortent de la colonne Mint vers Airdrop (le Global
     reste complet — separer sans jeter, choix Preda)."""
     omi_nft = omi_nft or {}
     omi_gem = omi_gem or {}
+    market_rev = market_rev or {}
     g: List[List] = []
     g.append(["📊  STATS VEVE — ACTIVITÉ ON-CHAIN", "", "", "", "", "", "",
               "", "", "", "", "", "", "", "", "", "", "", "",
               f"maj : {now_utc}"])
     g.append(["Jours pacifiques terminés uniquement · Revenue drop = mints × "
-              "prix store · Revenue market et OMI→NFT/GEM : en attente "
-              "(chantiers prix & décompo burns)"])
+              "prix store · Revenue market = ventes StackR réelles ($) · "
+              "OMI→NFT/GEM : décompo burns (se remplit avec le backfill)"])
     g.append([])
     g.append([f"▼  SEMAINE DU JEUDI {week['start']} AU MERCREDI "
               f"{week['end']}"])
@@ -661,14 +685,15 @@ def build_table_grid(daily, revenue, week, omi, listing, airdrop, drops,
         o = omi.get(d["date"])
         li = listing.get(d["date"])
         air = airdrop.get(d["date"], 0)
+        mkt = market_rev.get(d["date"])
         g.append([d["date"], drop_label(drops.get(d["date"])),
                   d["tx"], max(0, d["mint"] - air), air,
                   d["market"], d["burn"],
                   d["uniques"], d["new"], d["old"],
                   li[0] if li else "", li[1] if li else "",
-                  drop,           # Total = Drop tant que Market est vide
+                  drop + round(mkt) if mkt else drop,     # Total = Drop + Market
                   drop,
-                  "",             # Revenue Market : chantier 7
+                  round(mkt) if mkt else "",              # ventes StackR reelles
                   round(o) if o is not None else "",
                   round(omi_nft[d["date"]]) if d["date"] in omi_nft else "",
                   round(omi_gem[d["date"]]) if d["date"] in omi_gem else ""])
@@ -709,8 +734,10 @@ def build_modules_grid(sante_rows, split) -> List[List]:
               "physique) · par Mois : drops on-chain (+vevecomics à part).", ""])
     g.append(["• Semaine du bandeau = dernière semaine COMPLÈTE du jeudi au "
               "mercredi (fenêtre calendaire fixe).", ""])
-    g.append(["• Revenue drop = mints × prix store · Revenue market : vide en "
-              "attendant les prix réels (chantier 7).", ""])
+    g.append(["• Revenue drop = mints × prix store · Revenue market = ventes "
+              "RÉELLES du marché StackR (prix OMI → $ au cours du jour de "
+              "collecte) ; les ventes in-app VeVe (gems) n'ont pas de source "
+              "de prix → borne basse · Total = Drop + Market.", ""])
     g.append(["• OMI burn = 🔥H-BURNS (jours PT) · OMI→NFT = 2 % du prix de "
               "chaque vente StackR · OMI→GEM = conversions (100 % brûlé) ; "
               "vide tant que le backfill décompo n'a pas couvert le jour ; "
@@ -860,6 +887,7 @@ def write_stats(sh) -> Dict[str, Any]:
     omi, omi_nft, omi_gem = read_omi_burns(sh)
     listing = read_listing_daily(sh)
     airdrop = detect_airdrop_daily(items)
+    market_rev = read_market_revenue(sh)
     week = compute_week(daily, revenue, omi, listing, airdrop)
     drops = load_drop_names(sh)
     wdays = set(_week_dates(daily))
@@ -867,7 +895,7 @@ def write_stats(sh) -> Dict[str, Any]:
 
     now_utc = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     table = build_table_grid(daily, revenue, week, omi, listing, airdrop,
-                             drops, now_utc, omi_nft, omi_gem)
+                             drops, now_utc, omi_nft, omi_gem, market_rev)
     try:
         sante_rows = _health.build_rows(sh)
     except Exception as e:
@@ -882,7 +910,8 @@ def write_stats(sh) -> Dict[str, Any]:
     ws.update(range_name=f"{MODULE_COL}{GROUP_ROW}", values=modules,
               value_input_option="RAW")
     # 📅 PAR MOIS (sous le tableau quotidien), si le ledger l'a produit
-    pulse = build_pulse_section(_records(sh, PULSE_TAB), omi, omi_nft, omi_gem)
+    pulse = build_pulse_section(_records(sh, PULSE_TAB), omi, omi_nft,
+                                omi_gem, market_rev)
     if pulse:
         ws.update(range_name=f"A{PULSE_ROW}", values=pulse,
                   value_input_option="RAW")
