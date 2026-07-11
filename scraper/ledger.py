@@ -82,7 +82,10 @@ BURN_TO = {ZERO, BURN_SINK}
 
 WHALES_TAB = "🐋A-WHALES"
 CORNER_TAB = "🎯A-CORNERISATION"
-SIZE_TAB = "📈H-WALLET-SIZE"
+# Historique wallet-size CACHE depuis le 11/07 (fusion dans 📊 STATS, choix
+# Preda) — l'ancien onglet visible 📈H-WALLET-SIZE est supprime au 1er run.
+SIZE_TAB = "_WalletSize"
+OLD_SIZE_TAB = "📈H-WALLET-SIZE"
 DASH_TAB = "🏠ACCUEIL"
 # Typologie whales : 3 tableaux HORIZONTAUX cote a cote (top 100 chacun),
 # separes par une colonne vide. 10 colonnes par bloc.
@@ -870,13 +873,23 @@ def _save_profiles(profiles, path):
 
 
 def _write_size_history(sh, size_rows, month):
-    """Append-only mensuel : upsert des lignes du mois (📈H-WALLET-SIZE)."""
+    """Append-only mensuel : upsert des lignes du mois dans l'onglet CACHE
+    _WalletSize (rendu sur 📊 STATS). Migration : au 1er passage, reprend
+    l'historique de l'ancien onglet visible 📈H-WALLET-SIZE puis le SUPPRIME
+    (fusion des pages, choix Preda 11/07)."""
     ws = _open_worksheet(sh, SIZE_TAB, cols=len(SIZE_HEADER))
     existing = ws.get_all_records() if ws.row_count > 1 else []
+    if not existing:
+        try:
+            existing = sh.worksheet(OLD_SIZE_TAB).get_all_records()
+            print(f"    migration : historique repris de {OLD_SIZE_TAB} "
+                  f"({len(existing)} lignes).", flush=True)
+        except Exception:
+            pass
     kept = [[r.get(c, "") for c in SIZE_HEADER] for r in existing
             if str(r.get("snapshot_month", "")) != month]
     fresh = [[month] + row for row in size_rows]
-    grid = [SIZE_HEADER] + kept + fresh
+    grid = [list(SIZE_HEADER)] + kept + fresh
     ws.clear()
     for i in range(0, len(grid), 50000):
         if i == 0:
@@ -886,6 +899,13 @@ def _write_size_history(sh, size_rows, month):
     try:
         ws.freeze(rows=1)
         ws.format("1:1", {"textFormat": {"bold": True}})
+        ws.hide()
+    except Exception:
+        pass
+    try:
+        sh.del_worksheet(sh.worksheet(OLD_SIZE_TAB))
+        print(f"    onglet {OLD_SIZE_TAB} supprime (fusionne dans 📊 STATS).",
+              flush=True)
     except Exception:
         pass
 
