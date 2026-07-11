@@ -38,6 +38,8 @@ from zoneinfo import ZoneInfo
 
 import requests
 
+# Les journees on-chain sont decoupees en heure PACIFIQUE (fuseau metier VeVe),
+# et plus en UTC (changement 2026-07-08 — re-backfill requis pour l'historique).
 PT = ZoneInfo("America/Los_Angeles")
 
 API_BASE = "https://collectscan.com/api/v2"
@@ -50,7 +52,12 @@ ZERO = "0x0000000000000000000000000000000000000000"
 # (seller -> escrow); a sale is escrow -> buyer; a cancel is escrow -> seller.
 # The DEPOSIT transfer's `from` reveals the seller wallet behind a market listing.
 MARKET_ESCROW = "0xb1af72a77b9065c55cda0680b86655a79b62e42c"
+# VeVe burn/vault sink: recoit les burns/crafts des utilisateurs ET les
+# "vault mints" (stock invendu minte directement au coffre, ex. 15 120
+# Street Fighter V le 2026-07-01). 1 449 328 transferts ENTRANTS, zero
+# sortant depuis toujours (verifie sur CollectScan le 2026-07-08).
 BURN_SINK = "0x39e3816a8c549ec22cd1a34a8cf7034b3941d8b1"
+# Wallets systeme : jamais comptes comme des comptes actifs dans les stats.
 SYSTEM_WALLETS = {ZERO, MARKET_ESCROW, BURN_SINK}
 
 REQUEST_TIMEOUT = 60
@@ -141,17 +148,19 @@ def _flatten(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     cat, uuid = _categorise(inst)
     md = inst.get("metadata") or {}
     if frm == ZERO:
+        # Mint direct au coffre = stock invendu "vaulte" par VeVe, pas un achat.
         kind = "vault_mint" if to == BURN_SINK else "mint"
     elif to == ZERO or to == BURN_SINK:
         kind = "burn"
     elif to == MARKET_ESCROW:
-        kind = "listing"
+        kind = "listing"   # mise en vente (depot escrow), PAS une vente
     else:
         kind = "market"
     if not isinstance(md, dict):
         md = {}
     return {
         "ts": ts,
+        # Date en PT : un "jour" = journee pacifique, pas UTC.
         "date": ts.replace(tzinfo=_dt.timezone.utc).astimezone(PT).strftime("%Y-%m-%d"),
         "block": item.get("block_number"),
         "log_index": item.get("log_index"),
@@ -283,11 +292,59 @@ def aggregate_daily(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         elif r["kind"] == "market":
             _bump(agg, r["date"], r["to"], f"market_in_{cat}")
             _bump(agg, r["date"], r["from"], f"market_out_{cat}")
+        # "listing" (depot escrow = mise en vente) et "vault_mint" (stock
+        # invendu minte au coffre) sont des mouvements systeme : ignores.
     rows = []
     for (date, account), counters in sorted(agg.items()):
         row = {"date": date, "account": account, **counters}
         row["total"] = sum(counters.values())
         rows.append(row)
+    return rows
+
+
+def aggregate_listing_daily(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """LISTING quotidien (groupe a part sur 📊 STATS, demande Preda 11/07).
+
+    Par jour PT : nb de NOUVEAUX listings (depots escrow, kind='listing'),
+    nb de comptes ayant liste, nb de comptes ayant liste SANS mint/achat/
+    vente/burn ce jour-la ("purs"), et nb de listings faits par ces purs.
+    Volontairement separe des compteurs Transaction/Actif (lister n'est pas
+    une vente)."""
+    per: Dict[str, Dict[str, Any]] = {}
+    for r in records:
+        d = r.get("date", "")
+        if not d:
+            continue
+        p = per.setdefault(d, {"listings": 0, "listers": set(),
+                               "others": set(), "by_lister": {}})
+        k = r.get("kind")
+        frm, to = r.get("from", ""), r.get("to", "")
+        if k == "listing":
+            if frm and frm not in SYSTEM_WALLETS:
+                p["listings"] += 1
+                p["listers"].add(frm)
+                p["by_lister"][frm] = p["by_lister"].get(frm, 0) + 1
+        elif k == "mint":
+            if to and to not in SYSTEM_WALLETS:
+                p["others"].add(to)
+        elif k == "burn":
+            if frm and frm not in SYSTEM_WALLETS:
+                p["others"].add(frm)
+        elif k == "market":
+            for w in (frm, to):
+                if w and w not in SYSTEM_WALLETS:
+                    p["others"].add(w)
+        # vault_mint : mouvement systeme, ignore.
+    rows = []
+    for d in sorted(per):
+        p = per[d]
+        pure = p["listers"] - p["others"]
+        rows.append({"date": d,
+                     "listings": p["listings"],
+                     "listers": len(p["listers"]),
+                     "pure_listers": len(pure),
+                     "pure_listings": sum(p["by_lister"].get(w, 0)
+                                          for w in pure)})
     return rows
 
 
@@ -337,7 +394,7 @@ def aggregate_items(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     agg: Dict[Tuple[str, str], Dict[str, Any]] = {}
     for r in records:
         if r["kind"] in ("listing", "vault_mint"):
-            continue
+            continue   # mouvements systeme (mise en vente / stock vaulte)
         cat = "comic" if r["category"] == "comic" else "collectible"
         key = (r["date"], item_key(cat, r["veve_uuid"], r["name"], r["rarity"],
                                    r["comic_number"], r["start_year"]))

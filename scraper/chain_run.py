@@ -140,6 +140,13 @@ def main() -> int:
             print(f"Archive quotidienne : {len(arch)} journee(s), "
                   f"{sum(arch.values())} transferts -> archive/.", flush=True)
 
+        # LISTING quotidien (groupe a part sur 📊 STATS) : nouveaux depots
+        # escrow + comptes "purs" (listent sans mint/achat/vente ce jour-la).
+        listing_rows = cc.aggregate_listing_daily(records)
+        if listing_rows:
+            summary["listing_days"] = cs.merge_listing_daily(
+                sheet_id, listing_rows, replace=(mode == "backfill"))
+
         # Market escrow deposits -> (veve_uuid, edition) -> seller wallet, for the
         # pseudo<->wallet join with the Market listings.
         esc_added = cs.merge_escrow(sheet_id, cc.escrow_listings(records))

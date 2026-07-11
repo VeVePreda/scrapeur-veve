@@ -302,6 +302,50 @@ def write_revenue(spreadsheet_id: str, rev_rows: List[Dict[str, Any]]) -> None:
         pass
 
 
+LISTING_TAB = "_ListingDaily"
+LISTING_HEADER = ["date", "listings", "listers", "pure_listers",
+                  "pure_listings"]
+
+
+def _int(x) -> int:
+    try:
+        return int(float(str(x).replace(",", ".").replace(" ", "") or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def merge_listing_daily(spreadsheet_id: str, rows: List[Dict[str, Any]],
+                        replace: bool = False) -> int:
+    """Upsert par date dans l'onglet cache _ListingDaily (source du groupe
+    LISTING de 📊 STATS — demande Preda 11/07). replace=True (backfill)
+    reecrit tout ; retention RETENTION_DAYS comme ChainActivity. Valeurs
+    entieres ecrites en RAW (aucun decimal -> insensible a la locale FR)."""
+    sh = _sheet(spreadsheet_id)
+    ws = _open_worksheet(sh, LISTING_TAB, cols=len(LISTING_HEADER))
+    existing: Dict[str, List[int]] = {}
+    if not replace and ws.row_count > 1:
+        for r in ws.get_all_records():
+            d = str(r.get("date", "")).strip()
+            if d:
+                existing[d] = [_int(r.get(c)) for c in LISTING_HEADER[1:]]
+    for r in rows:
+        existing[str(r["date"])] = [_int(r.get("listings")),
+                                    _int(r.get("listers")),
+                                    _int(r.get("pure_listers")),
+                                    _int(r.get("pure_listings"))]
+    cutoff = (_dt.datetime.utcnow()
+              - _dt.timedelta(days=RETENTION_DAYS)).strftime("%Y-%m-%d")
+    grid = [list(LISTING_HEADER)] + [[d] + existing[d]
+                                     for d in sorted(existing) if d >= cutoff]
+    ws.clear()
+    ws.update(range_name="A1", values=grid, value_input_option="RAW")
+    try:
+        ws.hide()
+    except Exception:
+        pass
+    return len(grid) - 1
+
+
 def merge_escrow(spreadsheet_id: str, deposits: List[Dict[str, Any]]) -> int:
     """Merge escrow deposits into the hidden _EscrowListings tab, keeping the
     latest seller wallet per (veve_uuid, edition). Returns count of NEW keys."""

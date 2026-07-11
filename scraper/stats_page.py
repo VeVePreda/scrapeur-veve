@@ -66,7 +66,8 @@ TOP_SERIES = int(os.environ.get("STATS_TOP_SERIES", "8"))
 TABLE_START_ROW = 10                 # 1re ligne de donnees du tableau quotidien
 GROUP_ROW = 8                        # ligne des groupes (fusionnee)
 HEADER_ROW = 9                       # ligne des colonnes
-MODULE_COL = "P"                     # colonne des modules de droite (tableau A:N)
+MODULE_COL = "S"                     # colonne des modules de droite (tableau A:Q)
+LISTING_TAB = "_ListingDaily"        # source du groupe LISTING (chain_run)
 
 # Registres wallet -> first_seen, pour distinguer Nouveaux et Anciens
 # (revenants). Local = commite par le daily ; raws publics = scans profonds.
@@ -130,6 +131,20 @@ def read_store_prices(sh) -> Dict[str, float]:
         p = _price(r.get("veve_store_price"))
         if u and p is not None:
             out[u] = p
+    return out
+
+
+def read_listing_daily(sh) -> Dict[str, tuple]:
+    """{date_pt -> (listings, purs, listings_purs)} depuis _ListingDaily.
+    Groupe LISTING a part entiere (Preda 11/07) — donnees collectees par
+    chain_run a partir du 11/07 (les jours anterieurs restent vides ; un
+    'CollectChain backfill' 31 j les remplit)."""
+    out: Dict[str, tuple] = {}
+    for r in _records(sh, LISTING_TAB):
+        d = str(r.get("date", "")).strip()
+        if d:
+            out[d] = (_n(r.get("listings")), _n(r.get("pure_listers")),
+                      _n(r.get("pure_listings")))
     return out
 
 
@@ -288,14 +303,20 @@ def _week_dates(daily: List[Dict[str, Any]]) -> List[str]:
     return [d["date"] for d in daily if d["date"] >= start]
 
 
-def compute_week(daily, revenue, omi=None) -> Dict[str, Any]:
+def compute_week(daily, revenue, omi=None, listing=None) -> Dict[str, Any]:
     days = set(_week_dates(daily))
     rows = [d for d in daily if d["date"] in days]
     accounts = set()
     for d in rows:
         accounts |= d["accounts"]
     omi = omi or {}
+    listing = listing or {}
+    li = [listing.get(d["date"]) for d in rows]
+    li = [x for x in li if x]
     return {
+        "listings": sum(x[0] for x in li),
+        "pure_listers": sum(x[1] for x in li),
+        "pure_listings": sum(x[2] for x in li),
         "start": min(days) if days else "",
         "end": max(days) if days else "",
         "revenue": round(sum(revenue.get(d["date"], 0) for d in rows)),
@@ -342,11 +363,13 @@ def compute_split(items, week_days: set) -> Dict[str, int]:
 # Construction de la page
 # ---------------------------------------------------------------------------
 
-def build_table_grid(daily, revenue, week, omi, now_utc: str) -> List[List]:
-    """Grille A1:N.. : titre, bande KPI 7 jours, tableau quotidien groupe."""
+def build_table_grid(daily, revenue, week, omi, listing,
+                     now_utc: str) -> List[List]:
+    """Grille A1:Q.. : titre, bande KPI 7 jours, tableau quotidien groupe."""
     g: List[List] = []
     g.append(["📊  STATS VEVE — ACTIVITÉ ON-CHAIN", "", "", "", "", "", "",
-              "", "", "", "", "", "", "", "", f"maj : {now_utc}"])
+              "", "", "", "", "", "", "", "", "", "", "",
+              f"maj : {now_utc}"])
     g.append(["Jours pacifiques terminés uniquement · Revenue drop = mints × "
               "prix store · Revenue market et OMI→NFT/GEM : en attente "
               "(chantiers prix & décompo burns)"])
@@ -354,21 +377,25 @@ def build_table_grid(daily, revenue, week, omi, now_utc: str) -> List[List]:
     g.append([f"▼  7 DERNIERS JOURS TERMINÉS — du {week['start']} au "
               f"{week['end']}"])
     g.append(["Revenue drop", "Transactions", "Mints", "Market", "Burns",
-              "Actifs uniques", "Nouveaux", "Anciens", "OMI brûlés"])
+              "Actifs uniques", "Nouveaux", "Anciens", "Listings",
+              "Listeurs purs", "OMI brûlés"])
     g.append([week["revenue"], week["tx"], week["mint"], week["market"],
               week["burn"], week["uniques"], week["new"], week["old"],
-              week["omi"]])
+              week["listings"], week["pure_listers"], week["omi"]])
     g.append([])
-    g.append(["", "TRANSACTION", "", "", "", "ACTIF", "", "", "REVENUE", "",
-              "", "OMI BURN", "", ""])
+    g.append(["", "TRANSACTION", "", "", "", "ACTIF", "", "", "LISTING", "",
+              "", "REVENUE", "", "", "OMI BURN", "", ""])
     g.append(["Date", "Global", "Mint", "Market", "Burn", "Unique",
-              "Nouveaux", "Anciens", "Total", "Drop", "Market",
-              "Global", "OMI→NFT", "OMI→GEM"])
+              "Nouveaux", "Anciens", "Listings", "Purs", "Listings purs",
+              "Total", "Drop", "Market", "Global", "OMI→NFT", "OMI→GEM"])
     for d in daily:
         drop = round(revenue.get(d["date"], 0))
         o = omi.get(d["date"])
+        li = listing.get(d["date"])
         g.append([d["date"], d["tx"], d["mint"], d["market"], d["burn"],
                   d["uniques"], d["new"], d["old"],
+                  li[0] if li else "", li[1] if li else "",
+                  li[2] if li else "",
                   drop,           # Total = Drop tant que Market est vide
                   drop,
                   "",             # Revenue Market : chantier 7
@@ -397,7 +424,12 @@ def build_modules_grid(sante_rows, split) -> List[List]:
               "(last_active des registres deep + IMX).", ""])
     g.append(["• Nouveaux = wallet inconnu de tous les registres. Précision "
               "définitive quand le scan CollectChain sera terminé.", ""])
-    g.append(["• Transactions Global = mints + ventes marché + burns.", ""])
+    g.append(["• Transactions Global = mints + ventes marché + burns (lister "
+              "n'est PAS une transaction — groupe LISTING à part).", ""])
+    g.append(["• LISTING : Listings = nouveaux dépôts escrow du jour · Purs = "
+              "comptes ayant listé sans mint/achat/vente ce jour · Listings "
+              "purs = dépôts faits par ces comptes. Données depuis le 11/07 "
+              "(un backfill 31 j remplit l'historique).", ""])
     g.append(["• Revenue drop = mints × prix store · Revenue market : vide en "
               "attendant les prix réels (chantier 7).", ""])
     g.append(["• OMI burn = 🔥H-BURNS (jours PT) ; OMI→NFT / OMI→GEM : décompo "
@@ -541,12 +573,13 @@ def write_stats(sh) -> Dict[str, Any]:
         raise RuntimeError("ChainActivity vide — page 📊 STATS non touchee.")
     revenue = compute_revenue(items, prices)
     omi = read_omi_burns(sh)
-    week = compute_week(daily, revenue, omi)
+    listing = read_listing_daily(sh)
+    week = compute_week(daily, revenue, omi, listing)
     wdays = set(_week_dates(daily))
     split = compute_split(items, wdays)
 
     now_utc = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
-    table = build_table_grid(daily, revenue, week, omi, now_utc)
+    table = build_table_grid(daily, revenue, week, omi, listing, now_utc)
     try:
         sante_rows = _health.build_rows(sh)
     except Exception as e:
@@ -555,7 +588,7 @@ def write_stats(sh) -> Dict[str, Any]:
                       ["indisponible", "", "", ""]] + [[""]] * 12
     modules = build_modules_grid(sante_rows, split)
 
-    ws = _open_worksheet(sh, STATS_TAB, cols=20)
+    ws = _open_worksheet(sh, STATS_TAB, cols=23)
     ws.clear()
     ws.update(range_name="A1", values=table, value_input_option="RAW")
     ws.update(range_name=f"{MODULE_COL}{GROUP_ROW}", values=modules,
