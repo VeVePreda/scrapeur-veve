@@ -3,8 +3,9 @@ name: VeVe blog sync
 # Scrapes the VeVe blog and upserts every article — title, category, tags, author,
 # reading time, excerpt, FULL body, cover image, permalink — into the "📝C-BLOG" tab.
 #
-# STANDALONE / on demand only — NOT part of the daily pipeline. Trigger it from the
-# Actions tab ("Run workflow") whenever you want to refresh the blog tab.
+# AUTO daily at 07:41 UTC (light refresh: newest 3 listing pages, content fetched
+# only for NEW articles -> a handful of requests). Manual "Run workflow" still
+# available for a full backfill (pages = 0).
 #   pages = 0    -> scan all listing pages (full backfill of the article list)
 #   pages = 2    -> only the newest listing pages (light refresh)
 #   max_new = 0  -> fetch full content for every new article (no cap)
@@ -13,6 +14,8 @@ name: VeVe blog sync
 # deleted; re-running only ever adds/updates.
 
 on:
+  schedule:
+    - cron: "41 7 * * *"          # daily light refresh (new articles only)
   workflow_dispatch:
     inputs:
       pages:
@@ -46,7 +49,8 @@ jobs:
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           SHEET_ID: ${{ secrets.SHEET_ID }}
-          BLOG_MAX_PAGES: ${{ github.event.inputs.pages || '0' }}
+          # cron -> pas d'inputs -> 3 pages recentes ; manuel -> valeur choisie (defaut 0 = tout)
+          BLOG_MAX_PAGES: ${{ github.event.inputs.pages || '3' }}
           BLOG_WITH_CONTENT: "true"
           BLOG_MAX_NEW: ${{ github.event.inputs.max_new || '0' }}
         run: python -m scraper.blog_run
