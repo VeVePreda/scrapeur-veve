@@ -1,11 +1,13 @@
 name: VeVe transactions — BACKFILL
 
-# Reconstruit l'historique du revenue REEL (drops + ventes gems) en UN SEUL run :
-# ~1 700 tx/jour, 100 tx/page -> ~17 pages/jour d'historique.
-#   30 jours  ~   510 pages  (~4 min)
-#   1 an      ~ 6 200 pages  (~35 min)
-# Le decalage du curseur pendant le run (les nouvelles tx poussent les pages)
-# est absorbe par la dedup veve_id. A lancer de preference sur le repo PUBLIC.
+# REPRENABLE (leçon du run #1 : 730 pages / 52 min perdues sur un HTTP 500
+# transitoire). Chaque run :
+#   * garde TOUJOURS sa recolte (jamais d'echec qui jette tout) ;
+#   * reduit la taille de page si l'API tousse (100 -> 50 -> 25 -> 10) ;
+#   * ecrit data/veve_tx_state.json -> le run suivant REPREND ou il s'est
+#     arrete (il saute les jours deja ecrits).
+# Relancer autant de fois que necessaire jusqu'a « etat=TERMINE » dans le
+# resume. Pour repartir de zero : supprimer data/veve_tx_state.json.
 
 on:
   workflow_dispatch:
@@ -15,9 +17,9 @@ on:
         required: true
         default: "2026-01-01"
       max_pages:
-        description: "Garde-fou pages"
+        description: "Pages par run (garde-fou)"
         required: false
-        default: "10000"
+        default: "3000"
 
 permissions:
   contents: write
@@ -34,22 +36,21 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
 
-      - name: Backfill du flux VeVe
+      - name: Backfill du flux VeVe (reprenable)
         env:
           SHEET_ID: ${{ secrets.SHEET_ID }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           VEVE_TX_BACKFILL: "true"
           VEVE_TX_UNTIL: ${{ github.event.inputs.until }}
           VEVE_TX_MAX_PAGES: ${{ github.event.inputs.max_pages }}
-          VEVE_TX_PAUSE: "0.2"
+          VEVE_TX_PAUSE: "0.3"
         run: python -m scraper.veve_tx
 
-      - name: Commit data/veve_tx_daily.csv
+      - name: Commit (donnees + etat de reprise)
+        if: always()
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          if [ -f data/veve_tx_daily.csv ]; then
-            git add data/veve_tx_daily.csv
-            git diff --cached --quiet || git commit -m "veve_tx: backfill"
-            git push || true
-          fi
+          git add data/veve_tx_daily.csv data/veve_tx_state.json 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "veve_tx: backfill (reprise)"
+          git push || true
