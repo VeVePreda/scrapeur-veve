@@ -1,24 +1,25 @@
-"""📰 DIGEST DISCORD DU MATIN — le resume quotidien + les nouveaux articles.
+"""📰 DIGEST DISCORD — le point du matin (et celui de la semaine, le vendredi).
 
-Demande de Preda (12/07) : « les stats chaque matin c'est bien aussi, ainsi que
-quand il y a un nouvel article qui sort ».
+Demandes de Preda (12/07, apres le 1er run) :
+  * titre avec le NOM du jour : « VeVe — Samedi 11/07/2026 » ;
+  * une illustration rectangulaire dans la carte ;
+  * les chiffres groupes par LIGNE : TRANSACTION (Global/Mint/Market),
+    ACTIF (Unique/Nouveaux/Anciens), REVENUE (Total/Drop/Market) ;
+  * dire si c'etait un JOUR DE DROP ;
+  * un avertissement : infos indicatives, pas un conseil financier, valeurs
+    possiblement inexactes ;
+  * le VENDREDI : pas de point du matin, mais LE POINT DE LA SEMAINE ;
+  * un garde-fou anti-spam (ne pas se faire bannir par Discord).
 
-Tourne sur PREDA (il a le Sheet). Lit ce qui est deja calcule — il ne collecte
-RIEN de nouveau, aucune requete vers VeVe/StackR :
+BUG DU 1er RUN CORRIGE : « articles: 1001 » — sans etat, TOUT le blog etait
+considere comme nouveau. Desormais le premier run MEMORISE sans annoncer.
 
-  * ChainActivity / ChainItems  -> activite de la veille (jour PT termine) ;
-  * _VeveRevenue               -> revenue drop REEL + marche (VeVe gems +
-                                  StackR) ;
-  * 🔥H-BURNS                   -> OMI brules ;
-  * _ListingDaily              -> mises en vente ;
-  * 📝C-BLOG                    -> articles parus depuis le dernier digest ;
-  * _MarketUniverse            -> sante du marche (elements qui se vendent).
+Le module ne collecte RIEN : il lit la page 📊 STATS deja calculee (memes
+chiffres que le Sheet, donc aucune divergence possible) + les onglets sources.
 
-Etat : data/digest_state.json (dernier jour poste + derniers slugs de blog) ->
-aucun doublon si le workflow tourne deux fois.
-
-Env : SHEET_ID, DISCORD_WEBHOOK (sans lui : simulation dans les logs),
-      DIGEST_STATE (data/digest_state.json).
+Env : SHEET_ID, DISCORD_WEBHOOK, DIGEST_STATE (data/digest_state.json),
+      DIGEST_WEEKLY_DAY (4 = vendredi ; 0 = lundi), DIGEST_IMAGE (illustration
+      par defaut), DIGEST_BLOG_MAX (3).
 """
 
 from __future__ import annotations
@@ -36,39 +37,277 @@ from scraper.sheets import _client, append_log
 
 WEBHOOK = os.environ.get("DISCORD_WEBHOOK", "").strip()
 STATE_PATH = os.environ.get("DIGEST_STATE", "data/digest_state.json")
-BLOG_MAX = int(os.environ.get("DIGEST_BLOG_MAX", "5"))
-COULEUR = 0x9B59B6          # violet, comme les bannieres du Sheet
+BLOG_MAX = int(os.environ.get("DIGEST_BLOG_MAX", "3"))
+WEEKLY_DAY = int(os.environ.get("DIGEST_WEEKLY_DAY", "4"))     # vendredi
+IMAGE = os.environ.get("DIGEST_IMAGE", "").strip()
+STATS_TAB = os.environ.get("STATS_TAB", "📊 STATS")
+
+VIOLET = 0x7B2CBF
+BLEU = 0x3498DB
+OR = 0xF1C40F
+
+JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi",
+         "Dimanche"]
+
+AVERTISSEMENT = ("⚠️ Informations fournies à titre indicatif — ce n'est PAS un "
+                 "conseil financier. Les chiffres sont issus de sources "
+                 "publiques et peuvent comporter des erreurs ou être "
+                 "incomplets.")
+
+# Colonnes du tableau quotidien de 📊 STATS (ligne d'en-tetes = 9, donnees des
+# la 10). On lit la page telle qu'elle est affichee : aucun risque de dire
+# autre chose que le Sheet.
+COLS = ["Date", "Drop", "Global", "Mint", "Airdrop", "Market", "Burn",
+        "Unique", "Nouveaux", "Anciens", "Quantité", "Comptes",
+        "Total", "Drop$", "Market$", "OMI$", "OMI→NFT", "OMI→GEM"]
 
 
 def _n(x) -> int:
     try:
-        return int(float(str(x).replace(",", ".").replace(" ", "") or 0))
+        return int(float(str(x).replace(",", ".").replace(" ", "")
+                         .replace("$", "").replace("~", "") or 0))
     except (TypeError, ValueError):
         return 0
 
 
-def _f(x) -> float:
-    try:
-        return float(str(x).replace(",", ".").replace(" ", "") or 0)
-    except (TypeError, ValueError):
-        return 0.0
+def _fr(x) -> str:
+    return f"{_n(x):,}".replace(",", " ")
 
 
 def _records(sh, tab) -> List[Dict[str, Any]]:
     try:
         ws = sh.worksheet(tab)
-    except Exception:
-        return []
-    try:
         from gspread.utils import ValueRenderOption
         return ws.get_all_records(
             value_render_option=ValueRenderOption.unformatted)
     except Exception:
-        try:
-            return ws.get_all_records()
-        except Exception:
-            return []
+        return []
 
+
+def lire_stats(sh) -> List[Dict[str, Any]]:
+    """Le tableau quotidien de 📊 STATS, tel qu'affiche (A10:R60)."""
+    try:
+        ws = sh.worksheet(STATS_TAB)
+        from gspread.utils import ValueRenderOption
+        vals = ws.get_values("A10:R60",
+                             value_render_option=ValueRenderOption.unformatted)
+    except Exception as e:
+        print(f"lecture 📊 STATS impossible : {e}", file=sys.stderr)
+        return []
+    out = []
+    for r in vals or []:
+        if r and str(r[0]).strip():
+            d = dict(zip(COLS, list(r) + [""] * (len(COLS) - len(r))))
+            out.append(d)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Cartes
+# ---------------------------------------------------------------------------
+
+def _ligne(titre: str, cases: List[tuple]) -> List[Dict]:
+    """Une LIGNE de la carte : un intitule, puis des cases cote a cote
+    (Discord met 3 champs `inline` par ligne)."""
+    champs = [{"name": f"__{titre}__", "value": "\\u200b", "inline": False}]
+    for nom, val in cases:
+        champs.append({"name": nom, "value": f"**{val}**", "inline": True})
+    return champs
+
+
+def carte_jour(d: Dict, drop: Dict) -> Dict:
+    jour = str(d.get("Date", ""))
+    try:
+        dt = _dt.date.fromisoformat(jour)
+        titre = f"VeVe — {JOURS[dt.weekday()]} {dt.strftime('%d/%m/%Y')}"
+    except ValueError:
+        titre = f"VeVe — {jour}"
+
+    fields: List[Dict] = []
+    if drop.get("nom"):
+        fields.append({"name": "🎉 Jour de drop",
+                       "value": f"**{drop['nom']}**", "inline": False})
+    fields += _ligne("TRANSACTION", [
+        ("Transactions", _fr(d.get("Global"))),
+        ("Mint", _fr(d.get("Mint"))),
+        ("Market", _fr(d.get("Market"))),
+    ])
+    fields += _ligne("ACTIF", [
+        ("Actifs", _fr(d.get("Unique"))),
+        ("Nouveaux", _fr(d.get("Nouveaux"))),
+        ("Anciens", _fr(d.get("Anciens"))),
+    ])
+    fields += _ligne("REVENUE", [
+        ("Revenue", _fr(d.get("Total")) + " $"),
+        ("Drop", _fr(d.get("Drop$")) + " $"),
+        ("Market", _fr(d.get("Market$")) + " $"),
+    ])
+    e = {"title": titre, "color": VIOLET, "fields": fields,
+         "footer": {"text": AVERTISSEMENT}}
+    img = drop.get("image") or IMAGE
+    if img:
+        e["image"] = {"url": img}          # illustration RECTANGULAIRE
+    return e
+
+
+def carte_semaine(rows: List[Dict], drops: int) -> Dict:
+    """Le point de la semaine (7 derniers jours du tableau)."""
+    sept = rows[:7]
+    if not sept:
+        return {}
+    som = lambda c: sum(_n(r.get(c)) for r in sept)   # noqa: E731
+    debut = str(sept[-1].get("Date", ""))
+    fin = str(sept[0].get("Date", ""))
+    fields = _ligne("TRANSACTION", [
+        ("Transactions", _fr(som("Global"))),
+        ("Mint", _fr(som("Mint"))),
+        ("Market", _fr(som("Market"))),
+    ])
+    fields += _ligne("ACTIF (cumul des jours)", [
+        ("Actifs", _fr(som("Unique"))),
+        ("Nouveaux", _fr(som("Nouveaux"))),
+        ("Anciens", _fr(som("Anciens"))),
+    ])
+    fields += _ligne("REVENUE", [
+        ("Revenue", _fr(som("Total")) + " $"),
+        ("Drop", _fr(som("Drop$")) + " $"),
+        ("Market", _fr(som("Market$")) + " $"),
+    ])
+    fields.append({"name": "Autres", "inline": False,
+                   "value": f"🔥 **{_fr(som('Burn'))}** burns · "
+                            f"🎉 **{drops}** jour(s) de drop · "
+                            f"📦 **{_fr(som('Quantité'))}** mises en vente"})
+    e = {"title": f"📅 Le point de la semaine — du {debut} au {fin}",
+         "color": OR, "fields": fields,
+         "footer": {"text": AVERTISSEMENT}}
+    if IMAGE:
+        e["image"] = {"url": IMAGE}
+    return e
+
+
+EXCERPT_MAX = int(os.environ.get("DIGEST_EXCERPT", "300"))
+
+
+def cartes_blog(articles: List[Dict]) -> List[Dict]:
+    """Une carte par article : illustration + DEBUT DU TEXTE (demande Preda).
+    📝C-BLOG porte deja `excerpt` et `image_url` (ecrits par blog.py)."""
+    out = []
+    for a in articles[:BLOG_MAX]:
+        texte = str(a.get("excerpt") or "").strip()
+        if len(texte) > EXCERPT_MAX:
+            texte = texte[:EXCERPT_MAX].rsplit(" ", 1)[0] + "…"
+        desc = texte
+        if a.get("date"):
+            desc = (desc + "\n\n" if desc else "") + f"*{a['date']}*"
+        e = {"title": f"📝 {a['titre']}"[:250], "color": BLEU,
+             "description": desc[:1000] or "Nouvel article"}
+        if a.get("url"):
+            e["url"] = a["url"]
+        if a.get("image"):
+            e["image"] = {"url": a["image"]}     # illustration rectangulaire
+        out.append(e)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Sources annexes
+# ---------------------------------------------------------------------------
+
+def drop_du_jour(sh, jour: str, stats_row: Dict) -> Dict:
+    """Y a-t-il eu un drop ce jour-la ? (colonne Drop de 📊 STATS) + une image
+    prise dans le catalogue pour illustrer la carte."""
+    nom = str(stats_row.get("Drop") or "").strip()
+    if not nom:
+        return {}
+    img = ""
+    for tab in ("🔵C-COLLECTIBLE", "🟢C-COMICS"):
+        try:
+            ws = sh.worksheet(tab)
+            head = ws.row_values(1)
+            if "image_url" not in head or "releaseDate" not in head:
+                continue
+            i_img = head.index("image_url") + 1
+            i_rel = head.index("releaseDate") + 1
+            col_rel = ws.col_values(i_rel)
+            col_img = ws.col_values(i_img)
+            for k, v in enumerate(col_rel):
+                if str(v)[:10] == jour and k < len(col_img) and col_img[k]:
+                    img = col_img[k]
+                    break
+        except Exception:
+            continue
+        if img:
+            break
+    return {"nom": nom, "image": img}
+
+
+def nouveaux_articles(sh, connus: List[str]) -> List[Dict]:
+    vus = set(connus or [])
+    out = []
+    for r in _records(sh, "📝C-BLOG"):
+        slug = str(r.get("slug", "")).strip()
+        if slug and slug not in vus:
+            out.append({"slug": slug,
+                        "titre": str(r.get("title") or slug),
+                        "date": str(r.get("published_at") or r.get("date")
+                                    or ""),
+                        "url": str(r.get("url") or ""),
+                        "excerpt": str(r.get("excerpt") or ""),
+                        "image": str(r.get("image_url") or "")})
+    out.sort(key=lambda a: a["date"], reverse=True)
+    return out
+
+
+def tous_les_slugs(sh) -> List[str]:
+    return [str(r.get("slug", "")).strip()
+            for r in _records(sh, "📝C-BLOG") if str(r.get("slug", "")).strip()]
+
+
+# ---------------------------------------------------------------------------
+# Discord (avec garde-fou anti-bannissement)
+# ---------------------------------------------------------------------------
+
+def post(contenu: str, embeds: List[Dict]) -> bool:
+    """UN SEUL message par run, 10 cartes maximum (limite Discord), et on
+    RESPECTE le 429 (rate limit) au lieu de s'obstiner — c'est ce qui fait
+    bannir un webhook."""
+    embeds = [e for e in embeds if e][:10]
+    if not embeds:
+        return False
+    if not WEBHOOK:
+        print("[SIMULATION — pas de DISCORD_WEBHOOK]", flush=True)
+        print(json.dumps({"content": contenu, "embeds": embeds},
+                         ensure_ascii=False, indent=1)[:2500], flush=True)
+        return True
+    for essai in range(3):
+        try:
+            r = requests.post(WEBHOOK,
+                              json={"content": contenu, "embeds": embeds},
+                              timeout=20)
+            if r.status_code == 429:
+                attente = 5.0
+                try:
+                    attente = float(r.json().get("retry_after", 5)) + 1
+                except Exception:
+                    pass
+                print(f"Discord : rate limit — on patiente {attente:.0f} s "
+                      f"(on ne s'obstine pas, c'est ce qui fait bannir).",
+                      flush=True)
+                time.sleep(min(attente, 60))
+                continue
+            r.raise_for_status()
+            return True
+        except Exception as e:
+            print(f"Discord KO ({e})", file=sys.stderr)
+            if essai == 2:
+                return False
+            time.sleep(5)
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def load_state() -> Dict:
     try:
@@ -84,123 +323,6 @@ def save_state(st: Dict) -> None:
         json.dump(st, f)
 
 
-def dernier_jour(sh) -> str:
-    """Le dernier jour PACIFIQUE complet present dans ChainActivity."""
-    jours = {str(r.get("date", "")).strip()
-             for r in _records(sh, "ChainActivity")}
-    jours.discard("")
-    return max(jours) if jours else ""
-
-
-def build_digest(sh, jour: str) -> Dict:
-    """Rassemble les chiffres du jour (aucune collecte : tout est deja la)."""
-    act = [r for r in _records(sh, "ChainActivity")
-           if str(r.get("date", "")).strip() == jour]
-    mints = sum(_n(r.get("mint_collectible")) + _n(r.get("mint_comic"))
-                for r in act)
-    market = sum(_n(r.get("market_in_collectible")) + _n(r.get("market_in_comic"))
-                 for r in act)
-    burns = sum(_n(r.get("burn_collectible")) + _n(r.get("burn_comic"))
-                for r in act)
-    actifs = len({str(r.get("account", "")).strip().lower() for r in act
-                  if str(r.get("account", "")).strip()})
-
-    rev = {r.get("date"): r for r in _records(sh, "_VeveRevenue")}.get(jour, {})
-    drop = _f(rev.get("drop_usd"))
-    mkt = _f(rev.get("market_veve_usd")) + _f(rev.get("market_stackr_usd"))
-
-    burn = {r.get("date"): r for r in _records(sh, "🔥H-BURNS")}.get(jour, {})
-    omi = _f(burn.get("omi_burned")) + _f(burn.get("omi_gem"))
-
-    lst = {r.get("date"): r for r in _records(sh, "_ListingDaily")}.get(jour, {})
-
-    univ = sorted(_records(sh, "_MarketUniverse"),
-                  key=lambda r: str(r.get("date", "")))
-    u = univ[-1] if univ else {}
-    return {"jour": jour, "mints": mints, "market": market, "burns": burns,
-            "actifs": actifs, "drop": drop, "mkt": mkt, "omi": omi,
-            "listings": _n(lst.get("listings")),
-            "listeurs": _n(lst.get("listers")),
-            "elements": _n(u.get("elements")),
-            "vendus": _n(u.get("vendus_7j")),
-            "pct_vendus": u.get("pct_vendus_7j", "")}
-
-
-def nouveaux_articles(sh, connus: List[str]) -> List[Dict]:
-    """Les articles du blog jamais annonces (📝C-BLOG, ecrit par blog.py)."""
-    vus = set(connus or [])
-    out = []
-    for r in _records(sh, "📝C-BLOG"):
-        slug = str(r.get("slug", "")).strip()
-        if slug and slug not in vus:
-            out.append({"slug": slug,
-                        "titre": str(r.get("title") or slug),
-                        "date": str(r.get("published_at")
-                                    or r.get("date") or ""),
-                        "url": str(r.get("url") or "")})
-    out.sort(key=lambda a: a["date"], reverse=True)
-    return out
-
-
-def embeds(d: Dict, articles: List[Dict]) -> List[Dict]:
-    def money(x):
-        return f"{x:,.0f} $".replace(",", " ")
-
-    fields = [
-        {"name": "Revenue drop (réel)", "value": money(d["drop"]),
-         "inline": True},
-        {"name": "Marché (VeVe + StackR)", "value": money(d["mkt"]),
-         "inline": True},
-        {"name": "Total", "value": "**" + money(d["drop"] + d["mkt"]) + "**",
-         "inline": True},
-        {"name": "Mints", "value": f"{d['mints']:,}".replace(",", " "),
-         "inline": True},
-        {"name": "Ventes on-chain",
-         "value": f"{d['market']:,}".replace(",", " "), "inline": True},
-        {"name": "Actifs uniques",
-         "value": f"{d['actifs']:,}".replace(",", " "), "inline": True},
-        {"name": "Mises en vente",
-         "value": f"{d['listings']:,} par {d['listeurs']:,} comptes"
-                  .replace(",", " "), "inline": True},
-        {"name": "OMI brûlés",
-         "value": f"{d['omi']:,.0f}".replace(",", " "), "inline": True},
-    ]
-    if d.get("elements"):
-        v = (f"{d['vendus']:,} / {d['elements']:,}".replace(",", " ")
-             + (f" ({d['pct_vendus']} %)" if d.get("pct_vendus") else ""))
-        fields.append({"name": "Éléments qui se vendent (7 j)", "value": v,
-                       "inline": True})
-    out = [{"title": f"📊 VeVe — journée du {d['jour']}", "color": COULEUR,
-            "fields": fields,
-            "footer": {"text": "Jour pacifique terminé · revenue = prix "
-                               "réellement payés (flux VeVe public)"}}]
-    for a in articles[:BLOG_MAX]:
-        e = {"title": f"📝 {a['titre']}"[:250], "color": 0x3498DB,
-             "description": a["date"]}
-        if a["url"]:
-            e["url"] = a["url"]
-        out.append(e)
-    return out
-
-
-def post(embs: List[Dict], n_art: int) -> bool:
-    contenu = "☀️ **Le point du matin**"
-    if n_art:
-        contenu += f" · {n_art} nouvel(s) article(s)"
-    if not WEBHOOK:
-        print("[SIMULATION — pas de DISCORD_WEBHOOK]", flush=True)
-        print(json.dumps(embs, ensure_ascii=False, indent=1)[:2000], flush=True)
-        return True
-    try:
-        r = requests.post(WEBHOOK, json={"content": contenu,
-                                         "embeds": embs[:10]}, timeout=20)
-        r.raise_for_status()
-        return True
-    except Exception as e:
-        print(f"Discord KO : {e}", file=sys.stderr)
-        return False
-
-
 def main() -> int:
     t0 = time.time()
     sheet_id = os.environ.get("SHEET_ID", "").strip()
@@ -209,23 +331,57 @@ def main() -> int:
         return 2
     sh = _client().open_by_key(sheet_id)
     state = load_state()
-    jour = dernier_jour(sh)
-    if not jour:
-        print("ChainActivity vide — rien a dire.", file=sys.stderr)
+    premier = "slugs" not in state
+
+    rows = lire_stats(sh)
+    if not rows:
+        print("Page 📊 STATS vide — rien a dire.", file=sys.stderr)
         return 1
-    arts = nouveaux_articles(sh, state.get("slugs", []))
-    if jour == state.get("jour") and not arts:
-        print(f"Deja poste pour le {jour} et aucun nouvel article — "
-              f"on ne repete pas.", flush=True)
-        return 0
-    d = build_digest(sh, jour)
-    if post(embeds(d, arts), len(arts)):
-        state["jour"] = jour
+    jour = str(rows[0].get("Date", ""))
+
+    # 1er RUN : on MEMORISE le blog sans rien annoncer (bug « 1001 articles »)
+    if premier:
+        state["slugs"] = tous_les_slugs(sh)
+        arts: List[Dict] = []
+        print(f"1er run : {len(state['slugs'])} articles memorises SANS etre "
+              f"annonces (seuls les suivants seront signales).", flush=True)
+    else:
+        arts = nouveaux_articles(sh, state.get("slugs", []))
+
+    hebdo = _dt.date.today().weekday() == WEEKLY_DAY
+    deja = (state.get("jour") == jour and
+            state.get("hebdo_le") == _dt.date.today().isoformat())
+    if hebdo:
+        if state.get("hebdo_le") == _dt.date.today().isoformat() and not arts:
+            print("Point de la semaine deja poste aujourd'hui.", flush=True)
+            return 0
+        drops = sum(1 for r in rows[:7] if str(r.get("Drop") or "").strip())
+        embeds = [carte_semaine(rows, drops)] + cartes_blog(arts)
+        contenu = "📅 **Le point de la semaine**"
+        if arts:
+            contenu += f" · {len(arts)} nouvel(s) article(s)"
+        ok = post(contenu, embeds)
+        if ok:
+            state["hebdo_le"] = _dt.date.today().isoformat()
+    else:
+        if state.get("jour") == jour and not arts:
+            print(f"Deja poste pour le {jour} et aucun nouvel article.",
+                  flush=True)
+            return 0
+        drop = drop_du_jour(sh, jour, rows[0])
+        embeds = [carte_jour(rows[0], drop)] + cartes_blog(arts)
+        contenu = "☀️ **Le point du matin**"
+        if arts:
+            contenu += f" · {len(arts)} nouvel(s) article(s)"
+        ok = post(contenu, embeds)
+        if ok:
+            state["jour"] = jour
+
+    if arts:
         state["slugs"] = (state.get("slugs", []) +
-                          [a["slug"] for a in arts])[-500:]
-        save_state(state)
-    resume = {"jour": jour, "articles": len(arts), "total_usd":
-              round(d["drop"] + d["mkt"]), "actifs": d["actifs"],
+                          [a["slug"] for a in arts])[-2000:]
+    save_state(state)
+    resume = {"jour": jour, "hebdo": hebdo, "articles": len(arts),
               "duration": f"{time.time() - t0:.0f}s"}
     try:
         append_log(sheet_id, "digest", "OK",
@@ -239,4 +395,4 @@ def main() -> int:
 if __name__ == "__main__":
     sys.exit(main())
 
-# FIN digest.py v1
+# FIN digest.py v3 (articles illustres)
