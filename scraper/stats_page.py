@@ -69,7 +69,8 @@ HEADER_ROW = 9                       # ligne des colonnes
 MODULE_COL = "T"                     # colonne des modules de droite (tableau A:R)
 LISTING_TAB = "_ListingDaily"        # source du groupe LISTING (chain_run)
 PULSE_TAB = "_MonthlyPulse"          # source du 📅 pulse mensuel (ledger)
-PULSE_ROW = 49                       # ancre de la section pulse (sous le tableau)
+PULSE_ROW = 49
+YEAR_ROW = 116                       # retention annuelle + tailles (sous les 60 mois)                       # ancre de la section pulse (sous le tableau)
 # 60 mois par defaut : l'histoire complete 2021->2026 (pulse IMX) tient
 # dans la zone mensuelle (gs v6 formate jusqu'a la ligne 120).
 PULSE_MONTHS = int(os.environ.get("STATS_PULSE_MONTHS", "60"))
@@ -263,7 +264,7 @@ def drop_label(entries) -> str:
     c = Counter(k for _, k in entries)
     parts = []
     for kind, plural in (("comic", "comics"), ("collectible", "collectibles"),
-                         ("vevecomic", "vevecomics")):
+                         ("vevecomic", "vvbd")):
         nb = c.get(kind, 0)
         if nb == 1:
             parts.append(f"1 {kind}")
@@ -272,19 +273,42 @@ def drop_label(entries) -> str:
     return " + ".join(parts)
 
 
-def read_market_revenue(sh) -> Dict[str, float]:
-    """{date_pt -> revenue market en USD} depuis _MarketRevenue (chantier 7 :
-    ventes REELLES du marche StackR, prix OMI convertis au cours du jour).
-    Ventes in-app VeVe (gems) sans source de prix -> borne basse."""
-    out: Dict[str, float] = {}
+def read_market_revenue(sh):
+    """(usd, rates) : {date_pt -> revenue market $} et {date_pt -> cours OMI}
+    depuis _MarketRevenue (ventes StackR reelles + taux quotidiens)."""
+    usd: Dict[str, float] = {}
+    rates: Dict[str, float] = {}
+    def _f(x):
+        try:
+            return float(str(x).replace(",", ".") or 0)
+        except (TypeError, ValueError):
+            return 0.0
     for r in _records(sh, MARKET_REV_TAB):
         d = str(r.get("date", "")).strip()
-        try:
-            v = float(str(r.get("usd", "")).replace(",", ".") or 0)
-        except (TypeError, ValueError):
-            v = 0.0
-        if d and v:
-            out[d] = v
+        if not d:
+            continue
+        v = _f(r.get("usd"))
+        if v:
+            usd[d] = v
+        rt = _f(r.get("omi_usd"))
+        if rt:
+            rates[d] = rt
+    return usd, rates
+
+
+def omi_to_usd(omi: Dict[str, float], rates: Dict[str, float]):
+    """{date -> OMI} x cours du jour (report du dernier cours connu) -> $."""
+    if not rates:
+        return {}
+    out: Dict[str, float] = {}
+    known = sorted(rates)
+    last = rates[known[0]]
+    ki = 0
+    for d in sorted(omi):
+        while ki < len(known) and known[ki] <= d:
+            last = rates[known[ki]]
+            ki += 1
+        out[d] = omi[d] * last
     return out
 
 
@@ -304,34 +328,26 @@ def detect_airdrop_daily(items: List[Dict[str, Any]]) -> Dict[str, int]:
     return dict(out)
 
 
-def build_pulse_section(pulse_records: List[Dict[str, Any]],
-                        omi: Dict[str, float] = None,
-                        omi_nft: Dict[str, float] = None,
-                        omi_gem: Dict[str, float] = None,
-                        market_rev: Dict[str, float] = None,
-                        drops: Dict[str, list] = None) -> List[List]:
-    """Section 📅 PAR MOIS (demande Preda 11/07) : les MEMES colonnes/groupes
-    que le tableau quotidien, une ligne par mois (DESC), puis un 2e bloc avec
-    les metriques VeveFox (acheteurs/vendeurs/minters/drops/accumulation/
-    churn). Sources : _MonthlyPulse (ledger, archive complete) + 🔥H-BURNS
-    (OMI mensuel). Colonnes sans donnees mensuelles (Anciens, purs, Revenue,
-    OMI NFT/GEM) laissees vides."""
+def build_pulse_section(pulse_records, omi=None, omi_nft=None, omi_gem=None,
+                        market_rev=None, drops=None, rates=None):
+    """v13 : retourne (mensuel, vvf, ret_mois, ret_annees) — les 3 premiers
+    sont ALIGNES ligne a ligne (banniere 49, groupes/vide 50, en-tetes 51,
+    donnees 52+, un mois par ligne) ; le 4e va sous le tableau mensuel.
+    Drops depuis les CATALOGUES (1 drop = 1 serie ; comics du mercredi =
+    vvbd) ; OMI BURN Global converti en $ (cours quotidien _MarketRevenue)."""
     if not pulse_records:
-        return []
-    # v12 : drops mensuels depuis les CATALOGUES (1 drop = 1 serie, comme la
-    # colonne quotidienne) — le comptage on-chain du pulse comptait chaque
-    # rarete/cover comme un drop (296-1598/mois, delirant vs ~30 reels).
+        return [], [], [], []
     cat_m: Dict[str, list] = defaultdict(lambda: [0, 0])
     for d, entries in (drops or {}).items():
         for _nm, k in entries:
             cat_m[d[:7]][1 if k == "vevecomic" else 0] += 1
-    yearly = [r for r in pulse_records
-              if len(str(r.get("month", ""))) == 4]
+    yearly = [r for r in pulse_records if len(str(r.get("month", ""))) == 4]
     pulse_records = [r for r in pulse_records
                      if len(str(r.get("month", ""))) == 7]
-    omi_m: Dict[str, float] = defaultdict(float)
-    for d, v in (omi or {}).items():
-        omi_m[d[:7]] += v
+    omi_usd_d = omi_to_usd(omi or {}, rates or {})
+    usd_m: Dict[str, float] = defaultdict(float)
+    for d, v in omi_usd_d.items():
+        usd_m[d[:7]] += v
     nft_m: Dict[str, float] = defaultdict(float)
     for d, v in (omi_nft or {}).items():
         nft_m[d[:7]] += v
@@ -343,77 +359,79 @@ def build_pulse_section(pulse_records: List[Dict[str, Any]],
         mkt_m[d[:7]] += v
     recs = sorted(pulse_records, key=lambda r: str(r.get("month", "")),
                   reverse=True)[:PULSE_MONTHS]
-    g: List[List] = [
+
+    monthly: List[List] = [
         ["📅  PAR MOIS — mêmes colonnes que le tableau quotidien "
          "(archive on-chain, recalculé par le workflow ledger)"],
+        ["", "", "TRANSACTION", "", "", "", "", "ACTIF", "", "",
+         "LISTING", "", "REVENUE", "", "", "OMI BURN", "", ""],
         ["Mois", "Drop", "Global", "Mint", "Airdrop", "Market", "Burn",
          "Unique", "Nouveaux", "Anciens", "Quantité", "Comptes",
-         "Total", "Drop", "Market",
-         "Global", "OMI→NFT", "OMI→GEM"],
+         "Total", "Drop", "Market", "Global $", "OMI→NFT", "OMI→GEM"],
     ]
+    vvf: List[List] = [
+        ["📈  PULSE VEVEFOX — par mois (wallets UNIQUES par colonne)"],
+        [""],
+        ["Mois", "Acheteurs uniques", "Vendeurs uniques", "Minters uniques",
+         "Drops", "Acc. nette moy", "Net+", "Net−", "Churn %"],
+    ]
+    retm: List[List] = [
+        ["🔄  RÉTENTION VEVE — par mois"],
+        [""],
+        ["Mois", "Actifs uniques", "Rétention %", "Churn %"],
+    ]
+
+    def _ret(c):
+        try:
+            return round(100.0 - float(c), 1)
+        except (TypeError, ValueError):
+            return ""
+
     for r in recs:
         m = str(r.get("month", ""))
         tokens = _n(r.get("tokens_emis"))
         air = _n(r.get("tokens_airdrop"))
         trades = _n(r.get("trades"))
         burns = _n(r.get("burns"))
-        o = omi_m.get(m)
         nd, nv = cat_m.get(m, (0, 0))
-        # "12 drops (+36 vevecomics)" — les comics du mercredi (parutions
-        # vevecomics silencieuses) dissocies des drops classiques.
         cell = f"{nd} drops" if nd else ""
         if nv:
-            cell = f"{cell} (+{nv} vevecomics)" if cell else f"(+{nv} vevecomics)"
+            cell = f"{cell} (+{nv} vvbd)" if cell else f"(+{nv} vvbd)"
+        u = usd_m.get(m)
         onft, ogem = nft_m.get(m), gem_m.get(m)
         mkt = mkt_m.get(m)
-        g.append([m, cell,
-                  tokens + trades + burns, max(0, tokens - air), air,
-                  trades, burns,
-                  _n(r.get("actifs")), _n(r.get("nouveaux")), "",
-                  _n(r.get("listings")), "",
-                  "", "", round(mkt) if mkt else "",
-                  round(o) if o else "",
-                  round(onft) if onft else "",
-                  round(ogem) if ogem else ""])
-    g.append([""])
-    g.append(["📈  PULSE VEVEFOX — par mois (wallets UNIQUES par colonne)",
-              "", "", "", "", "", "", "", ""])
-    g.append(["Mois", "Acheteurs uniques", "Vendeurs uniques",
-              "Minters uniques", "Drops", "Acc. nette moy", "Net+", "Net−",
-              "Churn %"])
-    for r in recs:
-        m = str(r.get("month", ""))
-        g.append([m, _n(r.get("acheteurs")),
-                  _n(r.get("vendeurs")), _n(r.get("minters_uniques")),
-                  cat_m.get(m, (0, 0))[0] or "", r.get("acc_net_moy", ""),
-                  _n(r.get("acc_net_pos")), _n(r.get("acc_net_neg")),
-                  r.get("churn_pct", "")])
-    # ---- 🔄 RETENTION VEVE (demande Preda 12/07, a la VeveFox) ----
-    def _ret(c):
-        try:
-            return round(100.0 - float(c), 1)
-        except (TypeError, ValueError):
-            return ""
-    g.append([""])
-    g.append(["🔄  RÉTENTION VEVE — % des actifs de la période précédente "
-              "encore actifs (désabonnement = churn)", "", "", ""])
-    g.append(["Mois", "Actifs uniques", "Rétention %", "Churn %"])
-    for r in recs:
+        anc = _n(r.get("anciens"))
+        monthly.append([m, cell,
+                        tokens + trades + burns, max(0, tokens - air), air,
+                        trades, burns,
+                        _n(r.get("actifs")), _n(r.get("nouveaux")), anc,
+                        _n(r.get("listings")), "",
+                        "", "", round(mkt) if mkt else "",
+                        round(u) if u else "",
+                        round(onft) if onft else "",
+                        round(ogem) if ogem else ""])
         c = r.get("churn_pct", "")
-        g.append([str(r.get("month", "")), _n(r.get("actifs")),
-                  _ret(c), c])
-    g.append([""])
-    g.append(["Année", "Actifs uniques", "Rétention %", "Churn %"])
+        vvf.append([m, _n(r.get("acheteurs")), _n(r.get("vendeurs")),
+                    _n(r.get("minters_uniques")), cat_m.get(m, (0, 0))[0] or "",
+                    r.get("acc_net_moy", ""), _n(r.get("acc_net_pos")),
+                    _n(r.get("acc_net_neg")), c])
+        retm.append([m, _n(r.get("actifs")), _ret(c), c])
+
+    rety: List[List] = [
+        ["🔄  RÉTENTION VEVE — PAR ANNÉE (actifs uniques de l'année ; churn = "
+         "% des actifs de l'année précédente disparus)"],
+        ["Année", "Actifs uniques", "Rétention %", "Churn %"],
+    ]
     for r in sorted(yearly, key=lambda x: str(x.get("month")), reverse=True):
         c = r.get("churn_pct", "")
-        g.append([str(r.get("month", "")), _n(r.get("actifs")),
-                  _ret(c), c])
-    return g
+        rety.append([str(r.get("month", "")), _n(r.get("actifs")),
+                     _ret(c), c])
+    return monthly, vvf, retm, rety
 
 
 def build_wallet_size_section(size_records: List[Dict[str, Any]]) -> List[List]:
-    """Section 💰 TAILLE DES PORTEFEUILLES (dernier mois de _WalletSize —
-    l'onglet 📈H-WALLET-SIZE est supprime, historique dans l'onglet cache)."""
+    """💰 v13 : les 3 dimensions COTE A COTE (qty | store | floor), separees
+    d'une colonne vide (demande Preda 12/07)."""
     if not size_records:
         return []
     months = [str(r.get("snapshot_month", "")) for r in size_records]
@@ -422,19 +440,28 @@ def build_wallet_size_section(size_records: List[Dict[str, Any]]) -> List[List]:
             if str(r.get("snapshot_month", "")) == last]
     if not rows:
         return []
-    labels = {"quantity": "Par QUANTITÉ détenue",
-              "value_store": "Par VALEUR (prix store)",
-              "value_floor": "Par VALEUR (floor)"}
-    g: List[List] = [[f"💰  TAILLE DES PORTEFEUILLES — {last}", "", "", ""]]
-    for dim in ("quantity", "value_store", "value_floor"):
-        sub = [r for r in rows if str(r.get("dimension", "")) == dim]
-        if not sub:
-            continue
-        g.append([labels[dim], "wallets", "%", ""])
-        for r in sub:
-            g.append([str(r.get("bucket", "")), _n(r.get("wallets")),
-                      r.get("pct_wallets", ""), ""])
-        g.append([""])
+    dims = ("quantity", "value_store", "value_floor")
+    titles = ("Par QUANTITÉ détenue", "Par VALEUR (prix store)",
+              "Par VALEUR (floor)")
+    cols = []
+    for dim in dims:
+        cols.append([(str(r.get("bucket", "")), _n(r.get("wallets")),
+                      r.get("pct_wallets", ""))
+                     for r in rows if str(r.get("dimension", "")) == dim])
+    n = max(len(c) for c in cols)
+    g: List[List] = [[f"💰  TAILLE DES PORTEFEUILLES — {last}"]]
+    head = []
+    for t in titles:
+        head += [t, "wallets", "%", ""]
+    g.append(head[:-1])
+    for i in range(n):
+        row = []
+        for c in cols:
+            if i < len(c):
+                row += [c[i][0], c[i][1], c[i][2], ""]
+            else:
+                row += ["", "", "", ""]
+        g.append(row[:-1])
     return g
 
 
@@ -682,13 +709,14 @@ def compute_split(items, week_days: set) -> Dict[str, int]:
 
 def build_table_grid(daily, revenue, week, omi, listing, airdrop, drops,
                      now_utc: str, omi_nft=None, omi_gem=None,
-                     market_rev=None) -> List[List]:
+                     market_rev=None, omi_usd=None) -> List[List]:
     """Grille A1:R.. : titre, bande KPI 7 jours, tableau quotidien groupe.
     Les mints d'airdrop sortent de la colonne Mint vers Airdrop (le Global
     reste complet — separer sans jeter, choix Preda)."""
     omi_nft = omi_nft or {}
     omi_gem = omi_gem or {}
     market_rev = market_rev or {}
+    omi_usd = omi_usd or {}
     g: List[List] = []
     g.append(["📊  STATS VEVE — ACTIVITÉ ON-CHAIN", "", "", "", "", "", "",
               "", "", "", "", "", "", "", "", "", "", "", "",
@@ -713,10 +741,9 @@ def build_table_grid(daily, revenue, week, omi, listing, airdrop, drops,
     g.append(["Date", "Drop", "Global", "Mint", "Airdrop", "Market", "Burn",
               "Unique", "Nouveaux", "Anciens", "Quantité", "Comptes",
               "Total", "Drop", "Market",
-              "Global", "OMI→NFT", "OMI→GEM"])
+              "Global $", "OMI→NFT", "OMI→GEM"])
     for d in daily:
         drop = round(revenue.get(d["date"], 0))
-        o = omi.get(d["date"])
         li = listing.get(d["date"])
         air = airdrop.get(d["date"], 0)
         mkt = market_rev.get(d["date"])
@@ -728,7 +755,7 @@ def build_table_grid(daily, revenue, week, omi, listing, airdrop, drops,
                   drop + round(mkt) if mkt else drop,     # Total = Drop + Market
                   drop,
                   round(mkt) if mkt else "",              # ventes StackR reelles
-                  round(o) if o is not None else "",
+                  round(omi_usd[d["date"]]) if d["date"] in omi_usd else "",
                   round(omi_nft[d["date"]]) if d["date"] in omi_nft else "",
                   round(omi_gem[d["date"]]) if d["date"] in omi_gem else ""])
     return g
@@ -765,10 +792,14 @@ def build_modules_grid(sante_rows) -> List[List]:
               "RÉELLES du marché StackR (prix OMI → $ au cours du jour de "
               "collecte) ; les ventes in-app VeVe (gems) n'ont pas de source "
               "de prix → borne basse · Total = Drop + Market.", ""])
-    g.append(["• OMI burn = 🔥H-BURNS (jours PT) · OMI→NFT = 2 % du prix de "
-              "chaque vente StackR · OMI→GEM = conversions (100 % brûlé) ; "
-              "vide tant que le backfill décompo n'a pas couvert le jour ; "
-              "le dernier jour se complète au run suivant.", ""])
+    g.append(["• OMI burn Global = 🔥H-BURNS converti en $ (cours OMI du jour, "
+              "dernier cours connu si absent) · OMI→NFT = 2 % du prix de "
+              "chaque vente StackR (en OMI) · OMI→GEM = conversions (100 % "
+              "brûlé, en OMI) ; vide tant que le backfill décompo n'a pas "
+              "couvert le jour.", ""])
+    g.append(["• vvbd = comics du MERCREDI (parutions silencieuses de la page "
+              "vevecomics, calées sur la sortie physique) — dissociés des "
+              "drops classiques.", ""])
     g.append(["🧭 ACTIVITÉ (🟣C-PSEUDOS, 🎯) : Actif ≤7 j · Engagé ≤30 j · "
               "Somnolant ≤90 j · Inactif ≤180 j · Désinscrit ≤365 j · "
               "Fantôme au-delà (dernière transaction).", ""])
@@ -920,13 +951,15 @@ def write_stats(sh) -> Dict[str, Any]:
     omi, omi_nft, omi_gem = read_omi_burns(sh)
     listing = read_listing_daily(sh)
     airdrop = detect_airdrop_daily(items)
-    market_rev = read_market_revenue(sh)
+    market_rev, mkt_rates = read_market_revenue(sh)
     week = compute_week(daily, revenue, omi, listing, airdrop)
     drops = load_drop_names(sh)
+    omi_usd_daily = omi_to_usd(omi, mkt_rates)
 
     now_utc = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     table = build_table_grid(daily, revenue, week, omi, listing, airdrop,
-                             drops, now_utc, omi_nft, omi_gem, market_rev)
+                             drops, now_utc, omi_nft, omi_gem, market_rev,
+                             omi_usd_daily)
     try:
         sante_rows = _health.build_rows(sh)
     except Exception as e:
@@ -935,7 +968,7 @@ def write_stats(sh) -> Dict[str, Any]:
                       ["indisponible", "", "", ""]] + [[""]] * 12
     modules = build_modules_grid(sante_rows)
 
-    ws = _open_worksheet(sh, STATS_TAB, cols=23)
+    ws = _open_worksheet(sh, STATS_TAB, cols=34)
     ws.clear()
     ws.update(range_name="A1", values=table, value_input_option="RAW")
     ws.update(range_name=f"{MODULE_COL}{GROUP_ROW}", values=modules,
@@ -943,39 +976,43 @@ def write_stats(sh) -> Dict[str, Any]:
     # 📅 PAR MOIS (sous le tableau quotidien), si le ledger l'a produit
     pulse = build_pulse_section(_records(sh, PULSE_TAB), omi, omi_nft,
                                 omi_gem, market_rev, drops)
-    # bannieres VIOLETTES a texte BLANC (demande Preda 12/07) posees ICI car
-    # les positions sont dynamiques (nb de mois variable).
+    # ---- sections v13 : alignees par periode (demande Preda 12/07) ----
+    # rangée 49 : PAR MOIS (A-R) | PULSE VVF (T-AB) | RETENTION mois (AD-AG)
+    # rangée YEAR_ROW : RETENTION ANNEES (A-D) | TAILLES 3 blocs (T-AD)
     VIOLET = {"backgroundColor": {"red": 0.482, "green": 0.173, "blue": 0.749},
               "textFormat": {"bold": True, "foregroundColor":
                              {"red": 1, "green": 1, "blue": 1}}}
     BOLD = {"textFormat": {"bold": True}}
-    if pulse:
-        ws.update(range_name=f"A{PULSE_ROW}", values=pulse,
+    monthly_g, vvf_g, retm_g, rety_g = build_pulse_section(
+        _records(sh, PULSE_TAB), omi, omi_nft, omi_gem, market_rev, drops,
+        mkt_rates)
+    if monthly_g:
+        ws.update(range_name=f"A{PULSE_ROW}", values=monthly_g,
+                  value_input_option="RAW")
+        ws.update(range_name=f"T{PULSE_ROW}", values=vvf_g,
+                  value_input_option="RAW")
+        ws.update(range_name=f"AD{PULSE_ROW}", values=retm_g,
+                  value_input_option="RAW")
+        ws.update(range_name=f"A{YEAR_ROW}", values=rety_g,
                   value_input_option="RAW")
         try:
             ws.format(f"A{PULSE_ROW}:R{PULSE_ROW}", VIOLET)
-            ws.format(f"{PULSE_ROW + 1}:{PULSE_ROW + 1}", BOLD)
-            for i, row in enumerate(pulse):
-                head = str(row[0]) if row else ""
-                r_ix = PULSE_ROW + i
-                if head.startswith("📈"):
-                    ws.format(f"A{r_ix}:I{r_ix}", VIOLET)
-                    ws.format(f"{r_ix + 1}:{r_ix + 1}", BOLD)
-                elif head.startswith("🔄"):
-                    ws.format(f"A{r_ix}:D{r_ix}", VIOLET)
-                    ws.format(f"{r_ix + 1}:{r_ix + 1}", BOLD)
-                elif head == "Année":
-                    ws.format(f"{r_ix}:{r_ix}", BOLD)
+            ws.format(f"T{PULSE_ROW}:AB{PULSE_ROW}", VIOLET)
+            ws.format(f"AD{PULSE_ROW}:AG{PULSE_ROW}", VIOLET)
+            ws.format(f"{PULSE_ROW + 2}:{PULSE_ROW + 2}", BOLD)
+            ws.format(f"A{YEAR_ROW}:D{YEAR_ROW}", VIOLET)
+            ws.format(f"A{YEAR_ROW + 1}:D{YEAR_ROW + 1}", BOLD)
         except Exception:
             pass
 
-    # 💰 TAILLE DES PORTEFEUILLES (colonne de droite, sous les notes)
+    # 💰 TAILLES : 3 blocs cote a cote, sous le pulse (T..AD)
     wsize = build_wallet_size_section(_records(sh, "_WalletSize"))
     if wsize:
-        ws.update(range_name=f"{MODULE_COL}46", values=wsize,
+        ws.update(range_name=f"T{YEAR_ROW}", values=wsize,
                   value_input_option="RAW")
         try:
-            ws.format(f"{MODULE_COL}46:W46", VIOLET)
+            ws.format(f"T{YEAR_ROW}:AD{YEAR_ROW}", VIOLET)
+            ws.format(f"T{YEAR_ROW + 1}:AD{YEAR_ROW + 1}", BOLD)
         except Exception:
             pass
 

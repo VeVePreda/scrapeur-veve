@@ -190,7 +190,7 @@ PULSE_HEADER = ["month", "actifs", "nouveaux", "trades", "acheteurs",
                 "vendeurs", "tokens_emis", "tokens_airdrop",
                 "minters_uniques", "drops", "burns", "listings",
                 "acc_net_moy", "acc_net_pos", "acc_net_neg", "churn_pct",
-                "drops_vevecomics"]
+                "drops_vevecomics", "anciens"]
 # AIRDROP (seuils valides par Preda 11/07) : un (jour, uuid) est un airdrop si
 # mints >= MIN_MINTS ET minters uniques >= RATIO x mints (~1 exemplaire par
 # wallet, ex. Black Pink Heart, Happy New Year Tier1 Gini 0.008). Les mints
@@ -681,6 +681,20 @@ def _build_pulse(monthly, first_month, uuid_first_mint, uuid_cat=None,
         air_by_m[day[:7]] += cnt
     rows: List[List] = []
     prev_actives = None
+    # ANCIENS mensuels (v13, demande Preda) : wallet actif ce mois dont la
+    # derniere activite remonte a PLUS de 6 mois (desinscrit/fantome reveille).
+    months_sorted = sorted(monthly)
+    m_index = {m: i for i, m in enumerate(months_sorted)}
+    last_seen: Dict[str, int] = {}
+    anciens_by_m: Counter = Counter()
+    for m in months_sorted:
+        i = m_index[m]
+        for w in monthly[m]["actives"]:
+            prev = last_seen.get(w)
+            if prev is not None and i - prev > 6:
+                anciens_by_m[m] += 1
+            last_seen[w] = i
+    last_seen = None
     for m in sorted(monthly):
         mo = monthly[m]
         act = mo["actives"]
@@ -697,7 +711,7 @@ def _build_pulse(monthly, first_month, uuid_first_mint, uuid_cat=None,
                      mo["mints"], air_by_m.get(m, 0),
                      len(mo["minters"]), drops_by_m.get(m, 0),
                      mo["burns"], mo["listings"], avg, pos, neg, churn,
-                     wed_by_m.get(m, 0)])
+                     wed_by_m.get(m, 0), anciens_by_m.get(m, 0)])
         prev_actives = act
     # lignes ANNUELLES (retention/churn a la VeveFox, demande Preda 12/07) :
     # month = "YYYY" (4 caracteres), filtrees par stats_page. Actifs = union
@@ -715,7 +729,7 @@ def _build_pulse(monthly, first_month, uuid_first_mint, uuid_cat=None,
             gone = sum(1 for w in prev_y if w not in act)
             churn = round(100.0 * gone / len(prev_y), 1)
         rows.append([y, len(act), new_by_y.get(y, 0), "", "", "", "", "",
-                     "", "", "", "", "", "", "", churn, ""])
+                     "", "", "", "", "", "", "", churn, "", ""])
         prev_y = act
     return rows
 
