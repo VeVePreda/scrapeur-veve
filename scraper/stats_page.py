@@ -604,18 +604,19 @@ def build_universe(sh) -> List[List]:
         ["Éléments avec un marché", _n(d.get("elements")), "", ""],
         ["· collectibles", _n(d.get("collectibles")), "", ""],
         ["· couvertures de comics", _n(d.get("comics")), "", ""],
-        ["Avec au moins une offre", _n(d.get("avec_offre")), "", ""],
-        ["Sans aucune offre", _n(d.get("sans_offre")), "", ""],
         ["Échangés récemment (volume > 0)", _n(d.get("avec_volume")), "", ""],
         ["Floor médian", d.get("floor_median", ""), "gems", ""],
+        ["Floor moyen", d.get("floor_moyen", ""), "gems", ""],
+        ["Capitalisation du marché", _n(d.get("market_cap")), "gems", ""],
+        ["Prix aberrants exclus", _n(d.get("aberrants")), "", ""],
         ["Catalogue complet", _n(d.get("catalogue")), "produits", ""],
         ["Couverture du catalogue", d.get("couverture_pct", ""), "%", ""],
         ["", "", "", ""],
-        ["Historique", "Éléments", "Avec offre", "Échangés"],
+        ["Historique", "Éléments", "Collectibles", "Échangés"],
     ]
     for r in rows[:UNIVERS_DAYS]:
         g.append([str(r.get("date", "")), _n(r.get("elements")),
-                  _n(r.get("avec_offre")), _n(r.get("avec_volume"))])
+                  _n(r.get("collectibles")), _n(r.get("avec_volume"))])
     return g
 
 

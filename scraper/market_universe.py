@@ -43,9 +43,16 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 
 TAB = "_MarketUniverse"
-HEADER = ["date", "elements", "collectibles", "comics", "avec_offre",
-          "sans_offre", "avec_volume", "market_cap", "floor_median",
+HEADER = ["date", "elements", "collectibles", "comics", "aberrants",
+          "avec_volume", "market_cap", "floor_median", "floor_moyen",
           "catalogue", "couverture_pct"]
+
+# PRIX ABERRANTS (constate au 1er run reel, 12/07) : « Faces of The ADDICTION »
+# est liste a 42 420 420 420 420 (un troll : 4242...), ce qui gonflait a lui
+# seul la capitalisation a 593 886 milliards. Au-dela de ce plafond, l'element
+# est compte a part (colonne `aberrants`) et EXCLU de la capitalisation et des
+# statistiques de floor. Rien n'est jete : il reste dans le compte `elements`.
+MAX_FLOOR = float(os.environ.get("MU_MAX_FLOOR", "10000000"))   # 10 M gems
 
 LIMIT = int(os.environ.get("MU_LIMIT", "100"))
 CATALOGUE = int(os.environ.get("MU_CATALOGUE", "18681"))
@@ -130,20 +137,25 @@ def sweep(session=None) -> List[Dict]:
 
 
 def summarize(elements: List[Dict], jour: str = "") -> List:
-    """Une ligne de bilan pour la journee."""
+    """Une ligne de bilan pour la journee (les prix aberrants sont ecartes des
+    agregats mais restes comptes a part)."""
     jour = jour or _dt.date.today().isoformat()
     coll = sum(1 for e in elements
                if str(e.get("element_type")) == "COLLECTIBLE_TYPE")
     comics = sum(1 for e in elements
                  if str(e.get("element_type")) == "COMIC_COVER")
-    floors = [_f(e.get("floor_market_price")) for e in elements]
-    avec = sum(1 for f in floors if f > 0)
+    sains = [e for e in elements
+             if 0 < _f(e.get("floor_market_price")) <= MAX_FLOOR]
+    aberrants = sum(1 for e in elements
+                    if _f(e.get("floor_market_price")) > MAX_FLOOR)
+    floors = [_f(e.get("floor_market_price")) for e in sains]
     vol = sum(1 for e in elements if _f(e.get("volume")) > 0)
-    cap = sum(_f(e.get("market_cap")) for e in elements)
-    med = statistics.median([f for f in floors if f > 0]) if avec else 0
+    cap = sum(_f(e.get("market_cap")) for e in sains)
+    med = statistics.median(floors) if floors else 0
+    moy = sum(floors) / len(floors) if floors else 0
     n = len(elements)
-    return [jour, n, coll, comics, avec, n - avec, vol, round(cap),
-            round(med, 2), CATALOGUE,
+    return [jour, n, coll, comics, aberrants, vol, round(cap),
+            round(med, 2), round(moy, 2), CATALOGUE,
             round(100.0 * n / CATALOGUE, 1) if CATALOGUE else ""]
 
 
