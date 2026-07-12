@@ -1,0 +1,41 @@
+name: Digest Discord du matin
+
+# Poste le resume de la veille + les nouveaux articles du blog.
+# Il ne COLLECTE RIEN : il lit ce que le pipeline a deja calcule (aucune
+# requete vers VeVe/StackR). Tourne APRES le daily (04:11) et le blog (07:41).
+
+on:
+  schedule:
+    - cron: "10 8 * * *"        # 08:10 UTC — 10:10 heure de Paris
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Digest
+        env:
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: python -m scraper.digest
+
+      - name: Commit de l'etat (anti-doublon)
+        if: always()
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add data/digest_state.json 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "digest: etat"
+          git push || true
