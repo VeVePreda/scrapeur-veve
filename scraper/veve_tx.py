@@ -57,7 +57,24 @@ from typing import Any, Dict, List, Tuple
 
 import requests
 
-from scraper.sheets import _client, _open_worksheet, append_log
+# Le Sheet est OPTIONNEL (leçon du 12/07 : le backfill lance sur `paolo`
+# plantait a l'import, ce repo n'ayant ni scraper/sheets.py ni les identifiants
+# Google). Un backfill n'a pas besoin du Sheet : il produit son CSV, que le
+# repo principal ira lire. Sans sheets, on tourne en MODE CSV SEUL.
+try:
+    from scraper.sheets import _client, _open_worksheet, append_log
+    SHEETS_OK = True
+except Exception:                                    # pragma: no cover
+    SHEETS_OK = False
+
+    def _client():
+        raise RuntimeError("scraper.sheets indisponible")
+
+    def _open_worksheet(*a, **k):
+        raise RuntimeError("scraper.sheets indisponible")
+
+    def append_log(*a, **k):
+        return None
 
 TRPC = ("https://www.stackr.world/api/trpc/publicVeve.getVeveTransactions"
         "?input=")
@@ -95,6 +112,11 @@ PAUSE = float(os.environ.get("VEVE_TX_PAUSE", "0.25"))
 TIMEOUT = int(os.environ.get("VEVE_TX_TIMEOUT", "60"))
 CSV_PATH = os.environ.get("VEVE_TX_CSV", "data/veve_tx_daily.csv")
 BACKFILL = os.environ.get("VEVE_TX_BACKFILL", "false").lower() == "true"
+# CSV du backfill produit par l'autre repo (public) : le quotidien de `preda`
+# le fusionne dans l'onglet _VeveRevenue -> l'historique remonte tout seul.
+REMOTE_CSV = os.environ.get(
+    "VEVE_TX_REMOTE_CSV",
+    "https://raw.githubusercontent.com/lepaolo/paolo/main/data/veve_tx_daily.csv")
 UNTIL = os.environ.get("VEVE_TX_UNTIL", "").strip()
 WITH_PSEUDOS = os.environ.get("VEVE_TX_PSEUDOS", "true").lower() != "false"
 MAX_PAGES = int(os.environ.get("VEVE_TX_MAX_PAGES",
@@ -121,6 +143,12 @@ MAX_PRICE = float(os.environ.get("VEVE_TX_MAX_PRICE", "50000"))
 # (4) l'etat est sauvegarde -> le run suivant reprend ou on s'est arrete.
 STATE_PATH = os.environ.get("VEVE_TX_STATE", "data/veve_tx_state.json")
 RETRIES = int(os.environ.get("VEVE_TX_RETRIES", "6"))
+# FLUSH INCREMENTAL (trou trouve le 12/07) : la recolte n'etait ecrite qu'a la
+# FIN du run. Un long backfill ANNULE (quota, timeout, coupure) perdait donc
+# tout — mon garde-fou ne couvrait que les erreurs API, pas l'arret du job.
+# Desormais on ECRIT tous les FLUSH_PAGES : CSV + onglet + etat de reprise.
+# Annuler un run ne coute plus que les quelques pages en cours.
+FLUSH_PAGES = int(os.environ.get("VEVE_TX_FLUSH_PAGES", "200"))
 LIMIT_STEPS = [100, 50, 25, 10]
 COOLDOWN = float(os.environ.get("VEVE_TX_COOLDOWN", "10"))  # pause apres panne
 
@@ -285,7 +313,7 @@ def aggregate(items: List[Dict], daily: Dict[str, Dict],
 
 
 def walk(days: int = DAYS, until: str = "", max_pages: int = MAX_PAGES,
-         session=None, state: Dict = None):
+         session=None, state: Dict = None, flush=None):
     """Descend le flux page par page (cursor = numero de page).
 
     Quotidien : s'arrete des qu'on passe sous la fenetre de `days` jours.
@@ -363,6 +391,27 @@ def walk(days: int = DAYS, until: str = "", max_pages: int = MAX_PAGES,
         oldest = _pt(items[-1].get("created_at"))
         if pages % 25 == 0 or pages <= 3:
             print(f"  page {cursor} : {kept} tx, jusqu'au {oldest}", flush=True)
+        # SAUVEGARDE INTERMEDIAIRE : les jours COMPLETS (tous sauf le plus
+        # ancien, forcement partiel) sont ecrits et l'etat avance. Si le run est
+        # annule juste apres, rien n'est perdu.
+        if flush and pages % FLUSH_PAGES == 0 and len(daily) > 1:
+            complets = {d: v for d, v in daily.items() if d != min(daily)}
+            plus_vieux = min(daily)
+            state["resume_day"] = plus_vieux
+            state["offset"] = day_offset.get(plus_vieux, offset)
+            state.setdefault("done", False)
+            try:
+                n = flush(complets, dict(pseudos), state)
+                print(f"    ... sauvegarde intermediaire : {len(complets)} "
+                      f"jour(s) ecrits ({n}), reprise au {plus_vieux}.",
+                      flush=True)
+                for d in complets:
+                    daily.pop(d, None)
+                    day_offset.pop(d, None)
+                pseudos.clear()
+            except Exception as e:
+                print(f"    ... sauvegarde intermediaire KO ({e}) — on "
+                      f"continue, rien n'est perdu.", flush=True)
         if oldest and oldest < stop:
             break
         time.sleep(PAUSE)
@@ -455,6 +504,26 @@ def save_csv(rows: List[List]) -> int:
         for d in sorted(keep):
             w.writerow(keep[d])
     return len(keep)
+
+
+def fetch_remote(url: str = REMOTE_CSV) -> List[List]:
+    """Les jours recoltes par le BACKFILL de l'autre repo (CSV public brut)."""
+    if not url:
+        return []
+    try:
+        r = requests.get(url, timeout=60)
+        r.raise_for_status()
+        out = []
+        for row in csv.reader(r.text.splitlines()):
+            if row and row[0] != "date":
+                out.append(row)
+        print(f"  backfill distant : {len(out)} jour(s) repris de {url}",
+              flush=True)
+        return out
+    except Exception as e:
+        print(f"  backfill distant indisponible ({e}) — sans consequence.",
+              flush=True)
+        return []
 
 
 def write_tab(sh, rows: List[List]) -> int:
@@ -552,9 +621,24 @@ def main() -> int:
         print(f"Backfill deja termine (jusqu'au {state.get('resume_day')}). "
               f"Supprimer {STATE_PATH} pour repartir de zero.", flush=True)
         return 0
+    sh_cache = {}
+
+    def _flush(jours: Dict[str, Dict], ps: Dict[str, str], st: Dict) -> int:
+        """Ecrit les jours complets + l'etat, en cours de route."""
+        rows_ = _rows(jours)
+        n = save_csv(rows_)
+        if "sh" not in sh_cache:
+            sh_cache["sh"] = _client().open_by_key(sheet_id)
+        write_tab(sh_cache["sh"], rows_)
+        if WITH_PSEUDOS and ps:
+            merge_pseudos(sh_cache["sh"], ps)
+        save_state(st)
+        return n
+
     try:
         daily, pseudos, stats = walk(DAYS, UNTIL if BACKFILL else "",
-                                     state=state)
+                                     state=state,
+                                     flush=_flush if BACKFILL else None)
     except Exception as e:
         # on ne perd JAMAIS 50 minutes de recolte sur une erreur reseau :
         # walk() garde sa recolte ; ici on ne tombe que sur l'imprevisible.
@@ -566,15 +650,34 @@ def main() -> int:
         return 1
     rows = _rows(daily)
     summary: Dict[str, Any] = dict(stats)
+    # MODE CSV SEUL (repo sans Sheet, typiquement le backfill sur paolo)
+    if not SHEETS_OK or not sheet_id:
+        if rows:
+            summary["csv_jours"] = save_csv(rows)
+        if BACKFILL:
+            save_state(state)
+            summary["etat"] = ("TERMINE" if state.get("done") else
+                               f"reprise au {state.get('resume_day')} "
+                               f"(offset {state.get('offset')})")
+        summary["mode"] = "CSV seul (pas de Sheet sur ce repo)"
+        summary["duration"] = f"{time.time() - t0:.0f}s"
+        print(f"veve_tx : {summary}", flush=True)
+        return 0
     if BACKFILL:
         save_state(state)
         summary["etat"] = (f"reprise au {state.get('resume_day')} "
                            f"(offset {state.get('offset')})"
                            if not state.get("done") else "TERMINE")
-    if rows:
-        summary["csv_jours"] = save_csv(rows)
+    if rows or not BACKFILL:
+        # le quotidien reprend aussi les jours du backfill distant (paolo) :
+        # l'historique de l'onglet se remplit tout seul, sans secrets partages.
+        distants = [] if BACKFILL else fetch_remote()
+        if rows:
+            summary["csv_jours"] = save_csv(rows)
         sh = _client().open_by_key(sheet_id)
-        summary["tab_jours"] = write_tab(sh, rows)
+        summary["tab_jours"] = write_tab(sh, rows + distants)
+        if distants:
+            summary["jours_backfill"] = len(distants)
         if WITH_PSEUDOS and pseudos:
             summary.update(merge_pseudos(sh, pseudos))
         # apercu (verification humaine dans les logs)
@@ -594,4 +697,4 @@ def main() -> int:
 if __name__ == "__main__":
     sys.exit(main())
 
-# FIN veve_tx.py v1
+# FIN veve_tx.py v7 (Sheet optionnel + reprise du backfill distant)
