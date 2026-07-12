@@ -720,14 +720,18 @@ def _build_pulse(monthly, first_month, uuid_first_mint, uuid_cat=None,
     m_index = {m: i for i, m in enumerate(months_sorted)}
     last_seen: Dict[str, int] = {}
     anciens_by_m: Counter = Counter()
+    anciens_y: Dict[str, set] = {}       # wallets reveilles, DEDUPLIQUES / an
     for m in months_sorted:
         i = m_index[m]
         for w in monthly[m]["actives"]:
             prev = last_seen.get(w)
             if prev is not None and i - prev > 6:
                 anciens_by_m[m] += 1
+                anciens_y.setdefault(m[:4], set()).add(w)
             last_seen[w] = i
     last_seen = None
+    anciens_by_y = {y: len(s) for y, s in anciens_y.items()}
+    anciens_y = None
     for m in sorted(monthly):
         mo = monthly[m]
         act = mo["actives"]
@@ -746,24 +750,55 @@ def _build_pulse(monthly, first_month, uuid_first_mint, uuid_cat=None,
                      mo["burns"], mo["listings"], avg, pos, neg, churn,
                      wed_by_m.get(m, 0), anciens_by_m.get(m, 0)])
         prev_actives = act
-    # lignes ANNUELLES (retention/churn a la VeveFox, demande Preda 12/07) :
-    # month = "YYYY" (4 caracteres), filtrees par stats_page. Actifs = union
-    # des actifs mensuels de l'annee ; churn = % des actifs de l'annee
-    # precedente sans AUCUNE activite cette annee.
-    yearly: Dict[str, set] = {}
-    for m in sorted(monthly):
-        yearly.setdefault(m[:4], set()).update(monthly[m]["actives"])
+    # lignes ANNUELLES (v14, demande Preda 12/07) : month = "YYYY" (4 car.),
+    # filtrees par stats_page -> tableau PAR ANNEE + PULSE par annee. TOUTES
+    # les colonnes sont remplies :
+    #   * compteurs (trades, mints, burns, listings, drops...) = SOMME des mois ;
+    #   * wallets (actifs, acheteurs, vendeurs, minters) = UNION des mois (on ne
+    #     peut pas sommer des uniques) ;
+    #   * acc_net_moy/pos/neg = net cumule sur l'annee, par wallet ;
+    #   * churn = % des actifs de l'annee precedente sans AUCUNE activite cette
+    #     annee ; anciens = wallets reveilles (>6 mois), dedupliques.
+    # Memoire : les unions sont construites UNE ANNEE A LA FOIS puis liberees.
+    months_by_y: Dict[str, List[str]] = {}
+    for m in months_sorted:
+        months_by_y.setdefault(m[:4], []).append(m)
     new_by_y = Counter(v[:4] for v in first_month.values())
     prev_y = None
-    for y in sorted(yearly):
-        act = yearly[y]
+    for y in sorted(months_by_y):
+        act: set = set()
+        buyers: set = set()
+        sellers: set = set()
+        minters: set = set()
+        net_y: Counter = Counter()
+        trades = mints = burns = listings = air = drp = wed = 0
+        for m in months_by_y[y]:
+            mo = monthly[m]
+            act |= mo["actives"]
+            buyers |= mo["buyers"]
+            sellers |= mo["sellers"]
+            minters |= mo["minters"]
+            net_y.update(mo["net"])
+            trades += mo["market"]
+            mints += mo["mints"]
+            burns += mo["burns"]
+            listings += mo["listings"]
+            air += air_by_m.get(m, 0)
+            drp += drops_by_m.get(m, 0)
+            wed += wed_by_m.get(m, 0)
         churn = ""
         if prev_y:
             gone = sum(1 for w in prev_y if w not in act)
             churn = round(100.0 * gone / len(prev_y), 1)
-        rows.append([y, len(act), new_by_y.get(y, 0), "", "", "", "", "",
-                     "", "", "", "", "", "", "", churn, "", ""])
+        pos = sum(1 for v in net_y.values() if v > 0)
+        neg = sum(1 for v in net_y.values() if v < 0)
+        avg = round(sum(net_y.values()) / len(net_y), 2) if net_y else 0
+        rows.append([y, len(act), new_by_y.get(y, 0), trades,
+                     len(buyers), len(sellers), mints, air, len(minters),
+                     drp, burns, listings, avg, pos, neg, churn, wed,
+                     anciens_by_y.get(y, 0)])
         prev_y = act
+        buyers = sellers = minters = net_y = None
     return rows
 
 
