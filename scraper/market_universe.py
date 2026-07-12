@@ -44,8 +44,17 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 
 TAB = "_MarketUniverse"
 HEADER = ["date", "elements", "collectibles", "comics", "aberrants",
-          "avec_volume", "market_cap", "floor_median", "floor_moyen",
-          "catalogue", "couverture_pct"]
+          "avec_volume", "vendus_7j", "pct_vendus_7j", "market_cap",
+          "floor_median", "floor_moyen", "catalogue", "couverture_pct"]
+
+# ELEMENTS QUI SE VENDENT VRAIMENT (demande Preda 12/07, apres la decouverte
+# de floor_watch : sur 6 006 elements ayant un floor, seuls ~1 744 ont une
+# vente reelle en 7 jours. Les deux tiers du « marche » sont des VITRINES sans
+# acheteur — c'est la que se cachaient les fausses affaires a +1 028 %).
+# On compte les elements distincts vendus dans le flux getVeveTransactions.
+TX_URL = "https://www.stackr.world/api/trpc/publicVeve.getVeveTransactions?input="
+SALES_PAGES = int(os.environ.get("MU_SALES_PAGES", "120"))   # ~12 000 tx ≈ 7 j
+SALES_TYPES = ("MARKET_FIXED", "MARKET_AUCTION", "MARKET_STACKR")
 
 # PRIX ABERRANTS (constate au 1er run reel, 12/07) : « Faces of The ADDICTION »
 # est liste a 42 420 420 420 420 (un troll : 4242...), ce qui gonflait a lui
@@ -95,6 +104,38 @@ def fetch_page(page: int, session=None):
     return None
 
 
+def elements_vendus(session=None, pages: int = SALES_PAGES) -> set:
+    """Les elements ayant AU MOINS UNE vente reelle sur la fenetre."""
+    s = session or requests.Session()
+    vus: set = set()
+    for page in range(1, pages + 1):
+        payload = {"limit": 100}
+        if page > 1:
+            payload["cursor"] = page
+            payload["direction"] = "forward"
+        url = TX_URL + urllib.parse.quote(
+            json.dumps({"json": payload}, separators=(",", ":")))
+        try:
+            r = s.get(url, headers={"User-Agent": UA,
+                                    "Accept": "application/json"},
+                      timeout=TIMEOUT)
+            r.raise_for_status()
+            items = r.json().get("result", {}).get("data", {}).get("json") or []
+        except Exception as e:
+            print(f"    ventes page {page} : {e} — on s'arrete la.", flush=True)
+            break
+        if not items:
+            break
+        for it in items:
+            if (str(it.get("veve_type")) in SALES_TYPES
+                    and str(it.get("status")) == "COMPLETE"):
+                uid = str(it.get("element_id") or "")
+                if uid:
+                    vus.add(uid)
+        time.sleep(PAUSE)
+    return vus
+
+
 def sweep(session=None) -> List[Dict]:
     """Tous les elements ayant un marche. Liste vide = balayage non fiable."""
     s = session or requests.Session()
@@ -136,7 +177,7 @@ def sweep(session=None) -> List[Dict]:
     return list(out.values())
 
 
-def summarize(elements: List[Dict], jour: str = "") -> List:
+def summarize(elements: List[Dict], jour: str = "", vendus: set = None) -> List:
     """Une ligne de bilan pour la journee (les prix aberrants sont ecartes des
     agregats mais restes comptes a part)."""
     jour = jour or _dt.date.today().isoformat()
@@ -154,8 +195,11 @@ def summarize(elements: List[Dict], jour: str = "") -> List:
     med = statistics.median(floors) if floors else 0
     moy = sum(floors) / len(floors) if floors else 0
     n = len(elements)
-    return [jour, n, coll, comics, aberrants, vol, round(cap),
-            round(med, 2), round(moy, 2), CATALOGUE,
+    ids = {str(e.get("id") or "") for e in elements}
+    nv = len((vendus or set()) & ids)
+    return [jour, n, coll, comics, aberrants, vol, nv,
+            round(100.0 * nv / n, 1) if (n and vendus is not None) else "",
+            round(cap), round(med, 2), round(moy, 2), CATALOGUE,
             round(100.0 * n / CATALOGUE, 1) if CATALOGUE else ""]
 
 
@@ -196,7 +240,11 @@ def main() -> int:
         except Exception:
             pass
         return 1
-    ligne = summarize(elements)
+    print("Ventes reelles (getVeveTransactions)...", flush=True)
+    vendus = elements_vendus()
+    print(f"   {len(vendus)} elements ont au moins une vente sur la fenetre.",
+          flush=True)
+    ligne = summarize(elements, vendus=vendus)
     sh = _client().open_by_key(sheet_id)
     jours = write_tab(sh, ligne)
     resume = dict(zip(HEADER, ligne))

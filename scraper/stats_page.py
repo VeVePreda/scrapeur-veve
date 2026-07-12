@@ -604,6 +604,8 @@ def build_universe(sh) -> List[List]:
         ["Éléments avec un marché", _n(d.get("elements")), "", ""],
         ["· collectibles", _n(d.get("collectibles")), "", ""],
         ["· couvertures de comics", _n(d.get("comics")), "", ""],
+        ["Éléments qui SE VENDENT (7 j)", _n(d.get("vendus_7j")), "", ""],
+        ["· part du marché réel", d.get("pct_vendus_7j", ""), "%", ""],
         ["Échangés récemment (volume > 0)", _n(d.get("avec_volume")), "", ""],
         ["Floor médian", d.get("floor_median", ""), "gems", ""],
         ["Floor moyen", d.get("floor_moyen", ""), "gems", ""],
@@ -980,6 +982,13 @@ def build_notes_grid() -> List[List]:
               "(mois ou année) sans AUCUNE transaction sur la période en "
               "cours · Rétention % = 100 − churn (actifs qui reviennent) — "
               "les deux vivent dans les blocs 📈 PULSE.", ""])
+    g.append(["💤 ÉLÉMENTS QUI SE VENDENT : sur ~6 000 éléments ayant un "
+              "floor affiché, seuls ~1 700 (≈ 29 %) ont une VRAIE vente sur "
+              "7 jours. Les deux tiers du « marché » sont des vitrines sans "
+              "acheteur : un floor y est un prix DEMANDÉ que personne ne paie. "
+              "C'est le chiffre à surveiller — s'il s'effrite semaine après "
+              "semaine, le marché se vide (indicateur bien plus honnête que "
+              "le nombre de drops ou la capitalisation affichée).", ""])
     g.append(["🏪 UNIVERS DE MARCHÉ : les 6 011 « éléments » du marché ne "
               "sont PAS tout le catalogue (18 681 produits). VeVe/StackR "
               "n'exposent que les éléments QUI ONT UN MARCHÉ — collectibles "
