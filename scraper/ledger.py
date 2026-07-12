@@ -112,20 +112,21 @@ CORNER_HEADER = (["veve_uuid", "name", "category", "circulating", "holders",
                     "engagement_dominant", "engagement_dominant_pct"])
 
 # Tranches de QUANTITE (nb d'exemplaires detenus) — demande Preda.
-# Echelle v2 (choix Preda 12/07) : la queue est bien plus lourde que prevu
-# (539 wallets >= 1847 items, top 419k = wallet officiel VeVe) -> 13 tranches
-# pour distinguer la hierarchie des whales jusqu'a l'elite absolue.
+# Echelles v3 = SPECIFICATION EXACTE de Preda (12/07).
 QTY_BUCKETS = [(1, 1, "1"), (2, 10, "2-10"), (11, 50, "11-50"),
-               (51, 100, "51-100"), (101, 250, "101-250"), (251, 500, "251-500"),
-               (501, 1000, "501-1000"), (1001, 2500, "1001-2500"),
-               (2501, 5000, "2501-5000"), (5001, 10000, "5001-10000"),
-               (10001, 25000, "10001-25000"), (25001, 50000, "25001-50000"),
-               (50001, float("inf"), "50001+")]
-# Tranches de VALEUR (USD) — echelle log large.
-VALUE_BUCKETS = [(0, 100, "<100"), (100, 500, "100-500"), (500, 1000, "500-1k"),
-                 (1000, 5000, "1k-5k"), (5000, 25000, "5k-25k"),
-                 (25000, 100000, "25k-100k"), (100000, 500000, "100k-500k"),
-                 (500000, float("inf"), "500k+")]
+               (51, 100, "51-100"), (101, 500, "101-500"),
+               (501, 1000, "501-1k"), (1001, 5000, "1001-5k"),
+               (5001, 10000, "5001-10k"), (10001, 50000, "10001-50k"),
+               (50001, 100000, "50001-100k"),
+               (100001, float("inf"), "100k+")]
+# Tranches de VALEUR (USD), store ET floor.
+VALUE_BUCKETS = [(0, 20, "≤20"), (20, 100, "21-100"), (100, 500, "101-500"),
+                 (500, 1000, "501-1k"), (1000, 5000, "1001-5k"),
+                 (5000, 10000, "5001-10k"), (10000, 50000, "10001-50k"),
+                 (50000, 100000, "50001-100k"),
+                 (100000, 500000, "100001-500k"),
+                 (500000, 1000000, "500001-1M"),
+                 (1000000, float("inf"), "1M+")]
 QTY_ORDER = [b[2] for b in QTY_BUCKETS]
 VALUE_ORDER = [b[2] for b in VALUE_BUCKETS]
 
@@ -698,6 +699,24 @@ def _build_pulse(monthly, first_month, uuid_first_mint, uuid_cat=None,
                      mo["burns"], mo["listings"], avg, pos, neg, churn,
                      wed_by_m.get(m, 0)])
         prev_actives = act
+    # lignes ANNUELLES (retention/churn a la VeveFox, demande Preda 12/07) :
+    # month = "YYYY" (4 caracteres), filtrees par stats_page. Actifs = union
+    # des actifs mensuels de l'annee ; churn = % des actifs de l'annee
+    # precedente sans AUCUNE activite cette annee.
+    yearly: Dict[str, set] = {}
+    for m in sorted(monthly):
+        yearly.setdefault(m[:4], set()).update(monthly[m]["actives"])
+    new_by_y = Counter(v[:4] for v in first_month.values())
+    prev_y = None
+    for y in sorted(yearly):
+        act = yearly[y]
+        churn = ""
+        if prev_y:
+            gone = sum(1 for w in prev_y if w not in act)
+            churn = round(100.0 * gone / len(prev_y), 1)
+        rows.append([y, len(act), new_by_y.get(y, 0), "", "", "", "", "",
+                     "", "", "", "", "", "", "", churn, ""])
+        prev_y = act
     return rows
 
 
