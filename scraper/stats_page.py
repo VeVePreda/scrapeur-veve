@@ -79,7 +79,7 @@ MODULE_COL2 = "AF"
 BURNS_ROW = 8                        # 🔥 synthese burns (AF8)
 UNIVERS_ROW = 24                     # 🏪 univers de marche (AF24)
 UNIVERS_TAB = "_MarketUniverse"      # ecrit par scraper/market_universe.py
-UNIVERS_DAYS = int(os.environ.get("STATS_UNIVERS_DAYS", "8"))
+UNIVERS_DAYS = int(os.environ.get("STATS_UNIVERS_DAYS", "15"))  # 2 semaines
 # Offre OMI EN CIRCULATION (CoinGecko / ECOMI, juillet 2026 : 270 951 644 947 ;
 # offre TOTALE 750 Md). Env OMI_CIRCULATING pour la reactualiser.
 OMI_CIRCULATING = float(os.environ.get("OMI_CIRCULATING", "270951644947"))
@@ -614,11 +614,14 @@ def build_universe(sh) -> List[List]:
         ["Catalogue complet", _n(d.get("catalogue")), "produits", ""],
         ["Couverture du catalogue", d.get("couverture_pct", ""), "%", ""],
         ["", "", "", ""],
-        ["Historique", "Éléments", "Collectibles", "Échangés"],
+        ["Historique (jour après jour)", "Éléments", "Se vendent", "%"],
     ]
+    # Historique : c'est le SUIVI de la part reellement echangee qui compte
+    # (demande Preda) — si elle s'effrite semaine apres semaine, le marche se
+    # vide. UNIVERS_DAYS (defaut 8) permet de comparer d'une semaine a l'autre.
     for r in rows[:UNIVERS_DAYS]:
         g.append([str(r.get("date", "")), _n(r.get("elements")),
-                  _n(r.get("collectibles")), _n(r.get("avec_volume"))])
+                  _n(r.get("vendus_7j")), r.get("pct_vendus_7j", "")])
     return g
 
 
