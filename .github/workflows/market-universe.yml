@@ -1,0 +1,27 @@
+name: Univers de marche (elements ayant un marche)
+
+# Balaie getElements 1x/jour (~61 requetes) et enregistre combien d'elements ont
+# reellement un marche -> onglet cache _MarketUniverse -> bloc 🏪 sur 📊 STATS.
+# Tourne AVANT le daily (04:11 UTC) pour que la page affiche le jour meme.
+
+on:
+  schedule:
+    - cron: "40 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  univers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Univers de marche
+        env:
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: python -m scraper.market_universe
