@@ -67,7 +67,8 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 REV_TAB = "_VeveRevenue"
 REV_HEADER = ["date", "drop_usd", "drop_tx", "market_veve_usd",
               "market_veve_tx", "market_stackr_usd", "market_stackr_tx",
-              "transfers", "admin_tx", "other_usd", "other_tx"]
+              "transfers", "admin_tx", "other_usd", "other_tx",
+              "outlier_usd", "outlier_tx"]
 
 # Typologie COMPLETE, etablie sur l'inventaire du 1er run (12/07) :
 #   STORE_GEM      603 tx  219 027 $  achat boutique en gems  -> DROP
@@ -100,6 +101,18 @@ MAX_PAGES = int(os.environ.get("VEVE_TX_MAX_PAGES",
                                "30000" if BACKFILL else "400"))
 # seuil d'affichage des grosses transactions dans le log (diagnostic des pics)
 BIG_TX = float(os.environ.get("VEVE_TX_BIG", "2000"))
+# GARDE-FOU PRIX ABERRANTS (constate au 1er run, 12/07) : trois lignes a
+# EXACTEMENT 100 000,00 $ sur « Basim - Hidden One » (#26 et #32) — deux
+# STORE_GEM et une MARKET_STACKR — gonflaient a elles seules le drop du 11/07
+# de 200 000 $ et le marche de 100 000 $. Ce sont des prix placeholder :
+#   * un achat BOUTIQUE a 100 000 $ n'existe pas ;
+#   * la source independante (getAllLatestSales_v2, onglet _MarketRevenue) ne
+#     voit que 40 M OMI (~6 750 $) de ventes StackR ce jour-la, alors qu'une
+#     vraie vente a 100 000 $ aurait exige ~594 M OMI a elle seule.
+# Au-dela du seuil, la transaction est EXCLUE des revenus mais COMPTEE a part
+# (colonnes outlier_usd/outlier_tx) et affichee dans le log — jamais jetee en
+# silence. Mettre VEVE_TX_MAX_PRICE=0 pour desactiver le garde-fou.
+MAX_PRICE = float(os.environ.get("VEVE_TX_MAX_PRICE", "50000"))
 
 # wallets systeme VeVe (jamais des pseudos d'utilisateurs)
 SYSTEM_ADDRS = {
@@ -179,12 +192,13 @@ def _blank() -> Dict[str, float]:
     return {"drop_usd": 0.0, "drop_tx": 0, "market_veve_usd": 0.0,
             "market_veve_tx": 0, "market_stackr_usd": 0.0,
             "market_stackr_tx": 0, "transfers": 0, "admin_tx": 0,
-            "other_usd": 0.0, "other_tx": 0}
+            "other_usd": 0.0, "other_tx": 0,
+            "outlier_usd": 0.0, "outlier_tx": 0}
 
 
 def aggregate(items: List[Dict], daily: Dict[str, Dict],
               pseudos: Dict[str, str], types: Dict = None,
-              top: List = None) -> None:
+              top: List = None, out: List = None) -> None:
     """Ventile une page dans {jour PT -> compteurs} et recolte les pseudos.
 
     Seules les transactions COMPLETE comptent dans les revenus (les PENDING
@@ -203,6 +217,14 @@ def aggregate(items: List[Dict], daily: Dict[str, Dict],
             t[1] += _f(it.get("price"))
         price = _f(it.get("price"))
         done = str(it.get("status") or "") == "COMPLETE"
+        if MAX_PRICE and price > MAX_PRICE and typ != TRANSFER:
+            # prix aberrant : hors des revenus, mais compte et trace
+            d["outlier_usd"] += price
+            d["outlier_tx"] += 1
+            if out is not None:
+                out.append((price, day, typ, str(it.get("name") or ""),
+                            it.get("nft_issue")))
+            continue
         if typ == TRANSFER:
             d["transfers"] += 1
         elif typ in ADMIN_TYPES:
@@ -245,6 +267,7 @@ def walk(days: int = DAYS, until: str = "", max_pages: int = MAX_PAGES,
     pseudos: Dict[str, str] = {}
     types: Dict[str, list] = {}
     top: List = []
+    outliers: List = []
     seen: set = set()
     s = session or requests.Session()
     pages = dupes = kept = 0
@@ -264,7 +287,7 @@ def walk(days: int = DAYS, until: str = "", max_pages: int = MAX_PAGES,
             if vid:
                 seen.add(vid)
             fresh.append(it)
-        aggregate(fresh, daily, pseudos, types, top)
+        aggregate(fresh, daily, pseudos, types, top, outliers)
         kept += len(fresh)
         oldest = _pt(items[-1].get("created_at"))
         if cursor % 25 == 0 or cursor <= 3:
@@ -281,6 +304,13 @@ def walk(days: int = DAYS, until: str = "", max_pages: int = MAX_PAGES,
     for t, (n, tot) in sorted(types.items(), key=lambda x: -x[1][0]):
         flag = "" if t in known else "   <-- TYPE INCONNU (non compte !)"
         print(f"    {t:32s} {n:6d}   {tot:12.2f} ${flag}", flush=True)
+    if outliers:
+        outliers.sort(reverse=True)
+        print(f"  PRIX ABERRANTS (> {MAX_PRICE:.0f} $) — exclus des revenus, "
+              f"comptes dans outlier_usd :", flush=True)
+        for pr, day, typ, name, iss in outliers[:10]:
+            print(f"    {day}  {pr:12.2f} $  {typ:15s} {name} #{iss}",
+                  flush=True)
     if top:
         top.sort(reverse=True)
         print(f"  plus grosses transactions (>= {BIG_TX} $) — explique les "
@@ -290,7 +320,8 @@ def walk(days: int = DAYS, until: str = "", max_pages: int = MAX_PAGES,
                   flush=True)
     inconnus = {t: v[0] for t, v in types.items() if t not in known}
     stats = {"pages": pages, "tx": kept, "doublons": dupes,
-             "jusqu_au": oldest, "jours": len(daily), "pseudos": len(pseudos)}
+             "jusqu_au": oldest, "jours": len(daily), "pseudos": len(pseudos),
+             "aberrants": len(outliers)}
     if inconnus:
         stats["TYPES_INCONNUS"] = inconnus
     return daily, pseudos, stats
@@ -308,7 +339,8 @@ def _rows(daily: Dict[str, Dict]) -> List[List]:
                     round(v["market_veve_usd"], 2), v["market_veve_tx"],
                     round(v["market_stackr_usd"], 2), v["market_stackr_tx"],
                     v["transfers"], v["admin_tx"],
-                    round(v["other_usd"], 2), v["other_tx"]])
+                    round(v["other_usd"], 2), v["other_tx"],
+                    round(v["outlier_usd"], 2), v["outlier_tx"]])
     return out
 
 
