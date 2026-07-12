@@ -22,6 +22,7 @@ product URL and image URL, and returns the list. `sheets.py` handles the upsert.
 
 from __future__ import annotations
 
+import os
 import datetime as _dt
 import time
 from typing import Any, Dict, List, Optional
@@ -36,8 +37,14 @@ NFTS_URL = f"{API_BASE}/api/Nfts"
 # 24 is the value the official site uses and is proven to paginate correctly.
 PAGE_SIZE = 24
 REQUEST_TIMEOUT = 60
-MAX_RETRIES = 4
-RETRY_BACKOFF = 3  # seconds, multiplied by attempt number
+MAX_RETRIES = 6
+RETRY_BACKOFF = 3  # seconds, exponential (3, 6, 12, 24, 48, 60...)
+# RÈGLE PROJET (12/07, apres une perte de 52 min sur veve_tx) : un collecteur
+# long ne doit JAMAIS perdre sa recolte sur une page qui tousse. Une page
+# definitivement en echec est SAUTEE (et comptee) au lieu de faire exploser
+# tout le run — sauf si le taux d'echec devient anormal, auquel cas on leve
+# (les garde-fous en aval, type EXPECTED_MIN, comptent sur des donnees saines).
+MAX_FAILED_PCT = float(os.environ.get("SCRAPE_MAX_FAILED_PCT", "5"))
 PAUSE_BETWEEN_PAGES = 0.25  # be polite to the free community backend
 
 USER_AGENT = "veve-catalogue-sync/1.0 (personal catalogue export)"
@@ -56,7 +63,13 @@ def _session() -> requests.Session:
     return s
 
 
-def _get(session: requests.Session, params: Dict[str, Any]) -> Dict[str, Any]:
+def _get(session: requests.Session, params: Dict[str, Any],
+         tolerant: bool = False) -> Optional[Dict[str, Any]]:
+    """Une page du tracker, avec retries et BACKOFF EXPONENTIEL.
+
+    tolerant=True : apres tous les essais, renvoie None au lieu de lever —
+    l'appelant saute la page et GARDE sa recolte (un HTTP 5xx est presque
+    toujours transitoire ; le perdre ne doit pas couter tout le run)."""
     last_err: Optional[Exception] = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
@@ -65,9 +78,17 @@ def _get(session: requests.Session, params: Dict[str, Any]) -> Dict[str, Any]:
             return r.json()
         except Exception as e:  # network hiccup / 5xx / throttling
             last_err = e
-            wait = RETRY_BACKOFF * attempt
-            print(f"    request failed (attempt {attempt}/{MAX_RETRIES}): {e} — retrying in {wait}s", flush=True)
+            if attempt == MAX_RETRIES:
+                break
+            wait = min(60, RETRY_BACKOFF * (2 ** (attempt - 1)))
+            print(f"    request failed (attempt {attempt}/{MAX_RETRIES}): {e}"
+                  f" — retrying in {wait}s", flush=True)
             time.sleep(wait)
+    if tolerant:
+        print(f"    PAGE ABANDONNEE apres {MAX_RETRIES} essais "
+              f"(offset={params.get('offset')}) : {last_err} — on continue, "
+              f"la recolte est conservee.", flush=True)
+        return None
     raise RuntimeError(f"Gave up fetching {params}: {last_err}")
 
 
@@ -190,10 +211,17 @@ def scrape_catalogue(category: Optional[str] = None, limit_total: Optional[int] 
 
     offset = len(first.get("resultEntries", []))
     reqs = 1
+    failed = 0
     while offset < total:
         if limit_total and len(by_uuid) >= limit_total:
             break
-        data = _get(session, {**base_params, "offset": offset, "limit": PAGE_SIZE})
+        data = _get(session, {**base_params, "offset": offset,
+                              "limit": PAGE_SIZE}, tolerant=True)
+        if data is None:                      # page morte : on la SAUTE
+            failed += 1
+            offset += PAGE_SIZE
+            reqs += 1
+            continue
         entries = data.get("resultEntries", [])
         if not entries:
             print("    empty page — stopping.", flush=True)
@@ -206,6 +234,14 @@ def scrape_catalogue(category: Optional[str] = None, limit_total: Optional[int] 
         time.sleep(PAUSE_BETWEEN_PAGES)
 
     products = list(by_uuid.values())
+    if failed:
+        pct = 100.0 * failed / max(reqs, 1)
+        print(f"ATTENTION : {failed} page(s) sautee(s) sur {reqs} "
+              f"({pct:.1f} %) — recolte conservee.", flush=True)
+        if pct > MAX_FAILED_PCT:
+            raise RuntimeError(
+                f"trop de pages en echec ({pct:.1f} % > {MAX_FAILED_PCT} %) : "
+                f"donnees trop incompletes pour etre ecrites sans risque.")
     print(f"TOTAL harvested: {len(products)} unique products", flush=True)
     return products
 

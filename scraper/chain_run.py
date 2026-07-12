@@ -147,9 +147,15 @@ def main() -> int:
             summary["listing_days"] = cs.merge_listing_daily(
                 sheet_id, listing_rows, replace=(mode == "backfill"))
 
-        # Market escrow deposits -> (veve_uuid, edition) -> seller wallet, for the
-        # pseudo<->wallet join with the Market listings.
-        esc_added = cs.merge_escrow(sheet_id, cc.escrow_listings(records))
+        # _EscrowListings SUPPRIME (audit du 12/07) : cet onglet cache (59 503
+        # lignes, et il grossissait chaque nuit) n'etait lu QUE par
+        # veve_market.py, hors service depuis que la session VeVe est bloquee
+        # et que l'onglet MarketListings n'existe plus. Il est reconstructible
+        # a tout moment depuis l'archive on-chain si le Market VeVe revit.
+        # Mettre CHAIN_ESCROW=true pour le realimenter.
+        esc_added = 0
+        if os.environ.get("CHAIN_ESCROW", "false").strip().lower() == "true":
+            esc_added = cs.merge_escrow(sheet_id, cc.escrow_listings(records))
 
         # Registre wallets (data/wallet_registry_daily.csv) — voir wallet_scan.py.
         # Non bloquant : le suivi on-chain du Sheet ne depend pas du registre.
