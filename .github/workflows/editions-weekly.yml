@@ -1,0 +1,34 @@
+name: Compteurs d'editions VeVe (HEBDO)
+
+# Remplace le pass GraphQL NOCTURNE (~2 600 requetes chaque nuit).
+# Sonde du 12/07 : le tracker donne le prix a 100 % d'identite et la dispo a
+# ~91 % -> la nuit se contente du tracker (deja telecharge pour le floor).
+# Ce run hebdomadaire garde les compteurs OFFICIELS VeVe exacts (circulation /
+# sold / burned / withheld / allocation), y compris pour les items CRAFT dont
+# les editions ne sont pas deductibles par soustraction.
+# Gain : 6/7 du volume GraphQL en moins, sans perte de fidelite.
+
+on:
+  schedule:
+    - cron: "11 5 * * 0"        # dimanche 05:11 UTC (hors du daily de 04:11)
+  workflow_dispatch:
+
+jobs:
+  editions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Compteurs d'editions (VeVe GraphQL)
+        env:
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          APIFY_PROXY_PASSWORD: ${{ secrets.APIFY_PROXY_PASSWORD }}
+          DYNAMIC_WITH_EDITIONS: "true"
+        run: python -m scraper.dynamic_run
