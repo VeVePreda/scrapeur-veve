@@ -72,6 +72,11 @@ PULSE_TAB = "_MonthlyPulse"          # source du 📅 pulse mensuel (ledger)
 PULSE_ROW = 49
 YEAR_ROW = 116                       # 📅 PAR ANNÉE + 📈 PULSE annuel (sous les 60 mois)
 NOTES_ROW = 132                      # ℹ️ notes & legendes, sous le tableau annuel (v14)
+BURNS_ROW = 37                       # 🔥 synthese burns (colonne T, sous la sante)
+# Offre OMI EN CIRCULATION (CoinGecko / ECOMI, juillet 2026 : 270 951 644 947 ;
+# offre TOTALE 750 Md). Env OMI_CIRCULATING pour la reactualiser.
+OMI_CIRCULATING = float(os.environ.get("OMI_CIRCULATING", "270951644947"))
+BURNS_RATE_DAYS = int(os.environ.get("STATS_BURN_RATE_DAYS", "30"))
 # 60 mois par defaut : l'histoire complete 2021->2026 (pulse IMX) tient
 # dans la zone mensuelle (gs v6 formate jusqu'a la ligne 120).
 PULSE_MONTHS = int(os.environ.get("STATS_PULSE_MONTHS", "60"))
@@ -504,6 +509,76 @@ def build_wallet_size_section(size_records: List[Dict[str, Any]]) -> List[List]:
     return g
 
 
+def build_burns_summary(sh, rates) -> List[List]:
+    """🔥 SYNTHÈSE BURNS (demande Preda 12/07) — bloc de la colonne T.
+
+    Sources : 🔥H-BURNS (omi_burned = burns du MARCHE, 2 % de chaque vente sur
+    0x821c · omi_gem = burns des conversions OMI->gems, 7 %, flux SEPARE qui
+    s'AJOUTE · omi_volume_nft = volume des ventes en OMI) et le cours OMI
+    quotidien (_MarketRevenue).
+
+    Verifications faites le 12/07 : burns marche / volume = 2,006 % sur 32 j
+    (= le taux annonce) et omi_nft == omi_burned au chiffre pres sur les jours
+    couverts par la decompo.
+    """
+    rows = _records(sh, BURNS_TAB)
+    if not rows:
+        return []
+    def _fl(x):
+        try:
+            return float(str(x).replace(",", ".").replace(" ", "") or 0)
+        except (TypeError, ValueError):
+            return 0.0
+    per: Dict[str, tuple] = {}
+    for r in rows:
+        d = str(r.get("date", "")).strip()
+        if d:
+            per[d] = (_fl(r.get("omi_burned")), _fl(r.get("omi_gem")),
+                      _fl(r.get("omi_volume_nft")))
+    if not per:
+        return []
+    jours = sorted(per)
+    marche = sum(v[0] for v in per.values())
+    gems = sum(v[1] for v in per.values())
+    total = marche + gems
+    # cours : dernier connu (les burns anciens sont valorises au cours actuel —
+    # c'est une VALEUR DE REMPLACEMENT, pas la valeur au jour du burn).
+    cours = 0.0
+    if rates:
+        cours = rates[max(rates)]
+    recents = jours[-BURNS_RATE_DAYS:]
+    r_burn = sum(per[d][0] + per[d][1] for d in recents)
+    par_jour = r_burn / max(len(recents), 1)
+    par_an = par_jour * 365.0
+    defl = 100.0 * par_an / OMI_CIRCULATING if OMI_CIRCULATING else 0
+    rec_j = max(per, key=lambda d: per[d][0])
+    vol = sum(per[d][2] for d in recents)
+    taux = (100.0 * sum(per[d][0] for d in recents) / vol) if vol else 0
+
+    def _pct(x):
+        return round(x, 3)
+
+    g: List[List] = [
+        [f"🔥  SYNTHÈSE BURNS — {jours[0]} → {jours[-1]}", "", "", ""],
+        ["Mesure", "Valeur", "", ""],
+        ["OMI brûlés (total)", round(total), "", ""],
+        ["· dont marché (2 % des ventes)", round(marche), "", ""],
+        ["· dont gems (7 % des conversions)", round(gems), "", ""],
+        ["Part de l'offre en circulation", _pct(100.0 * total / OMI_CIRCULATING)
+         if OMI_CIRCULATING else "", "%", ""],
+        ["Valeur détruite (cours du jour)", round(total * cours) if cours
+         else "", "$", ""],
+        [f"Rythme ({len(recents)} derniers jours)", round(par_jour), "OMI/jour",
+         ""],
+        ["Projection annuelle", round(par_an), "OMI/an", ""],
+        ["Déflation annualisée", _pct(defl), "%/an", ""],
+        ["Taux de burn vérifié (burns ÷ volume)", _pct(taux), "%", ""],
+        [f"Record : {rec_j}", round(per[rec_j][0]), "OMI", ""],
+        ["Offre en circulation (réf.)", round(OMI_CIRCULATING), "OMI", ""],
+    ]
+    return g
+
+
 def read_omi_burns(sh):
     """(total, nft, gem) : {date_pt -> OMI brules} depuis 🔥H-BURNS.
     v10 : la decompo (colonnes omi_nft / omi_gem ecrites par burns.py v6 sur
@@ -864,6 +939,12 @@ def build_notes_grid() -> List[List]:
               "(mois ou année) sans AUCUNE transaction sur la période en "
               "cours · Rétention % = 100 − churn (actifs qui reviennent) — "
               "les deux vivent dans les blocs 📈 PULSE.", ""])
+    g.append(["🔥 BURNS : deux flux distincts qui s'ADDITIONNENT — marché "
+              "(2 % de chaque vente StackR, brûlés depuis 0x821c) et gems "
+              "(7 % de chaque conversion OMI→gems, depuis 19/11/2025). La "
+              "valeur en $ est une valeur de REMPLACEMENT (cours du jour "
+              "appliqué à tout l'historique), pas la valeur au jour du burn.",
+              ""])
     g.append(["🏢 WALLETS SYSTÈME : les livraisons VeVe (drops/store envoyés "
               "depuis les wallets officiels) ne sont PLUS comptées comme des "
               "ventes de marché — le wallet receveur reste actif, mais le "
@@ -1071,6 +1152,17 @@ def write_stats(sh) -> Dict[str, Any]:
                 ws.format(f"{row + 2}:{row + 2}", BOLD)
         except Exception:
             pass
+    # 🔥 SYNTHÈSE BURNS (colonne T, sous la sante)
+    burns_g = build_burns_summary(sh, mkt_rates)
+    if burns_g:
+        ws.update(range_name=f"{MODULE_COL}{BURNS_ROW}", values=burns_g,
+                  value_input_option="RAW")
+        try:
+            ws.format(f"T{BURNS_ROW}:W{BURNS_ROW}", VIOLET)
+            ws.format(f"T{BURNS_ROW + 1}:W{BURNS_ROW + 1}", BOLD)
+        except Exception:
+            pass
+
     # bannieres des modules de droite (💰 en T8, 🩺 juste en dessous)
     try:
         if wsize:
@@ -1100,6 +1192,7 @@ def write_stats(sh) -> Dict[str, Any]:
             "week_revenue": week["revenue"], "week_anciens": week["old"],
             "annees": max(0, len(annual_g) - 3),
             "jours_revenue_reel": n_reel,
+            "burns_synthese": len(burns_g),
             "sante_row": GROUP_ROW + sante_off,
             "registres_wallets": len(known)}
 
