@@ -38,6 +38,18 @@ from scraper.sheets import _client, append_log
 WEBHOOK = os.environ.get("DISCORD_WEBHOOK", "").strip()
 STATE_PATH = os.environ.get("DIGEST_STATE", "data/digest_state.json")
 BLOG_MAX = int(os.environ.get("DIGEST_BLOG_MAX", "3"))
+# Au-dela de ce nombre d'articles « nouveaux », c'est que l'etat est desynchro
+# (bug du 12/07 : « articles: 1001 » puis « articles: 501 » — on ne gardait que
+# les 500 derniers slugs, donc les autres repassaient pour neufs a chaque run).
+# Dans ce cas on MEMORISE TOUT sans rien annoncer : un blog ne publie pas
+# 500 articles dans la nuit.
+MAX_NEUFS = int(os.environ.get("DIGEST_MAX_NEUFS", "10"))
+# LA DATE DE PARUTION FAIT FOI (remarque de Preda, et il a raison) : un article
+# est « nouveau » s'il est PARU dans les DIGEST_ARTICLE_JOURS derniers jours.
+# L'etat des slugs ne sert plus qu'a ne pas le repeter deux fois — il n'est
+# plus la source de verite, ce qui rend le module auto-guerissant : meme avec
+# un etat perdu ou corrompu, on ne peut plus deterrer 500 vieux articles.
+ARTICLE_JOURS = int(os.environ.get("DIGEST_ARTICLE_JOURS", "3"))
 WEEKLY_DAY = int(os.environ.get("DIGEST_WEEKLY_DAY", "4"))     # vendredi
 IMAGE = os.environ.get("DIGEST_IMAGE", "").strip()
 STATS_TAB = os.environ.get("STATS_TAB", "📊 STATS")
@@ -241,16 +253,40 @@ def drop_du_jour(sh, jour: str, stats_row: Dict) -> Dict:
     return {"nom": nom, "image": img}
 
 
-def nouveaux_articles(sh, connus: List[str]) -> List[Dict]:
+def _jour(x) -> str:
+    """La date de parution, quel que soit le format du Sheet (ISO, serial)."""
+    sx = str(x or "").strip()
+    if not sx:
+        return ""
+    if sx.replace(".", "", 1).isdigit() and len(sx) < 8:     # serial Sheets
+        try:
+            d = (_dt.date(1899, 12, 30)
+                 + _dt.timedelta(days=int(float(sx))))
+            return d.isoformat()
+        except (ValueError, OverflowError):
+            return ""
+    return sx[:10]
+
+
+def nouveaux_articles(sh, connus: List[str], jours: int = None) -> List[Dict]:
+    """Les articles PARUS RECEMMENT et pas encore annonces.
+
+    Le filtre principal est la DATE DE PARUTION (colonne du Sheet) ; les slugs
+    ne servent qu'a eviter de repeter. Sans date exploitable, on retombe sur
+    les slugs (comportement d'avant)."""
+    jours = ARTICLE_JOURS if jours is None else jours
+    limite = (_dt.date.today() - _dt.timedelta(days=jours)).isoformat()
     vus = set(connus or [])
     out = []
     for r in _records(sh, "📝C-BLOG"):
         slug = str(r.get("slug", "")).strip()
+        paru = _jour(r.get("published_at") or r.get("date"))
+        if paru and paru < limite:
+            continue                      # trop vieux : ce n'est pas une news
         if slug and slug not in vus:
             out.append({"slug": slug,
                         "titre": str(r.get("title") or slug),
-                        "date": str(r.get("published_at") or r.get("date")
-                                    or ""),
+                        "date": paru or str(r.get("published_at") or ""),
                         "url": str(r.get("url") or ""),
                         "excerpt": str(r.get("excerpt") or ""),
                         "image": str(r.get("image_url") or "")})
@@ -339,14 +375,17 @@ def main() -> int:
         return 1
     jour = str(rows[0].get("Date", ""))
 
-    # 1er RUN : on MEMORISE le blog sans rien annoncer (bug « 1001 articles »)
-    if premier:
+    # 1er RUN (ou etat desynchronise) : on MEMORISE sans rien annoncer.
+    arts: List[Dict] = [] if premier else nouveaux_articles(
+        sh, state.get("slugs", []))
+    if premier or len(arts) > MAX_NEUFS:
+        n = len(arts)
         state["slugs"] = tous_les_slugs(sh)
-        arts: List[Dict] = []
-        print(f"1er run : {len(state['slugs'])} articles memorises SANS etre "
-              f"annonces (seuls les suivants seront signales).", flush=True)
-    else:
-        arts = nouveaux_articles(sh, state.get("slugs", []))
+        arts = []
+        motif = "1er run" if premier else f"{n} articles « nouveaux »"
+        print(f"{motif} -> etat (re)synchronise : {len(state['slugs'])} slugs "
+              f"memorises SANS etre annonces (un blog ne publie pas 500 "
+              f"articles dans la nuit).", flush=True)
 
     hebdo = _dt.date.today().weekday() == WEEKLY_DAY
     deja = (state.get("jour") == jour and
@@ -378,8 +417,10 @@ def main() -> int:
             state["jour"] = jour
 
     if arts:
-        state["slugs"] = (state.get("slugs", []) +
-                          [a["slug"] for a in arts])[-2000:]
+        # on garde TOUS les slugs (le fichier reste minuscule) — les tronquer
+        # est precisement ce qui a desynchronise l'etat.
+        state["slugs"] = list(dict.fromkeys(
+            list(state.get("slugs", [])) + [a["slug"] for a in arts]))
     save_state(state)
     resume = {"jour": jour, "hebdo": hebdo, "articles": len(arts),
               "duration": f"{time.time() - t0:.0f}s"}
@@ -395,4 +436,4 @@ def main() -> int:
 if __name__ == "__main__":
     sys.exit(main())
 
-# FIN digest.py v3 (articles illustres)
+# FIN digest.py v5 (la DATE DE PARUTION fait foi)
