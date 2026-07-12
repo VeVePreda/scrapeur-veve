@@ -76,8 +76,17 @@ except Exception:
     ZERO = "0x0000000000000000000000000000000000000000"
     MARKET_ESCROW = "0xb1af72a77b9065c55cda0680b86655a79b62e42c"
     BURN_SINK = "0x39e3816a8c549ec22cd1a34a8cf7034b3941d8b1"
+try:
+    from scraper.collectchain import DISTRIB_WALLETS
+except Exception:
+    # Distributeurs VeVe (v-sys 12/07) : officiel "VeveCollection" (hub
+    # d'emission, 1,64 M mints de stock + 611k livraisons), admin livraisons
+    # ("Admin Collectible Transfer" StackR), identite VeveStore.
+    DISTRIB_WALLETS = {"0x7be178ba43a9828c22997a3ec3640497d88d2fd3",
+                       "0xdb721de5f825fcb3d2dbe3a4778e34e43ae7c095",
+                       "0xc4817870a6a75704985be4f9933643a27739afc1"}
 
-SYSTEM = {ZERO, MARKET_ESCROW, BURN_SINK, ""}
+SYSTEM = {ZERO, MARKET_ESCROW, BURN_SINK, ""} | DISTRIB_WALLETS
 BURN_TO = {ZERO, BURN_SINK}
 
 WHALES_TAB = "🐋A-WHALES"
@@ -313,6 +322,10 @@ def merge_state(replay_ledger, snap):
         if not owner or owner in BURN_TO:
             merged[key] = ("", 0)
             stats["burned"] += 1
+        elif owner in DISTRIB_WALLETS:
+            # stock VeVe (officiel/admin/store) : pas un detenteur collectionneur
+            merged[key] = ("", 0)
+            stats["system_stock"] += 1
         elif owner == MARKET_ESCROW:
             holder = (merged.get(key) or ("", 0))[0]
             merged[key] = (holder, 1)
@@ -394,6 +407,11 @@ def replay(folder: str, imx_folder: str = ""):
                 if not m:
                     continue
                 kind = (r.get("kind") or "").strip()
+                if kind in ("market", "system_transfer") and \
+                        (frm in DISTRIB_WALLETS or to in DISTRIB_WALLETS):
+                    # livraisons/retours VeVe archives en "market" avant le
+                    # fix v-sys : reclasses a la volee au rejeu.
+                    kind = "system_transfer"
                 mo = monthly.setdefault(m, {
                     "mints": 0, "market": 0, "burns": 0, "listings": 0,
                     "actives": set(), "minters": set(), "buyers": set(),
@@ -431,6 +449,15 @@ def replay(folder: str, imx_folder: str = ""):
                             first_month[frm] = m
                 elif kind == "listing":
                     mo["listings"] += 1
+                elif kind == "system_transfer":
+                    # livraison VeVe : le cote utilisateur reste actif
+                    # (acquisition/retour) mais PAS une vente market.
+                    for w, delta in ((to, 1), (frm, -1)):
+                        if w and w not in SYSTEM:
+                            mo["actives"].add(w)
+                            mo["net"][w] += delta
+                            if m < first_month.get(w, "9999"):
+                                first_month[w] = m
                 # vault_mint : mouvement systeme, hors pulse.
 
     seen_keys.clear()          # dedup finie : libere ~0,5-1 Go avant la suite
@@ -606,6 +633,12 @@ def _ingest_imx(folder: str, monthly: Dict, first_month: Dict) -> int:
                         if seller:
                             mo["sellers"].add(seller)
                             touch(mo, m, seller, -1)
+                elif frm in DISTRIB_WALLETS or to in DISTRIB_WALLETS:
+                    # livraison/retour VeVe (officiel/admin) : actif, pas vente
+                    if to and to not in SYSTEM:
+                        touch(mo, m, to, 1)
+                    if frm and frm not in SYSTEM:
+                        touch(mo, m, frm, -1)
                 else:                            # transfert direct wallet->wallet
                     mo["market"] += 1
                     if to and to not in SYSTEM:
@@ -890,6 +923,7 @@ def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date,
               f"(owned={sstats.get('owned', 0)}, burned={sstats.get('burned', 0)}, "
               f"escrow_resolu={sstats.get('escrow_resolved', 0)}, "
               f"escrow_inconnu={sstats.get('escrow_unresolved', 0)}, "
+              f"stock_veve={sstats.get('system_stock', 0)}, "
               f"ignorees={skipped}).", flush=True)
     else:
         ledger = ledger_replay

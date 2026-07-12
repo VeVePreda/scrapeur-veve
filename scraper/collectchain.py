@@ -57,8 +57,23 @@ MARKET_ESCROW = "0xb1af72a77b9065c55cda0680b86655a79b62e42c"
 # Street Fighter V le 2026-07-01). 1 449 328 transferts ENTRANTS, zero
 # sortant depuis toujours (verifie sur CollectScan le 2026-07-08).
 BURN_SINK = "0x39e3816a8c549ec22cd1a34a8cf7034b3941d8b1"
+# Hub d'emission/distribution VeVe "VeveCollection" : recoit les mints de
+# stock (1,64 M depuis 2021, verifie 12/07 via la base DuckDB) et distribue
+# aux acheteurs (611k sorties classees "market" avant le fix v-sys — des
+# LIVRAISONS drops/store, pas des ventes secondaires). Topologie :
+# officiel -> admin -> user (13 253 transferts internes officiel->admin).
+VEVE_OFFICIAL = "0x7be178ba43a9828c22997a3ec3640497d88d2fd3"
+# Wallet ADMIN livraisons ("Admin Collectible Transfer" sur StackR) : tampon
+# de distribution (20k entrees / 9,5k sorties au 12/07).
+ADMIN_WALLET = "0xdb721de5f825fcb3d2dbe3a4778e34e43ae7c095"
+# Identite on-chain du VeveStore (0 transfert a ce jour — preventif).
+VEVE_STORE = "0xc4817870a6a75704985be4f9933643a27739afc1"
+# Distributeurs VeVe : leurs transferts user<->systeme = livraisons/retours,
+# kind "system_transfer" (exclus des ventes market ; le cote utilisateur
+# reste compte comme actif).
+DISTRIB_WALLETS = {VEVE_OFFICIAL, ADMIN_WALLET, VEVE_STORE}
 # Wallets systeme : jamais comptes comme des comptes actifs dans les stats.
-SYSTEM_WALLETS = {ZERO, MARKET_ESCROW, BURN_SINK}
+SYSTEM_WALLETS = {ZERO, MARKET_ESCROW, BURN_SINK} | DISTRIB_WALLETS
 
 REQUEST_TIMEOUT = 60
 MAX_RETRIES = 5
@@ -154,6 +169,8 @@ def _flatten(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         kind = "burn"
     elif to == MARKET_ESCROW:
         kind = "listing"   # mise en vente (depot escrow), PAS une vente
+    elif frm in DISTRIB_WALLETS or to in DISTRIB_WALLETS:
+        kind = "system_transfer"   # livraison/retour VeVe (drops, store, admin)
     else:
         kind = "market"
     if not isinstance(md, dict):
@@ -292,6 +309,11 @@ def aggregate_daily(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         elif r["kind"] == "market":
             _bump(agg, r["date"], r["to"], f"market_in_{cat}")
             _bump(agg, r["date"], r["from"], f"market_out_{cat}")
+        elif r["kind"] == "system_transfer":
+            # livraison VeVe -> le cote utilisateur reste actif (acquisition
+            # ou retour) ; le cote systeme est ignore par _bump.
+            _bump(agg, r["date"], r["to"], f"market_in_{cat}")
+            _bump(agg, r["date"], r["from"], f"market_out_{cat}")
         # "listing" (depot escrow = mise en vente) et "vault_mint" (stock
         # invendu minte au coffre) sont des mouvements systeme : ignores.
     rows = []
@@ -330,7 +352,7 @@ def aggregate_listing_daily(records: List[Dict[str, Any]]) -> List[Dict[str, Any
         elif k == "burn":
             if frm and frm not in SYSTEM_WALLETS:
                 p["others"].add(frm)
-        elif k == "market":
+        elif k == "market" or k == "system_transfer":
             for w in (frm, to):
                 if w and w not in SYSTEM_WALLETS:
                     p["others"].add(w)
@@ -393,8 +415,8 @@ def aggregate_items(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     and by how many distinct wallets."""
     agg: Dict[Tuple[str, str], Dict[str, Any]] = {}
     for r in records:
-        if r["kind"] in ("listing", "vault_mint"):
-            continue   # mouvements systeme (mise en vente / stock vaulte)
+        if r["kind"] in ("listing", "vault_mint", "system_transfer"):
+            continue   # mouvements systeme (mise en vente / stock / livraison)
         cat = "comic" if r["category"] == "comic" else "collectible"
         key = (r["date"], item_key(cat, r["veve_uuid"], r["name"], r["rarity"],
                                    r["comic_number"], r["start_year"]))
