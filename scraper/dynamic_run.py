@@ -40,10 +40,35 @@ DYN_ITEM_FIELDS = [
     "store_allocation",
 ]
 
+# SONDE DU 12/07 (editions_probe, 309 collectibles compares un a un) :
+#   prix   : 309/309 IDENTIQUES entre le tracker et VeVe GraphQL (100 %)
+#   dispo  :  90,6 % identiques — les ecarts sont (a) des decalages de 1 a 9
+#            unites sur les items en vente a l'instant T (simple latence du
+#            tracker) et (b) des « 0 | N » : le tracker met a 0 ce qui n'est
+#            plus achetable en boutique alors que VeVe compte encore du stock.
+#   circu. :  90,3 % — sur les items CRAFT (Gouki, Loki-Action...) le compteur
+#            VeVe est tres inferieur : la plupart des editions n'ont jamais ete
+#            emises. Ce champ n'est donc PAS deductible par soustraction.
+# DECISION (Preda, 12/07) : la NUIT ne touche plus GraphQL (prix + dispo +
+# release viennent du tracker, deja appele pour le floor -> ZERO requete en
+# plus) ; un run HEBDO (DYNAMIC_WITH_EDITIONS=true) rafraichit les compteurs
+# officiels VeVe (circulation / sold / burned / withheld / allocation), y
+# compris pour les items craft. Gain : ~2 600 appels GraphQL en moins par nuit,
+# soit 6/7 du volume, sans perte de fidelite.
+TRACKER_MAP = {                 # champ tracker -> colonne du projet
+    "storePrice": "veve_store_price",
+    "availableAmount": "veve_total_available",
+}
+
 
 def _item(p):
     it = {"veve_uuid": p.get("veve_uuid"), "name": p.get("name"),
           "category": p.get("category")}
+    # le tracker d'abord (gratuit) ; GraphQL, quand il tourne, a deja ecrase
+    # ces cles dans `p` via by_uuid.update(cols) -> il reste prioritaire.
+    for src, dest in TRACKER_MAP.items():
+        if p.get(dest) in (None, "") and p.get(src) not in (None, ""):
+            it[dest] = p.get(src)
     for f in DYN_ITEM_FIELDS:
         if p.get(f) not in (None, ""):
             it[f] = p.get(f)
@@ -84,14 +109,18 @@ def main() -> int:
     with_editions = os.environ.get("DYNAMIC_WITH_EDITIONS", "false").strip().lower() == "true"
     uuids = list(by_uuid.keys())
     if with_editions:
-        print(f"Refreshing edition counters for {len(uuids)} collectibles via VeVe GraphQL...",
-              flush=True)
+        print(f"Compteurs d'editions VeVe (GraphQL) pour {len(uuids)} "
+              f"collectibles — passe HEBDOMADAIRE...", flush=True)
         for uid, cols in veve_detail.enrich_dynamic(uuids, is_comic=False).items():
             if by_uuid.get(uid):
                 by_uuid[uid].update(cols)
     else:
-        print("Floor/listings only (tracker) — skipping GraphQL editions this run "
-              "(set DYNAMIC_WITH_EDITIONS=true for the daily edition refresh).", flush=True)
+        n_prix = sum(1 for p in colls if p.get("storePrice") not in (None, ""))
+        n_dispo = sum(1 for p in colls
+                      if p.get("availableAmount") not in (None, ""))
+        print(f"Sans GraphQL : prix ({n_prix}) et dispo ({n_dispo}) pris dans "
+              f"le TRACKER, deja telecharge pour le floor — 0 requete VeVe en "
+              f"plus (sonde du 12/07 : prix identiques a 100 %).", flush=True)
 
     items = [_item(p) for p in colls]
 
