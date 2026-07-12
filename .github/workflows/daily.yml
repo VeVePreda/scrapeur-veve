@@ -109,7 +109,7 @@ jobs:
       - name: 4) Dynamic edition counters (daily GraphQL pass)
         if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'editions')) }}
         env:
-          DYNAMIC_WITH_EDITIONS: "true"
+          DYNAMIC_WITH_EDITIONS: "false"
         run: python -m scraper.dynamic_run
 
       - name: 5) Wallet registry (enrich Pseudos with on-chain activity)
