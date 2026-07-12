@@ -113,6 +113,16 @@ BIG_TX = float(os.environ.get("VEVE_TX_BIG", "2000"))
 # (colonnes outlier_usd/outlier_tx) et affichee dans le log — jamais jetee en
 # silence. Mettre VEVE_TX_MAX_PRICE=0 pour desactiver le garde-fou.
 MAX_PRICE = float(os.environ.get("VEVE_TX_MAX_PRICE", "50000"))
+# Etat du BACKFILL (reprise) — leçon du run #1 : 730 pages / 52 min perdues sur
+# un HTTP 500 TRANSITOIRE (re-teste juste apres : la meme page repond tres
+# bien). Desormais : (1) beaucoup plus de retries avec backoff, (2) si ca
+# insiste, on REDUIT la taille de page au meme endroit (100 -> 50 -> 25 -> 10),
+# (3) en dernier recours on GARDE la recolte et on s'arrete proprement,
+# (4) l'etat est sauvegarde -> le run suivant reprend ou on s'est arrete.
+STATE_PATH = os.environ.get("VEVE_TX_STATE", "data/veve_tx_state.json")
+RETRIES = int(os.environ.get("VEVE_TX_RETRIES", "6"))
+LIMIT_STEPS = [100, 50, 25, 10]
+COOLDOWN = float(os.environ.get("VEVE_TX_COOLDOWN", "10"))  # pause apres panne
 
 # wallets systeme VeVe (jamais des pseudos d'utilisateurs)
 SYSTEM_ADDRS = {
@@ -157,8 +167,12 @@ def _f(x) -> float:
 # API
 # ---------------------------------------------------------------------------
 
-def fetch_page(cursor: int, session=None, limit: int = LIMIT) -> List[Dict]:
-    """Une page du flux (cursor = numero de page, 1 = la plus recente)."""
+def fetch_page(cursor: int, session=None, limit: int = LIMIT,
+               retries: int = RETRIES):
+    """Une page du flux (cursor = numero de page, 1 = la plus recente).
+
+    Renvoie la liste d'items, ou None si l'API refuse obstinement (le HTTP 500
+    en profondeur est TRANSITOIRE : backoff genereux avant d'abandonner)."""
     payload = {"limit": limit}
     if cursor > 1:
         payload["cursor"] = cursor
@@ -166,7 +180,7 @@ def fetch_page(cursor: int, session=None, limit: int = LIMIT) -> List[Dict]:
     url = TRPC + urllib.parse.quote(
         json.dumps({"json": payload}, separators=(",", ":")))
     s = session or requests
-    for attempt in range(3):
+    for attempt in range(retries):
         try:
             r = s.get(url, headers={"User-Agent": UA,
                                     "Accept": "application/json"},
@@ -177,11 +191,29 @@ def fetch_page(cursor: int, session=None, limit: int = LIMIT) -> List[Dict]:
             data = r.json()
             return (data.get("result", {}).get("data", {}).get("json")) or []
         except Exception as e:
-            if attempt == 2:
-                raise
-            print(f"    page {cursor} : {e} — retry", flush=True)
-            time.sleep(2 + 2 * attempt)
-    return []
+            if attempt == retries - 1:
+                print(f"    page {cursor} (limit {limit}) : {e} — abandon "
+                      f"apres {retries} essais.", flush=True)
+                return None
+            wait = min(60, 3 * (2 ** attempt))
+            print(f"    page {cursor} (limit {limit}) : {e} — nouvel essai "
+                  f"dans {wait} s ({attempt + 1}/{retries})", flush=True)
+            time.sleep(wait)
+    return None
+
+
+def load_state() -> Dict:
+    try:
+        with open(STATE_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_state(st: Dict) -> None:
+    os.makedirs(os.path.dirname(STATE_PATH) or ".", exist_ok=True)
+    with open(STATE_PATH, "w", encoding="utf-8") as f:
+        json.dump(st, f, indent=1)
 
 
 # ---------------------------------------------------------------------------
@@ -253,30 +285,62 @@ def aggregate(items: List[Dict], daily: Dict[str, Dict],
 
 
 def walk(days: int = DAYS, until: str = "", max_pages: int = MAX_PAGES,
-         session=None) -> Tuple[Dict[str, Dict], Dict[str, str], Dict]:
-    """Descend le flux page par page. S'arrete :
-      * quotidien : des qu'on passe sous la fenetre de `days` jours ;
-      * backfill  : a `until` (YYYY-MM-DD) ou quand une page revient vide.
-    Dedup par veve_id (le curseur glisse pendant un long run : les nouvelles
-    tx qui arrivent decalent les pages -> quelques doublons possibles)."""
+         session=None, state: Dict = None):
+    """Descend le flux page par page (cursor = numero de page).
+
+    Quotidien : s'arrete des qu'on passe sous la fenetre de `days` jours.
+    Backfill  : descend jusqu'a `until`, REPREND l'etat du run precedent
+                (resume_day + offset) et sauvegarde le sien a la fin.
+
+    Robustesse (leçon du run #1) : sur echec repete, on reduit la taille de
+    page au MEME endroit (100 -> 50 -> 25 -> 10) ; si meme 10 ne passe pas, on
+    S'ARRETE EN GARDANT tout ce qui a ete recolte (jamais de perte).
+    """
+    state = state if state is not None else {}
     stop = until
     if not stop:
         d0 = _dt.date.fromisoformat(_today_pt()) - _dt.timedelta(days=days - 1)
         stop = d0.isoformat()
+    resume_day = str(state.get("resume_day") or "")   # deja ecrit -> a sauter
+    offset = int(state.get("offset") or 0)
+    if resume_day:
+        print(f"  reprise : on saute tout ce qui est >= {resume_day} "
+              f"(deja ecrit), depart offset ~{offset}.", flush=True)
+
     daily: Dict[str, Dict] = {}
+    day_offset: Dict[str, int] = {}       # ou commence chaque jour (reprise)
     pseudos: Dict[str, str] = {}
     types: Dict[str, list] = {}
     top: List = []
     outliers: List = []
     seen: set = set()
     s = session or requests.Session()
-    pages = dupes = kept = 0
+    limit = LIMIT
+    pages = dupes = kept = skipped = 0
     oldest = ""
-    for cursor in range(1, max_pages + 1):
-        items = fetch_page(cursor, s)
+    incomplet = False
+
+    for _ in range(max_pages):
+        cursor = offset // limit + 1
+        items = fetch_page(cursor, s, limit)
+        if items is None:                       # echec obstine
+            nxt = [x for x in LIMIT_STEPS if x < limit]
+            if nxt:
+                limit = nxt[0]
+                offset = (offset // limit) * limit   # on reste au meme endroit
+                print(f"  -> on reduit la page a {limit} et on repart de "
+                      f"l'offset {offset}.", flush=True)
+                time.sleep(COOLDOWN)
+                continue
+            print("  API obstinement en erreur : on GARDE la recolte et on "
+                  "s'arrete proprement (l'etat permettra de reprendre).",
+                  flush=True)
+            incomplet = True
+            break
         pages += 1
         if not items:
-            print(f"  page {cursor} vide -> fin du flux.", flush=True)
+            print(f"  page {cursor} vide -> genese atteinte.", flush=True)
+            state["done"] = True
             break
         fresh = []
         for it in items:
@@ -286,18 +350,38 @@ def walk(days: int = DAYS, until: str = "", max_pages: int = MAX_PAGES,
                 continue
             if vid:
                 seen.add(vid)
+            day = _pt(it.get("created_at"))
+            if resume_day and day >= resume_day:
+                skipped += 1               # deja ecrit par un run precedent
+                continue
+            if day and day not in day_offset:
+                day_offset[day] = offset
             fresh.append(it)
         aggregate(fresh, daily, pseudos, types, top, outliers)
         kept += len(fresh)
+        offset += len(items)
         oldest = _pt(items[-1].get("created_at"))
-        if cursor % 25 == 0 or cursor <= 3:
+        if pages % 25 == 0 or pages <= 3:
             print(f"  page {cursor} : {kept} tx, jusqu'au {oldest}", flush=True)
         if oldest and oldest < stop:
             break
         time.sleep(PAUSE)
-    # le jour le plus ancien atteint est PARTIEL (on s'est arrete au milieu)
-    if oldest and oldest in daily and oldest < stop:
+
+    # le jour le plus ancien atteint est PARTIEL (on s'est arrete au milieu) :
+    # on ne l'ecrit pas, le prochain run le reprendra depuis son debut.
+    if oldest and oldest in daily and (oldest < stop or incomplet):
         daily.pop(oldest, None)
+        day_offset.pop(oldest, None)
+
+    if until:                                  # mode BACKFILL : etat de reprise
+        if daily:
+            plus_vieux = min(daily)
+            state["resume_day"] = plus_vieux
+            state["offset"] = day_offset.get(plus_vieux, offset)
+        state.setdefault("done", False)
+        if not incomplet and oldest and until and oldest <= until:
+            state["done"] = True
+
     known = (set(DROP_TYPES) | set(MKT_VEVE_TYPES) | set(ADMIN_TYPES)
              | set(OTHER_TYPES) | {MKT_STACKR, TRANSFER})
     print("  types rencontres (tx / somme des prix) :", flush=True)
@@ -313,15 +397,18 @@ def walk(days: int = DAYS, until: str = "", max_pages: int = MAX_PAGES,
                   flush=True)
     if top:
         top.sort(reverse=True)
-        print(f"  plus grosses transactions (>= {BIG_TX} $) — explique les "
-              f"pics :", flush=True)
+        print(f"  plus grosses transactions (>= {BIG_TX:.0f} $) :", flush=True)
         for pr, day, typ, name, iss in top[:8]:
             print(f"    {day}  {pr:10.2f} $  {typ:15s} {name} #{iss}",
                   flush=True)
     inconnus = {t: v[0] for t, v in types.items() if t not in known}
     stats = {"pages": pages, "tx": kept, "doublons": dupes,
              "jusqu_au": oldest, "jours": len(daily), "pseudos": len(pseudos),
-             "aberrants": len(outliers)}
+             "aberrants": len(outliers), "limit_final": limit}
+    if skipped:
+        stats["deja_faits"] = skipped
+    if incomplet:
+        stats["INCOMPLET"] = "relancer le workflow pour continuer"
     if inconnus:
         stats["TYPES_INCONNUS"] = inconnus
     return daily, pseudos, stats
@@ -460,9 +547,17 @@ def main() -> int:
     mode = "BACKFILL" if BACKFILL else f"quotidien ({DAYS} j)"
     print(f"Flux VeVe public — mode {mode}, limit={LIMIT}, "
           f"max_pages={MAX_PAGES}", flush=True)
+    state = load_state() if BACKFILL else {}
+    if BACKFILL and state.get("done"):
+        print(f"Backfill deja termine (jusqu'au {state.get('resume_day')}). "
+              f"Supprimer {STATE_PATH} pour repartir de zero.", flush=True)
+        return 0
     try:
-        daily, pseudos, stats = walk(DAYS, UNTIL if BACKFILL else "")
+        daily, pseudos, stats = walk(DAYS, UNTIL if BACKFILL else "",
+                                     state=state)
     except Exception as e:
+        # on ne perd JAMAIS 50 minutes de recolte sur une erreur reseau :
+        # walk() garde sa recolte ; ici on ne tombe que sur l'imprevisible.
         print(f"veve_tx FAILED: {e}", file=sys.stderr)
         try:
             append_log(sheet_id, "veve_tx", "FAILED", str(e)[:200])
@@ -471,6 +566,11 @@ def main() -> int:
         return 1
     rows = _rows(daily)
     summary: Dict[str, Any] = dict(stats)
+    if BACKFILL:
+        save_state(state)
+        summary["etat"] = (f"reprise au {state.get('resume_day')} "
+                           f"(offset {state.get('offset')})"
+                           if not state.get("done") else "TERMINE")
     if rows:
         summary["csv_jours"] = save_csv(rows)
         sh = _client().open_by_key(sheet_id)
