@@ -96,6 +96,7 @@ ITEMS_TAB = "ChainItems"
 DYN_STATE_TAB = "_DynState"
 BURNS_TAB = "🔥H-BURNS"
 MARKET_REV_TAB = "_MarketRevenue"     # ventes StackR reelles (stackr_sales)
+VEVE_REV_TAB = "_VeveRevenue"         # v15 : flux VeVe PUBLIC (veve_tx)
 
 MINT_F = ["mint_collectible", "mint_comic"]
 MARKET_F = ["market_in_collectible", "market_in_comic"]   # 1 vente = 1 in
@@ -311,6 +312,36 @@ def omi_to_usd(omi: Dict[str, float], rates: Dict[str, float]):
             ki += 1
         out[d] = omi[d] * last
     return out
+
+
+def read_veve_revenue(sh):
+    """v15 — (drop, market) : {date_pt -> $} depuis _VeveRevenue (flux VeVe
+    PUBLIC collecte par scraper/veve_tx.py).
+
+      * drop   = CART_FIAT + STORE_GEM = revenue drop REEL (remplace
+        l'estimation mints x prix store les jours couverts) ;
+      * market = MARKET_FIXED (ventes VeVe en gems) + MARKET_STACKR (ventes
+        StackR) = le marche SECONDAIRE COMPLET (les ventes VeVe en gems
+        manquaient jusqu'ici : c'etait la borne basse du chantier 7).
+    """
+    drop: Dict[str, float] = {}
+    market: Dict[str, float] = {}
+    def _fl(x):
+        try:
+            return float(str(x).replace(",", ".") or 0)
+        except (TypeError, ValueError):
+            return 0.0
+    for r in _records(sh, VEVE_REV_TAB):
+        d = str(r.get("date", "")).strip()
+        if not d:
+            continue
+        v = _fl(r.get("drop_usd"))
+        if v:
+            drop[d] = v
+        m = _fl(r.get("market_veve_usd")) + _fl(r.get("market_stackr_usd"))
+        if m:
+            market[d] = m
+    return drop, market
 
 
 def detect_airdrop_daily(items: List[Dict[str, Any]]) -> Dict[str, int]:
@@ -806,10 +837,11 @@ def build_notes_grid() -> List[List]:
               "physique) · par Mois : drops on-chain (+vevecomics à part).", ""])
     g.append(["• Semaine du bandeau = dernière semaine COMPLÈTE du jeudi au "
               "mercredi (fenêtre calendaire fixe).", ""])
-    g.append(["• Revenue drop = mints × prix store · Revenue market = ventes "
-              "RÉELLES du marché StackR (prix OMI → $ au cours du jour de "
-              "collecte) ; les ventes in-app VeVe (gems) n'ont pas de source "
-              "de prix → borne basse · Total = Drop + Market.", ""])
+    g.append(["• Revenue drop = prix RÉELS payés (fiat + gems, flux VeVe "
+              "public) les jours couverts ; sinon estimation mints × prix "
+              "store. Revenue market = ventes VeVe (gems) + ventes StackR — "
+              "plus de borne basse depuis le flux public · Total = Drop + "
+              "Market.", ""])
     g.append(["• OMI burn Global = 🔥H-BURNS converti en $ (cours OMI du jour, "
               "dernier cours connu si absent) · OMI→NFT = 2 % du prix de "
               "chaque vente StackR (en OMI) · OMI→GEM = conversions (100 % "
@@ -979,6 +1011,12 @@ def write_stats(sh) -> Dict[str, Any]:
     listing = read_listing_daily(sh)
     airdrop = detect_airdrop_daily(items)
     market_rev, mkt_rates = read_market_revenue(sh)
+    # v15 : le flux VeVe PUBLIC (veve_tx) PRIME sur les estimations —
+    # drop reel (fiat + gems) et marche secondaire COMPLET (VeVe + StackR).
+    v_drop, v_market = read_veve_revenue(sh)
+    n_reel = len(v_drop)
+    revenue.update(v_drop)
+    market_rev.update(v_market)
     week = compute_week(daily, revenue, omi, listing, airdrop)
     drops = load_drop_names(sh)
     omi_usd_daily = omi_to_usd(omi, mkt_rates)
@@ -1061,6 +1099,7 @@ def write_stats(sh) -> Dict[str, Any]:
             "week_tx": week["tx"],
             "week_revenue": week["revenue"], "week_anciens": week["old"],
             "annees": max(0, len(annual_g) - 3),
+            "jours_revenue_reel": n_reel,
             "sante_row": GROUP_ROW + sante_off,
             "registres_wallets": len(known)}
 
