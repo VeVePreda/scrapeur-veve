@@ -67,13 +67,26 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 REV_TAB = "_VeveRevenue"
 REV_HEADER = ["date", "drop_usd", "drop_tx", "market_veve_usd",
               "market_veve_tx", "market_stackr_usd", "market_stackr_tx",
-              "transfers", "admin_tx"]
+              "transfers", "admin_tx", "other_usd", "other_tx"]
 
+# Typologie COMPLETE, etablie sur l'inventaire du 1er run (12/07) :
+#   STORE_GEM      603 tx  219 027 $  achat boutique en gems  -> DROP
+#   CART_FIAT       67 tx      632 $  achat boutique en fiat  -> DROP
+#   MARKET_FIXED  1066 tx   25 650 $  vente marche VeVe       -> MARKET VeVe
+#   MARKET_AUCTION  56 tx      399 $  vente aux encheres VeVe -> MARKET VeVe
+#   MARKET_STACKR  356 tx  124 485 $  vente marche StackR     -> MARKET StackR
+#   NFT_TRANSFER   356 tx  124 485 $  <- MEME total au centime pres que
+#       MARKET_STACKR : c'est la JAMBE DE REGLEMENT du meme trade. EXCLU
+#       (le compter doublerait le marche). Preuve faite par l'inventaire.
+#   ADMIN_COLLECTIBLE_TRANSFER / ADMIN_COMIC_TRANSFER : livraisons VeVe -> EXCLU
+#   CRAFT / PROMO_ENTITY_TRANSACTION : craft & promos -> colonne `other` (ni
+#       drop ni marche : ce ne sont pas des ventes, mais on ne les jette pas).
 DROP_TYPES = ("CART_FIAT", "STORE_GEM")
-MKT_VEVE = "MARKET_FIXED"
+MKT_VEVE_TYPES = ("MARKET_FIXED", "MARKET_AUCTION")
 MKT_STACKR = "MARKET_STACKR"
 TRANSFER = "NFT_TRANSFER"
-ADMIN = "ADMIN_COLLECTIBLE_TRANSFER"
+ADMIN_TYPES = ("ADMIN_COLLECTIBLE_TRANSFER", "ADMIN_COMIC_TRANSFER")
+OTHER_TYPES = ("CRAFT", "PROMO_ENTITY_TRANSACTION")
 
 DAYS = int(os.environ.get("VEVE_TX_DAYS", "3"))
 LIMIT = int(os.environ.get("VEVE_TX_LIMIT", "100"))
@@ -85,6 +98,8 @@ UNTIL = os.environ.get("VEVE_TX_UNTIL", "").strip()
 WITH_PSEUDOS = os.environ.get("VEVE_TX_PSEUDOS", "true").lower() != "false"
 MAX_PAGES = int(os.environ.get("VEVE_TX_MAX_PAGES",
                                "30000" if BACKFILL else "400"))
+# seuil d'affichage des grosses transactions dans le log (diagnostic des pics)
+BIG_TX = float(os.environ.get("VEVE_TX_BIG", "2000"))
 
 # wallets systeme VeVe (jamais des pseudos d'utilisateurs)
 SYSTEM_ADDRS = {
@@ -163,11 +178,13 @@ def fetch_page(cursor: int, session=None, limit: int = LIMIT) -> List[Dict]:
 def _blank() -> Dict[str, float]:
     return {"drop_usd": 0.0, "drop_tx": 0, "market_veve_usd": 0.0,
             "market_veve_tx": 0, "market_stackr_usd": 0.0,
-            "market_stackr_tx": 0, "transfers": 0, "admin_tx": 0}
+            "market_stackr_tx": 0, "transfers": 0, "admin_tx": 0,
+            "other_usd": 0.0, "other_tx": 0}
 
 
 def aggregate(items: List[Dict], daily: Dict[str, Dict],
-              pseudos: Dict[str, str], types: Dict = None) -> None:
+              pseudos: Dict[str, str], types: Dict = None,
+              top: List = None) -> None:
     """Ventile une page dans {jour PT -> compteurs} et recolte les pseudos.
 
     Seules les transactions COMPLETE comptent dans les revenus (les PENDING
@@ -188,17 +205,23 @@ def aggregate(items: List[Dict], daily: Dict[str, Dict],
         done = str(it.get("status") or "") == "COMPLETE"
         if typ == TRANSFER:
             d["transfers"] += 1
-        elif typ == ADMIN:
+        elif typ in ADMIN_TYPES:
             d["admin_tx"] += 1
         elif typ in DROP_TYPES and done:
             d["drop_usd"] += price
             d["drop_tx"] += 1
-        elif typ == MKT_VEVE and done:
+        elif typ in MKT_VEVE_TYPES and done:
             d["market_veve_usd"] += price
             d["market_veve_tx"] += 1
         elif typ == MKT_STACKR and done:
             d["market_stackr_usd"] += price
             d["market_stackr_tx"] += 1
+        elif typ in OTHER_TYPES and done:
+            d["other_usd"] += price
+            d["other_tx"] += 1
+        if done and price >= BIG_TX and typ != TRANSFER and top is not None:
+            top.append((price, day, typ, str(it.get("name") or ""),
+                        it.get("nft_issue")))
         if WITH_PSEUDOS:
             for who in ("buyer", "seller"):
                 u = it.get(f"{who}_username")
@@ -221,6 +244,7 @@ def walk(days: int = DAYS, until: str = "", max_pages: int = MAX_PAGES,
     daily: Dict[str, Dict] = {}
     pseudos: Dict[str, str] = {}
     types: Dict[str, list] = {}
+    top: List = []
     seen: set = set()
     s = session or requests.Session()
     pages = dupes = kept = 0
@@ -240,7 +264,7 @@ def walk(days: int = DAYS, until: str = "", max_pages: int = MAX_PAGES,
             if vid:
                 seen.add(vid)
             fresh.append(it)
-        aggregate(fresh, daily, pseudos, types)
+        aggregate(fresh, daily, pseudos, types, top)
         kept += len(fresh)
         oldest = _pt(items[-1].get("created_at"))
         if cursor % 25 == 0 or cursor <= 3:
@@ -251,11 +275,19 @@ def walk(days: int = DAYS, until: str = "", max_pages: int = MAX_PAGES,
     # le jour le plus ancien atteint est PARTIEL (on s'est arrete au milieu)
     if oldest and oldest in daily and oldest < stop:
         daily.pop(oldest, None)
-    known = set(DROP_TYPES) | {MKT_VEVE, MKT_STACKR, TRANSFER, ADMIN}
+    known = (set(DROP_TYPES) | set(MKT_VEVE_TYPES) | set(ADMIN_TYPES)
+             | set(OTHER_TYPES) | {MKT_STACKR, TRANSFER})
     print("  types rencontres (tx / somme des prix) :", flush=True)
     for t, (n, tot) in sorted(types.items(), key=lambda x: -x[1][0]):
         flag = "" if t in known else "   <-- TYPE INCONNU (non compte !)"
         print(f"    {t:32s} {n:6d}   {tot:12.2f} ${flag}", flush=True)
+    if top:
+        top.sort(reverse=True)
+        print(f"  plus grosses transactions (>= {BIG_TX} $) — explique les "
+              f"pics :", flush=True)
+        for pr, day, typ, name, iss in top[:8]:
+            print(f"    {day}  {pr:10.2f} $  {typ:15s} {name} #{iss}",
+                  flush=True)
     inconnus = {t: v[0] for t, v in types.items() if t not in known}
     stats = {"pages": pages, "tx": kept, "doublons": dupes,
              "jusqu_au": oldest, "jours": len(daily), "pseudos": len(pseudos)}
@@ -275,7 +307,8 @@ def _rows(daily: Dict[str, Dict]) -> List[List]:
         out.append([d, round(v["drop_usd"], 2), v["drop_tx"],
                     round(v["market_veve_usd"], 2), v["market_veve_tx"],
                     round(v["market_stackr_usd"], 2), v["market_stackr_tx"],
-                    v["transfers"], v["admin_tx"]])
+                    v["transfers"], v["admin_tx"],
+                    round(v["other_usd"], 2), v["other_tx"]])
     return out
 
 
