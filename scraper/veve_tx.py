@@ -52,7 +52,7 @@ import os
 import sys
 import time
 import urllib.parse
-from collections import defaultdict
+from collections import Counter, defaultdict
 from typing import Any, Dict, List, Tuple
 
 import requests
@@ -167,7 +167,7 @@ def _blank() -> Dict[str, float]:
 
 
 def aggregate(items: List[Dict], daily: Dict[str, Dict],
-              pseudos: Dict[str, str]) -> None:
+              pseudos: Dict[str, str], types: Dict = None) -> None:
     """Ventile une page dans {jour PT -> compteurs} et recolte les pseudos.
 
     Seules les transactions COMPLETE comptent dans les revenus (les PENDING
@@ -178,6 +178,12 @@ def aggregate(items: List[Dict], daily: Dict[str, Dict],
             continue
         d = daily.setdefault(day, _blank())
         typ = str(it.get("veve_type") or "")
+        if types is not None:
+            # inventaire de TOUS les types vus (+ montant) : garde-fou contre
+            # un type de vente qu'on ignorerait (enchere, panier gem, etc.)
+            t = types.setdefault(typ or "(vide)", [0, 0.0])
+            t[0] += 1
+            t[1] += _f(it.get("price"))
         price = _f(it.get("price"))
         done = str(it.get("status") or "") == "COMPLETE"
         if typ == TRANSFER:
@@ -214,6 +220,7 @@ def walk(days: int = DAYS, until: str = "", max_pages: int = MAX_PAGES,
         stop = d0.isoformat()
     daily: Dict[str, Dict] = {}
     pseudos: Dict[str, str] = {}
+    types: Dict[str, list] = {}
     seen: set = set()
     s = session or requests.Session()
     pages = dupes = kept = 0
@@ -233,7 +240,7 @@ def walk(days: int = DAYS, until: str = "", max_pages: int = MAX_PAGES,
             if vid:
                 seen.add(vid)
             fresh.append(it)
-        aggregate(fresh, daily, pseudos)
+        aggregate(fresh, daily, pseudos, types)
         kept += len(fresh)
         oldest = _pt(items[-1].get("created_at"))
         if cursor % 25 == 0 or cursor <= 3:
@@ -244,8 +251,16 @@ def walk(days: int = DAYS, until: str = "", max_pages: int = MAX_PAGES,
     # le jour le plus ancien atteint est PARTIEL (on s'est arrete au milieu)
     if oldest and oldest in daily and oldest < stop:
         daily.pop(oldest, None)
+    known = set(DROP_TYPES) | {MKT_VEVE, MKT_STACKR, TRANSFER, ADMIN}
+    print("  types rencontres (tx / somme des prix) :", flush=True)
+    for t, (n, tot) in sorted(types.items(), key=lambda x: -x[1][0]):
+        flag = "" if t in known else "   <-- TYPE INCONNU (non compte !)"
+        print(f"    {t:32s} {n:6d}   {tot:12.2f} ${flag}", flush=True)
+    inconnus = {t: v[0] for t, v in types.items() if t not in known}
     stats = {"pages": pages, "tx": kept, "doublons": dupes,
              "jusqu_au": oldest, "jours": len(daily), "pseudos": len(pseudos)}
+    if inconnus:
+        stats["TYPES_INCONNUS"] = inconnus
     return daily, pseudos, stats
 
 
