@@ -112,10 +112,15 @@ CORNER_HEADER = (["veve_uuid", "name", "category", "circulating", "holders",
                     "engagement_dominant", "engagement_dominant_pct"])
 
 # Tranches de QUANTITE (nb d'exemplaires detenus) — demande Preda.
+# Echelle v2 (choix Preda 12/07) : la queue est bien plus lourde que prevu
+# (539 wallets >= 1847 items, top 419k = wallet officiel VeVe) -> 13 tranches
+# pour distinguer la hierarchie des whales jusqu'a l'elite absolue.
 QTY_BUCKETS = [(1, 1, "1"), (2, 10, "2-10"), (11, 50, "11-50"),
                (51, 100, "51-100"), (101, 250, "101-250"), (251, 500, "251-500"),
-               (501, 1000, "501-1000"), (1001, 5000, "1001-5000"),
-               (5001, float("inf"), "5001+")]
+               (501, 1000, "501-1000"), (1001, 2500, "1001-2500"),
+               (2501, 5000, "2501-5000"), (5001, 10000, "5001-10000"),
+               (10001, 25000, "10001-25000"), (25001, 50000, "25001-50000"),
+               (50001, float("inf"), "50001+")]
 # Tranches de VALEUR (USD) — echelle log large.
 VALUE_BUCKETS = [(0, 100, "<100"), (100, 500, "100-500"), (500, 1000, "500-1k"),
                  (1000, 5000, "1k-5k"), (5000, 25000, "5k-25k"),
