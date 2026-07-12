@@ -72,7 +72,14 @@ PULSE_TAB = "_MonthlyPulse"          # source du 📅 pulse mensuel (ledger)
 PULSE_ROW = 49
 YEAR_ROW = 116                       # 📅 PAR ANNÉE + 📈 PULSE annuel (sous les 60 mois)
 NOTES_ROW = 132                      # ℹ️ notes & legendes, sous le tableau annuel (v14)
-BURNS_ROW = 37                       # 🔥 synthese burns (colonne T, sous la sante)
+# 2e colonne de modules : AF (la colonne T est prise par les tailles (8-20),
+# la sante (22-35) PUIS par le PULSE des le rang 49 -> tout bloc pose en T
+# au-dela de 36 entrerait en COLLISION avec le pulse).
+MODULE_COL2 = "AF"
+BURNS_ROW = 8                        # 🔥 synthese burns (AF8)
+UNIVERS_ROW = 24                     # 🏪 univers de marche (AF24)
+UNIVERS_TAB = "_MarketUniverse"      # ecrit par scraper/market_universe.py
+UNIVERS_DAYS = int(os.environ.get("STATS_UNIVERS_DAYS", "8"))
 # Offre OMI EN CIRCULATION (CoinGecko / ECOMI, juillet 2026 : 270 951 644 947 ;
 # offre TOTALE 750 Md). Env OMI_CIRCULATING pour la reactualiser.
 OMI_CIRCULATING = float(os.environ.get("OMI_CIRCULATING", "270951644947"))
@@ -579,6 +586,39 @@ def build_burns_summary(sh, rates) -> List[List]:
     return g
 
 
+def build_universe(sh) -> List[List]:
+    """🏪 UNIVERS DE MARCHÉ (demande Preda 12/07 : « renseigne-moi cette info
+    des éléments qui ont un marché, avec un historique et une note »).
+
+    Source : onglet `_MarketUniverse` (scraper/market_universe.py, 1 ligne par
+    jour). L'endpoint public getElements ne renvoie PAS tout le catalogue mais
+    seulement les éléments QUI ONT UN MARCHÉ."""
+    rows = _records(sh, UNIVERS_TAB)
+    if not rows:
+        return []
+    rows = sorted(rows, key=lambda r: str(r.get("date", "")), reverse=True)
+    d = rows[0]
+    g: List[List] = [
+        [f"🏪  UNIVERS DE MARCHÉ — {d.get('date', '')}", "", "", ""],
+        ["Mesure", "Valeur", "", ""],
+        ["Éléments avec un marché", _n(d.get("elements")), "", ""],
+        ["· collectibles", _n(d.get("collectibles")), "", ""],
+        ["· couvertures de comics", _n(d.get("comics")), "", ""],
+        ["Avec au moins une offre", _n(d.get("avec_offre")), "", ""],
+        ["Sans aucune offre", _n(d.get("sans_offre")), "", ""],
+        ["Échangés récemment (volume > 0)", _n(d.get("avec_volume")), "", ""],
+        ["Floor médian", d.get("floor_median", ""), "gems", ""],
+        ["Catalogue complet", _n(d.get("catalogue")), "produits", ""],
+        ["Couverture du catalogue", d.get("couverture_pct", ""), "%", ""],
+        ["", "", "", ""],
+        ["Historique", "Éléments", "Avec offre", "Échangés"],
+    ]
+    for r in rows[:UNIVERS_DAYS]:
+        g.append([str(r.get("date", "")), _n(r.get("elements")),
+                  _n(r.get("avec_offre")), _n(r.get("avec_volume"))])
+    return g
+
+
 def read_omi_burns(sh):
     """(total, nft, gem) : {date_pt -> OMI brules} depuis 🔥H-BURNS.
     v10 : la decompo (colonnes omi_nft / omi_gem ecrites par burns.py v6 sur
@@ -939,6 +979,14 @@ def build_notes_grid() -> List[List]:
               "(mois ou année) sans AUCUNE transaction sur la période en "
               "cours · Rétention % = 100 − churn (actifs qui reviennent) — "
               "les deux vivent dans les blocs 📈 PULSE.", ""])
+    g.append(["🏪 UNIVERS DE MARCHÉ : les 6 011 « éléments » du marché ne "
+              "sont PAS tout le catalogue (18 681 produits). VeVe/StackR "
+              "n'exposent que les éléments QUI ONT UN MARCHÉ — collectibles "
+              "ET couvertures de comics mélangés. Les items jamais listés "
+              "n'y figurent pas… et ne peuvent de toute façon pas être "
+              "achetés : c'est donc le bon périmètre pour les alertes de "
+              "floor. Le bloc suit ce nombre jour après jour (un élément qui "
+              "entre = un item qui devient échangeable).", ""])
     g.append(["🔥 BURNS : deux flux distincts qui s'ADDITIONNENT — marché "
               "(2 % de chaque vente StackR, brûlés depuis 0x821c) et gems "
               "(7 % de chaque conversion OMI→gems, depuis 19/11/2025). La "
@@ -1119,7 +1167,7 @@ def write_stats(sh) -> Dict[str, Any]:
     sante_off = (len(wsize) + 1) if wsize else 0      # lignes avant la santé
     notes = build_notes_grid()
 
-    ws = _open_worksheet(sh, STATS_TAB, cols=34)
+    ws = _open_worksheet(sh, STATS_TAB, cols=40)   # AF..AI = 2e colonne modules
     ws.clear()
     ws.update(range_name="A1", values=table, value_input_option="RAW")
     ws.update(range_name=f"{MODULE_COL}{GROUP_ROW}", values=modules,
@@ -1155,11 +1203,23 @@ def write_stats(sh) -> Dict[str, Any]:
     # 🔥 SYNTHÈSE BURNS (colonne T, sous la sante)
     burns_g = build_burns_summary(sh, mkt_rates)
     if burns_g:
-        ws.update(range_name=f"{MODULE_COL}{BURNS_ROW}", values=burns_g,
+        ws.update(range_name=f"{MODULE_COL2}{BURNS_ROW}", values=burns_g,
                   value_input_option="RAW")
         try:
-            ws.format(f"T{BURNS_ROW}:W{BURNS_ROW}", VIOLET)
-            ws.format(f"T{BURNS_ROW + 1}:W{BURNS_ROW + 1}", BOLD)
+            ws.format(f"AF{BURNS_ROW}:AI{BURNS_ROW}", VIOLET)
+            ws.format(f"AF{BURNS_ROW + 1}:AI{BURNS_ROW + 1}", BOLD)
+        except Exception:
+            pass
+
+    # 🏪 UNIVERS DE MARCHÉ (colonne T, sous les burns)
+    univ_g = build_universe(sh)
+    if univ_g:
+        ws.update(range_name=f"{MODULE_COL2}{UNIVERS_ROW}", values=univ_g,
+                  value_input_option="RAW")
+        try:
+            ws.format(f"AF{UNIVERS_ROW}:AI{UNIVERS_ROW}", VIOLET)
+            ws.format(f"AF{UNIVERS_ROW + 1}:AI{UNIVERS_ROW + 1}", BOLD)
+            ws.format(f"AF{UNIVERS_ROW + 12}:AI{UNIVERS_ROW + 12}", BOLD)
         except Exception:
             pass
 
@@ -1193,6 +1253,7 @@ def write_stats(sh) -> Dict[str, Any]:
             "annees": max(0, len(annual_g) - 3),
             "jours_revenue_reel": n_reel,
             "burns_synthese": len(burns_g),
+            "univers": len(univ_g),
             "sante_row": GROUP_ROW + sante_off,
             "registres_wallets": len(known)}
 
