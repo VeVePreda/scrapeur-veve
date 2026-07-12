@@ -1,0 +1,45 @@
+name: VeVe transactions (flux public)
+
+# Tourne 20 min AVANT le daily (04:11 UTC) pour que la page 📊 STATS ecrite
+# par le daily (step stats) lise deja le revenue REEL du jour precedent.
+on:
+  schedule:
+    - cron: "50 3 * * *"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Fenetre rejouee (jours PT)"
+        required: false
+        default: "3"
+
+permissions:
+  contents: write
+
+jobs:
+  veve-tx:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Flux VeVe (revenue reel + ventes gems + pseudos)
+        env:
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          VEVE_TX_DAYS: ${{ github.event.inputs.days || '3' }}
+        run: python -m scraper.veve_tx
+
+      - name: Commit data/veve_tx_daily.csv
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          if [ -f data/veve_tx_daily.csv ]; then
+            git add data/veve_tx_daily.csv
+            git diff --cached --quiet || git commit -m "veve_tx: revenue quotidien"
+            git push || true
+          fi

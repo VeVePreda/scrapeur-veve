@@ -1,0 +1,55 @@
+name: VeVe transactions — BACKFILL
+
+# Reconstruit l'historique du revenue REEL (drops + ventes gems) en UN SEUL run :
+# ~1 700 tx/jour, 100 tx/page -> ~17 pages/jour d'historique.
+#   30 jours  ~   510 pages  (~4 min)
+#   1 an      ~ 6 200 pages  (~35 min)
+# Le decalage du curseur pendant le run (les nouvelles tx poussent les pages)
+# est absorbe par la dedup veve_id. A lancer de preference sur le repo PUBLIC.
+
+on:
+  workflow_dispatch:
+    inputs:
+      until:
+        description: "Remonter jusqu'a ce jour PT (YYYY-MM-DD)"
+        required: true
+        default: "2026-01-01"
+      max_pages:
+        description: "Garde-fou pages"
+        required: false
+        default: "10000"
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Backfill du flux VeVe
+        env:
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          VEVE_TX_BACKFILL: "true"
+          VEVE_TX_UNTIL: ${{ github.event.inputs.until }}
+          VEVE_TX_MAX_PAGES: ${{ github.event.inputs.max_pages }}
+          VEVE_TX_PAUSE: "0.2"
+        run: python -m scraper.veve_tx
+
+      - name: Commit data/veve_tx_daily.csv
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          if [ -f data/veve_tx_daily.csv ]; then
+            git add data/veve_tx_daily.csv
+            git diff --cached --quiet || git commit -m "veve_tx: backfill"
+            git push || true
+          fi
