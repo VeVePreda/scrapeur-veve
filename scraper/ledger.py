@@ -100,7 +100,7 @@ SIZE_HEADER = ["snapshot_month", "dimension", "bucket", "wallets", "pct_wallets"
 PSEUDO_PROFILE_COLS = ["holdings", "distinct_collectibles", "acquired", "sold",
                        "retention", "median_hold_days", "collectorScore",
                        "activityStatus", "engagementLevel", "value_store",
-                       "value_floor", "qty_bucket"]
+                       "value_floor", "qty_bucket", "airdropOnly"]
 CORNER_HEADER = (["veve_uuid", "name", "category", "circulating", "holders",
                   "gini"]
                  + [f"top{i}_{s}" for i in range(1, 11) for s in ("cnt", "pct")]
@@ -497,7 +497,12 @@ def replay(folder: str, imx_folder: str = ""):
     if dups:
         print(f"Rejeu : {dups} doublons d'archives ignores (chevauchement "
               f"scan profond / continuite quotidienne).", flush=True)
-    airdrops = _detect_airdrops(folder, mint_day_uuid)
+    airdrops, air_wallets = _detect_airdrops(folder, mint_day_uuid)
+    # flag 🎯 (demande Preda 11/07) : memorise par wallet le nb de mints recus
+    # via des airdrops detectes -> build_all classe "airdrop-only".
+    for w, c in air_wallets.items():
+        if w in prof:
+            prof[w]["airdrop_mints"] = c
     seq.clear()                     # libere la RAM avant l'ere IMX (runner 7 Go)
     n_imx = _ingest_imx(imx_folder, monthly, first_month)
     if n_imx:
@@ -616,8 +621,8 @@ def _detect_airdrops(folder: str, mint_day_uuid: Counter) -> Dict:
     candidates = {k for k, v in mint_day_uuid.items()
                   if v >= AIRDROP_MIN_MINTS}
     if not candidates:
-        return {}
-    minters: Dict[Tuple[str, str], set] = {k: set() for k in candidates}
+        return {}, Counter()
+    minters: Dict[Tuple[str, str], Counter] = {k: Counter() for k in candidates}
     for path in _archive_files(folder):
         with gzip.open(path, "rt", encoding="utf-8") as f:
             for r in csv.DictReader(f):
@@ -629,15 +634,18 @@ def _detect_airdrops(folder: str, mint_day_uuid: Counter) -> Dict:
                 if k in minters:
                     to = (r.get("to") or "").strip().lower()
                     if to and to not in SYSTEM:
-                        minters[k].add(to)
+                        minters[k][to] += 1
     out = {}
+    air_wallets: Counter = Counter()   # wallet -> mints recus via airdrops
     for k in candidates:
         m = mint_day_uuid[k]
         if len(minters[k]) >= AIRDROP_MINTER_RATIO * m:
             out[k] = m
+            for w, c in minters[k].items():
+                air_wallets[w] += c
             print(f"    AIRDROP detecte : {k[0]} {k[1][:8]}… "
                   f"{m} mints / {len(minters[k])} wallets.", flush=True)
-    return out
+    return out, air_wallets
 
 
 def _build_pulse(monthly, first_month, uuid_first_mint, uuid_cat=None,
@@ -837,9 +845,10 @@ def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date,
           f"{n} transferts.", flush=True)
 
     snap, snap_names, skipped = load_snapshot(snap_folder)
+    n_snap = len(snap)          # merge_state CONSOMME snap (fix OOM 11/07)
     if snap:
         ledger, sstats = merge_state(ledger_replay, snap)
-        print(f"Snapshot holders : {len(snap)} editions — etat PRESENT prioritaire "
+        print(f"Snapshot holders : {n_snap} editions — etat PRESENT prioritaire "
               f"(owned={sstats.get('owned', 0)}, burned={sstats.get('burned', 0)}, "
               f"escrow_resolu={sstats.get('escrow_resolved', 0)}, "
               f"escrow_inconnu={sstats.get('escrow_unresolved', 0)}, "
@@ -909,7 +918,14 @@ def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date,
             "value_store": round(value_store.get(w, 0), 2),
             "value_floor": round(value_floor.get(w, 0), 2),
             "qty_bucket": qbk[w], "pseudo": pseudos.get(w, ""),
-            "last_active": p["last"], "listed": listed_cnt.get(w, 0)}
+            "last_active": p["last"], "listed": listed_cnt.get(w, 0),
+            # 🎯 airdrop-only : TOUTE son activite = recevoir des airdrops
+            # (aucun achat/vente/burn, tous ses mints viennent d'airdrops
+            # detectes) -> son statut "Actif" est artificiel.
+            "airdropOnly": ("🎯" if (p["mints"] > 0 and p["buys"] == 0
+                                     and p["sells"] == 0
+                                     and p.get("airdrop_mints", 0) >= p["mints"])
+                            else "")}
 
     # TYPOLOGIE des whales : 3 blocs (top `top` par critere)
     whale_blocks = []
@@ -1015,7 +1031,7 @@ def _save_profiles(profiles, path):
     cols = ["holdings", "distinct_collectibles", "acquired", "sold", "retention",
             "median_hold_days", "collectorScore", "activityStatus",
             "engagementLevel", "value_store", "value_floor", "qty_bucket",
-            "pseudo", "last_active", "listed"]
+            "airdropOnly", "pseudo", "last_active", "listed"]
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with gzip.open(path, "wt", encoding="utf-8", newline="") as f:
         w = csv.writer(f, lineterminator="\n")
@@ -1333,7 +1349,8 @@ def main() -> int:
     # 🏠ACCUEIL supprime (10/07, choix Preda) : la synthese vit sur 📊 STATS
     # (module stats_page, daily step 7). _write_dashboard n'est plus appele.
 
-    summary = {"status": "OK", "editions": len(ledger),
+    n_air = sum(1 for pr in profiles.values() if pr.get("airdropOnly"))
+    summary = {"status": "OK", "airdrop_only": n_air, "editions": len(ledger),
                "holders": len(profiles), "wallets_behavior": len(prof),
                "snapshot": "yes" if have_snap else "no",
                "whales_top": top, "collectibles": len(corner),

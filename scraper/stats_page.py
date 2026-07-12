@@ -749,6 +749,9 @@ def build_modules_grid(sante_rows, split) -> List[List]:
               "Serious ≥75% · Collector ≥50% · Trader ≥30% · Flipper ≥15% · "
               "Seasoned ≥5% · Aggressive <5% (+1 cran flipper si revente "
               "médiane <7 j).", ""])
+    g.append(["🎯 AIRDROP-ONLY (🟣C-PSEUDOS) : wallet dont TOUTE l'activité "
+              "est la réception d'airdrops (aucun achat/vente/burn) — son "
+              "statut Actif est artificiel.", ""])
     g.append(["🔁 ENGAGEMENT (part des semaines actives depuis la 1ʳᵉ tx) : "
               "Fidèle ≥50 % · Régulier ≥25 % · Occasionnel ≥10 % · "
               "Sporadique <10 % · Unique = 1 seule semaine.", ""])

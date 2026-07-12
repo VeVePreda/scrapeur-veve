@@ -93,7 +93,7 @@ PSEUDOS_HEADER = ["username", "wallet_imx", "wallet_stackr", "veve_user_id",
                   "holdings", "distinct_collectibles", "acquired", "sold",
                   "retention", "median_hold_days", "collectorScore",
                   "activityStatus", "engagementLevel", "value_store",
-                  "value_floor", "qty_bucket"]
+                  "value_floor", "qty_bucket", "airdropOnly"]
 
 PAUSE = float(os.environ.get("STACKR_PAUSE", "0.35"))
 MAX_LOOKUPS = int(os.environ.get("STACKR_MAX_LOOKUPS", "200"))
