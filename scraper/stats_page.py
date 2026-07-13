@@ -1132,10 +1132,11 @@ def build_notes_grid() -> List[List]:
     g.append(["👴 OG 21-22 : wallets dont la 1ʳᵉ activité (toutes ères "
               "confondues) est ANTÉRIEURE à 2023, comptés parmi les actifs "
               "UNIQUES du mois. La colonne OG % dit quelle part du marché "
-              "vivant est tenue par les anciens. ⚠️ La genèse IMX est le "
-              "14/12/2021 : l'ère GoChain (avant) n'est pas encore collectée, "
-              "les tout premiers OG sont donc datés de 2021-12 par défaut.",
-              ""])
+              "vivant est tenue par les anciens. L'ancienneté remonte "
+              "désormais à l'ère GOCHAIN (1ᵉʳ wallet : mai 2019) — les "
+              "adresses sont identiques sur GoChain, IMX et CollectChain. "
+              "Régler OG_CUTOFF (défaut \"2023\") : \"2021\" ne garderait "
+              "que les vrais pionniers d'avant la hype.", ""])
     g.append(["🔁 ENGAGEMENT (part des semaines actives depuis la 1ʳᵉ tx) : "
               "Fidèle ≥50 % · Régulier ≥25 % · Occasionnel ≥10 % · "
               "Sporadique <10 % · Unique = 1 seule semaine.", ""])

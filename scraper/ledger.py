@@ -234,6 +234,17 @@ MIGRATION_DAY = os.environ.get("CC_MIGRATION_DAY", "2026-01-28")
 # NB : la genese IMX est le 14/12/2021 ; l'ere GoChain (avant) n'est pas encore
 # collectee, donc les tout premiers OG sont dates de 2021-12 par defaut.
 OG_CUTOFF = os.environ.get("OG_CUTOFF", "2023")
+# ── ANTERIORITE GOCHAIN (13/07) ──────────────────────────────────────────────
+# L'ere d'AVANT IMX est enfin collectee (repo jetonveve, CSV public). Les
+# adresses sont les MEMES sur GoChain / IMX / CollectChain — verifie. Sans ce
+# raccord, TOUS les anciens sont dates du 2021-12 (genese IMX) et on ne peut
+# pas distinguer un pionnier de 2019 d'un arrivant de la hype de decembre.
+# On fusionne par le MINIMUM : GoChain ne peut que RECULER une anteriorite,
+# jamais l'avancer.
+GOCHAIN_URL = os.environ.get(
+    "GOCHAIN_URL",
+    "https://raw.githubusercontent.com/fanablefrance/jetonveve/main/"
+    "data/gochain_wallets.csv")
 # Bareme d'activite en FRANCAIS (Preda 2026-07-10) — remplace
 # Active/Engaged/Dormant/Lapsed/Inactive/Ghost.
 ACTIVITIES = ["Actif", "Engagé", "Somnolant", "Inactif", "Désinscrit", "Fantôme"]
@@ -569,6 +580,10 @@ def replay(folder: str, imx_folder: str = ""):
             mint_month_uuid[k] = max(0, mint_month_uuid[k] - cnt)
     seq.clear()                     # libere la RAM avant l'ere IMX (runner 7 Go)
     n_imx = _ingest_imx(imx_folder, monthly, first_month)
+    g_lus, g_rec = _ingest_gochain(first_month)
+    if g_lus:
+        print(f"GoChain : {g_lus} wallets lus, {g_rec} anteriorites RECULEES "
+              f"(l'ere d'avant IMX : 2019 -> 2021).", flush=True)
     if n_imx:
         print(f"Pulse IMX : {n_imx} transferts 2021->{MIGRATION_DAY} integres "
               f"({len(monthly)} mois au pulse).", flush=True)
@@ -682,6 +697,40 @@ def _ingest_imx(folder: str, monthly: Dict, first_month: Dict) -> int:
                         mo["sellers"].add(frm)
                         touch(mo, m, frm, -1)
     return n
+
+
+def _ingest_gochain(first_month: Dict[str, str]) -> tuple:
+    """Recule le first_month des wallets vus sur GoChain (2019 -> 2021).
+
+    Retourne (lus, recules). Tolerant : si le CSV est injoignable, le ledger
+    continue — on perd la granularite, pas le run.
+    NB l'User-Agent : Python-urllib se fait refuser par pas mal de WAF (lecon
+    du 403 GoChain). On se presente proprement."""
+    import csv as _csv
+    import io
+    import urllib.request
+    if not GOCHAIN_URL:
+        return 0, 0
+    try:
+        req = urllib.request.Request(
+            GOCHAIN_URL, headers={"User-Agent": "veve-ledger/1.0"})
+        with urllib.request.urlopen(req, timeout=120) as r:
+            txt = r.read().decode("utf-8", "replace")
+    except Exception as e:
+        print(f"GoChain : CSV injoignable ({e}) — anteriorite non fusionnee "
+              f"(les anciens resteront dates du 2021-12).", flush=True)
+        return 0, 0
+    lus = recules = 0
+    for row in _csv.DictReader(io.StringIO(txt)):
+        w = (row.get("wallet") or "").strip().lower()
+        fs = (row.get("first_seen") or "").strip()[:7]      # YYYY-MM
+        if not w or len(fs) != 7:
+            continue
+        lus += 1
+        if fs < first_month.get(w, "9999"):
+            first_month[w] = fs
+            recules += 1
+    return lus, recules
 
 
 def _detect_airdrops(folder: str, mint_day_uuid: Counter) -> Dict:
