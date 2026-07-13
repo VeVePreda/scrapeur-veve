@@ -261,11 +261,31 @@ def habiller(sh, ws, quotidien, n_jours, periode, n_mois, n_annees,
                               "userEnteredFormat.textFormat"))
             reqs += bloc(sid, whales, a + 2, a + 3, a + 2 + n_whales, col1=c1)
 
-    # figer l'en-tete du quotidien + la colonne des dates
+    # Figer l'en-tete du quotidien. PAS la colonne des dates : Google refuse de
+    # figer une colonne qui couperait une cellule FUSIONNEE (le titre s'etend
+    # de A a S). Constate le 13/07 — et comme un batch_update est ATOMIQUE,
+    # cette seule requete avait annule les 275 autres.
     reqs.append({"updateSheetProperties": {
         "properties": {"sheetId": sid,
-                       "gridProperties": {"frozenRowCount": 9,
-                                          "frozenColumnCount": 1}},
-        "fields": "gridProperties(frozenRowCount,frozenColumnCount)"}})
-    sh.batch_update({"requests": reqs})
-    return len(reqs)
+                       "gridProperties": {"frozenRowCount": 9}},
+        "fields": "gridProperties.frozenRowCount"}})
+    return _envoyer(sh, reqs)
+
+
+def _envoyer(sh, reqs: List[dict], paquet: int = 60) -> int:
+    """Envoie par PAQUETS, pas d'un bloc.
+
+    Un batch_update est ATOMIQUE : une seule requete refusee et TOUT est perdu
+    (leçon du 13/07 : un figeage de colonne invalide a annule 275 requetes
+    d'habillage parfaitement valides). En paquets, un accident reste local —
+    et on DIT lequel a echoue au lieu de perdre la page en silence."""
+    ok = 0
+    for i in range(0, len(reqs), paquet):
+        tranche = reqs[i:i + paquet]
+        try:
+            sh.batch_update({"requests": tranche})
+            ok += len(tranche)
+        except Exception as e:
+            print(f"    habillage : paquet {i // paquet + 1} refuse ({e}) — "
+                  f"les autres passent quand meme.", flush=True)
+    return ok
