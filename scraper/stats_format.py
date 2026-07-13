@@ -17,16 +17,33 @@ from __future__ import annotations
 from typing import Dict, List
 
 # ── THEME SOMBRE (Preda 13/07) ───────────────────────────────────────────────
-FOND = {'red': 0.21176470588235294, 'green': 0.2235294117647059, 'blue': 0.24705882352941178}          # #36393f
-FOND_ALT = {'red': 0.24705882352941178, 'green': 0.2627450980392157, 'blue': 0.2901960784313726}      # zebrure : une nuance a peine plus claire
-BLANC = {"red": 1, "green": 1, "blue": 1}
-GRIS_FONCE2 = {'red': 0.4, 'green': 0.4, 'blue': 0.4}   # le texte sur les cellules claires
+# v6 : les pastels clairs poses sur un fond sombre, ca jurait. La grammaire
+# d'un theme sombre est l'inverse : la couleur ne se pose pas en aplat laiteux,
+# elle se porte par un BANDEAU PROFOND ou par le TEXTE.
+#   ligne des GROUPES  : la teinte de la famille, en PROFOND, texte blanc
+#   ligne des EN-TETES : fond sombre, et le PASTEL DE PREDA en couleur de TEXTE
+# Le code couleur des 6 familles est intact — il est juste porte autrement.
+FOND = {'red': 0.21176470588235294, 'green': 0.2235294117647059, 'blue': 0.24705882352941178}          # #36393f (demande Preda)
+FOND_ALT = {'red': 0.23137254901960785, 'green': 0.24705882352941178, 'blue': 0.27450980392156865}      # zebrure : une nuance a peine plus claire
+FOND_ENTETE = {'red': 0.16862745098039217, 'green': 0.1803921568627451, 'blue': 0.2}   # un cran plus sombre : l'en-tete s'enfonce
+BLANC = {'red': 1.0, 'green': 1.0, 'blue': 1.0}
+OR = {'red': 0.9607843137254902, 'green': 0.7019607843137254, 'blue': 0.00392156862745098}            # les KPI, comme sur ton tableau de bord
 VIOLET = {'red': 0.4823529411764706, 'green': 0.17254901960784313, 'blue': 0.7490196078431373}
-OR = {'red': 0.9607843137254902, 'green': 0.7019607843137254, 'blue': 0.00392156862745098}
+GRIS_FONCE2 = {'red': 0.4, 'green': 0.4, 'blue': 0.4}
+GRIS_TXT = {'red': 0.6039215686274509, 'green': 0.6274509803921569, 'blue': 0.6509803921568628}      # les libelles secondaires
 
-# Les COULEURS DE FAMILLE, telles que Preda les veut (celles de l'ancien .gs).
-# Ligne des GROUPES (18) : soutenue. Ligne des EN-TETES (19) : la meme, delavee.
+# Les 6 familles, PROFONDES (ligne des groupes)
 GROUPES = {
+    "TRANSACTION": {'red': 0.1843137254901961, 'green': 0.30980392156862746, 'blue': 0.4196078431372549},
+    "ACTIF": {'red': 0.23529411764705882, 'green': 0.35294117647058826, 'blue': 0.23529411764705882},
+    "LISTING": {'red': 0.2901960784313726, 'green': 0.2549019607843137, 'blue': 0.4},
+    "REVENUE": {'red': 0.4196078431372549, 'green': 0.35294117647058826, 'blue': 0.1568627450980392},
+    "OMI BURN": {'red': 0.4196078431372549, 'green': 0.2196078431372549, 'blue': 0.2196078431372549},
+    "ACHAT": {'red': 0.1843137254901961, 'green': 0.3568627450980392, 'blue': 0.37254901960784315},
+}
+# Les MEMES familles, en PASTEL — les couleurs exactes que Preda a donnees.
+# Elles servent desormais de COULEUR DE TEXTE sur la ligne des en-tetes.
+PASTELS = {
     "TRANSACTION": {'red': 0.8117647058823529, 'green': 0.8862745098039215, 'blue': 0.9529411764705882},
     "ACTIF": {'red': 0.8509803921568627, 'green': 0.9176470588235294, 'blue': 0.8274509803921568},
     "LISTING": {'red': 0.8509803921568627, 'green': 0.8235294117647058, 'blue': 0.9137254901960784},
@@ -34,20 +51,12 @@ GROUPES = {
     "OMI BURN": {'red': 0.9568627450980393, 'green': 0.8, 'blue': 0.8},
     "ACHAT": {'red': 0.8156862745098039, 'green': 0.8784313725490196, 'blue': 0.8901960784313725},
 }
-ENTETES = {
-    "TRANSACTION": {'red': 0.8862745098039215, 'green': 0.9215686274509803, 'blue': 0.9529411764705882},
-    "ACTIF": {'red': 0.9058823529411765, 'green': 0.9372549019607843, 'blue': 0.8941176470588236},
-    "LISTING": {'red': 0.9058823529411765, 'green': 0.8901960784313725, 'blue': 0.9372549019607843},
-    "REVENUE": {'red': 0.9725490196078431, 'green': 0.9529411764705882, 'blue': 0.8784313725490196},
-    "OMI BURN": {'red': 0.9529411764705882, 'green': 0.8784313725490196, 'blue': 0.8784313725490196},
-    "ACHAT": {'red': 0.8941176470588236, 'green': 0.9294117647058824, 'blue': 0.9372549019607843},
-}
-GRIS = {'red': 0.9098039215686274, 'green': 0.9098039215686274, 'blue': 0.9098039215686274}          # familles sans couleur (Date, Drop, pulse)
-GRIS_TXT = {'red': 0.6, 'green': 0.6, 'blue': 0.6}
+GRIS = {'red': 0.24705882352941178, 'green': 0.2627450980392157, 'blue': 0.2901960784313726}          # familles sans couleur (Date, Drop, pulse)
 
 
-def _entete(fam: str) -> dict:
-    return ENTETES.get(fam, GRIS)
+def _txt_entete(fam: str) -> dict:
+    """Le pastel de la famille — en couleur de TEXTE, sur fond sombre."""
+    return PASTELS.get(fam, BLANC)
 
 # ── FORMATS PAR NOM ─────────────────────────────────────────────────────────
 ARGENT = '#,##0" $"'
@@ -170,7 +179,7 @@ def bloc(sid: int, entetes: List[str], ligne_entete: int, ligne1: int,
                 _rng(sid, lg, lg, c_deb, c_fin),
                 {"backgroundColor": GROUPES.get(fam, GRIS),
                  "textFormat": {"bold": True, "fontSize": 10,
-                                "foregroundColor": GRIS_FONCE2},
+                                "foregroundColor": BLANC},
                  "horizontalAlignment": "CENTER",
                  "verticalAlignment": "MIDDLE"},
                 "userEnteredFormat(backgroundColor,textFormat,"
@@ -182,9 +191,9 @@ def bloc(sid: int, entetes: List[str], ligne_entete: int, ligne1: int,
         fam = familles[i]
         reqs.append(_cell(
             _rng(sid, ligne_entete, ligne_entete, c, c),
-            {"backgroundColor": _entete(fam),
+            {"backgroundColor": FOND_ENTETE,
              "textFormat": {"bold": True, "fontSize": 9,
-                            "foregroundColor": GRIS_FONCE2},
+                            "foregroundColor": _txt_entete(fam)},
              "horizontalAlignment": "CENTER",
              "wrapStrategy": "WRAP",
              "verticalAlignment": "MIDDLE"},
