@@ -317,8 +317,18 @@ def _fill_new_cold(rec: Dict[str, Any]) -> None:
         if not rec["supply"] and not is_comic:
             rec["supply"] = rec.get("releaseAmount") or ""
     if not rec.get("store_price_gems"):
-        rec["store_price_gems"] = (rec.get("veve_store_price")
-                                   or rec.get("storePrice") or "")
+        prix = rec.get("veve_store_price") or rec.get("storePrice") or ""
+        # ⚠️ COMICS : VeVe melange DEUX echelles dans `storePrice`. Les vieux comics
+        # etaient vendus en GEMS (10, 15, 20), les recents en FIAT et en CENTIMES
+        # (699, 798, 1499). Preuve : Captain America Comics #7 = 699, et la carte
+        # Discord de Preda dit « 7 gems » ; sur Cheetara #2 le tracker dit 7.98 la
+        # ou GraphQL dit 798. Au-dela de 100 c'est donc des centimes — un comic n'a
+        # jamais coute 100 gems. Regle IDEMPOTENTE (7,98 < 100, pas de 2e division).
+        # NE VAUT PAS pour les collectibles : 1 500 gems, ça existe.
+        n = _to_num(prix)
+        if is_comic and n is not None and n >= 100:
+            prix = round(n / 100, 2)
+        rec["store_price_gems"] = prix
     if is_comic:
         excl = _is_exclusive_cover(rec.get("description"))
         if excl is not None:
