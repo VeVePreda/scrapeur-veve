@@ -31,7 +31,15 @@ GROUPES = {
     "LISTING": {"red": 0.906, "green": 0.890, "blue": 0.937},
     "REVENUE": {"red": 0.973, "green": 0.953, "blue": 0.878},
     "OMI BURN": {"red": 0.953, "green": 0.878, "blue": 0.878},
+    "ACHAT": {"red": 0.878, "green": 0.937, "blue": 0.937},   # gems (Preda)
 }
+# La ligne d'EN-TETES reprend la teinte de sa famille, en plus pale : c'est ce
+# qui rendait le tableau lisible d'un coup d'oeil (l'ancien .gs le faisait, je
+# l'avais perdu en passant tout en gris — remonte par Preda le 13/07).
+
+
+def _pale(c: dict) -> dict:
+    return {k: v + (1.0 - v) * 0.45 for k, v in c.items()}
 
 # ── FORMATS PAR NOM ─────────────────────────────────────────────────────────
 ARGENT = '#,##0" $"'
@@ -54,9 +62,31 @@ FORMATS: Dict[str, str] = {
 TEXTE = {"Date", "Mois", "Année", "Drop ", "Wallet", "Pseudo", "Score",
          "Activité", "Par QUANTITÉ", "source", "statut", "fraîcheur"}
 
-LARGEURS = {"Date": 90, "Mois": 80, "Année": 70, "Drop": 210, "Wallet": 300,
-            "Pseudo": 130, "Score": 130, "Activité": 90, "Rang": 50}
-LARGEUR_DEFAUT = 78
+# ⚠️ DEUX colonnes s'appellent "Drop" : le NOM du drop (colonne B, large) et le
+# REVENUE du drop (groupe REVENUE, etroit). Une largeur par NOM seul les
+# confondait — la cle est donc (FAMILLE|nom), et le nom seul en repli.
+LARGEURS = {
+    "|Drop": 230, "REVENUE|Drop": 95,          # les deux "Drop"
+    "Date": 100, "Mois": 85, "Année": 75,
+    "REVENUE|Total": 100, "REVENUE|Market": 100,
+    "OMI BURN|Global $": 95, "OMI BURN|OMI→NFT": 105, "OMI BURN|OMI→GEM": 105,
+    "ACHAT|Gems $": 95,
+    "ACTIF|Nouveaux": 90, "ACTIF|Anciens": 85, "ACTIF|Unique": 85,
+    "LISTING|Quantité": 90, "LISTING|Comptes": 95,
+    "Wallet": 300, "Pseudo": 140, "Score": 140, "Activité": 95, "Rang": 55,
+    "Critère": 100, "Exemplaires": 100, "Collectibles": 100,
+    "Valeur store $": 110, "Valeur floor $": 110,
+    "Acheteurs uniques": 115, "Vendeurs uniques": 115,
+    "Minters uniques": 110, "Acc. nette moy": 105,
+    "Rétention %": 95, "Churn %": 85, "OG 21-22": 90, "OG %": 75,
+}
+LARGEUR_DEFAUT = 88
+
+
+def _largeur(famille: str, nom: str) -> int:
+    return (LARGEURS.get(f"{famille}|{nom}")
+            or LARGEURS.get(nom)
+            or LARGEUR_DEFAUT)
 
 
 def _fmt(nom: str) -> str:
@@ -84,6 +114,18 @@ def _cell(rng: dict, fmt: dict, champs: str) -> dict:
                            "fields": champs}}
 
 
+def _familles(entetes: List[str], groupes: List[str]) -> List[str]:
+    """La famille de CHAQUE colonne : la ligne de groupes ne porte le libelle
+    que sur sa 1re colonne, il court jusqu'au groupe suivant."""
+    out, courant = [], ""
+    for i in range(len(entetes)):
+        g = groupes[i] if groupes and i < len(groupes) else ""
+        if g:
+            courant = g
+        out.append(courant)
+    return out
+
+
 def bloc(sid: int, entetes: List[str], ligne_entete: int, ligne1: int,
          ligne2: int, col1: int = 1, groupes: List[str] = None) -> List[dict]:
     """Habille un tableau : en-tetes, formats PAR NOM, largeurs, alignement.
@@ -105,22 +147,27 @@ def bloc(sid: int, entetes: List[str], ligne_entete: int, ligne1: int,
                  "horizontalAlignment": "CENTER"},
                 "userEnteredFormat(backgroundColor,textFormat,"
                 "horizontalAlignment)"))
-    # en-tetes
-    reqs.append(_cell(
-        _rng(sid, ligne_entete, ligne_entete, col1, col1 + n - 1),
-        {"backgroundColor": GRIS,
-         "textFormat": {"bold": True, "fontSize": 9},
-         "horizontalAlignment": "CENTER",
-         "wrapStrategy": "WRAP",
-         "verticalAlignment": "MIDDLE"},
-        "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,"
-        "wrapStrategy,verticalAlignment)"))
+    # en-tetes : chacun prend la teinte PALE de sa famille
+    familles = _familles(entetes, groupes)
+    for i, nom in enumerate(entetes):
+        c = col1 + i
+        fam = familles[i]
+        reqs.append(_cell(
+            _rng(sid, ligne_entete, ligne_entete, c, c),
+            {"backgroundColor": _pale(GROUPES[fam]) if fam in GROUPES else GRIS,
+             "textFormat": {"bold": True, "fontSize": 9},
+             "horizontalAlignment": "CENTER",
+             "wrapStrategy": "WRAP",
+             "verticalAlignment": "MIDDLE"},
+            "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,"
+            "wrapStrategy,verticalAlignment)"))
     if ligne2 < ligne1:
         return reqs
     # donnees : un format par colonne, deduit du NOM
     for i, nom in enumerate(entetes):
         c = col1 + i
         f = _fmt(nom)
+        fam = familles[i]
         style = {"horizontalAlignment": "LEFT" if not f else "RIGHT",
                  "textFormat": {"fontSize": 9}}
         champs = "userEnteredFormat(horizontalAlignment,textFormat"
@@ -132,7 +179,7 @@ def bloc(sid: int, entetes: List[str], ligne_entete: int, ligne1: int,
         reqs.append({"updateDimensionProperties": {
             "range": {"sheetId": sid, "dimension": "COLUMNS",
                       "startIndex": c - 1, "endIndex": c},
-            "properties": {"pixelSize": LARGEURS.get(nom, LARGEUR_DEFAUT)},
+            "properties": {"pixelSize": _largeur(fam, nom)},
             "fields": "pixelSize"}})
     # zebrure : lisible sans effort
     reqs.append({"addBanding": {"bandedRange": {
@@ -189,16 +236,24 @@ def notes(sid: int, ligne: int, n: int, c2: int) -> List[dict]:
     ]
 
 
-def purger(sh, sid: int) -> List[dict]:
-    """Repart d'une page propre : les bandes et fusions de la passe precedente.
-    Sans ca, chaque run empile ses zebrures et Google finit par refuser."""
-    reqs: List[dict] = [{"unmergeCells": {"range": {"sheetId": sid}}}]
+def purger(sh, sid: int, depart: int) -> List[dict]:
+    """Repart d'une page propre — MAIS SEULEMENT SOUS LA LIGNE `depart`.
+
+    ⚠️ Les lignes 1 a depart-1 appartiennent a Preda : il y met son contenu.
+    On n'y touche pas. Ni fusion defaite, ni bande supprimee, ni format ecrase.
+    Sans purge sous cette limite, en revanche, chaque run empile ses zebrures
+    et Google finit par refuser."""
+    reqs: List[dict] = [{"unmergeCells": {"range": {
+        "sheetId": sid, "startRowIndex": depart - 1}}}]
     try:
         meta = sh.fetch_sheet_metadata()
         for f in meta.get("sheets", []):
             if f.get("properties", {}).get("sheetId") != sid:
                 continue
             for b in f.get("bandedRanges", []) or []:
+                r = b.get("range", {})
+                if r.get("startRowIndex", 0) < depart - 1:
+                    continue                  # une bande de Preda : on la laisse
                 reqs.append({"deleteBanding":
                              {"bandedRangeId": b["bandedRangeId"]}})
     except Exception:
@@ -208,44 +263,47 @@ def purger(sh, sid: int) -> List[dict]:
 
 def habiller(sh, ws, quotidien, n_jours, periode, n_mois, n_annees,
              vvf, whales, n_whales, ligne_notes, n_notes, ancres) -> int:
-    """Habille toute la page. Chaque bloc est decrit par SES EN-TETES : les
-    formats suivent les noms, jamais les positions."""
+    """Habille la page SOUS la zone de Preda. Chaque bloc est decrit par SES
+    EN-TETES : les formats suivent les noms, jamais les positions."""
     sid = ws.id
     L = len(quotidien)                      # 19 colonnes (A..S)
+    depart = ancres["depart"]               # 14 : rien au-dessus
+    entete = ancres["entete"]               # 19
     groupes = ["", "", "TRANSACTION", "", "", "", "", "ACTIF", "", "",
-               "LISTING", "", "REVENUE", "", "", "OMI BURN", "", "", ""]
-    reqs = purger(sh, sid)
-    reqs += titre(sid, L)
+               "LISTING", "", "REVENUE", "", "", "OMI BURN", "", "", "ACHAT"]
+    reqs = purger(sh, sid, depart)
 
-    # bandeau semaine + KPI
-    reqs += banniere(sid, 4, 1, L)
-    reqs.append({"mergeCells": {"range": _rng(sid, 4, 4, 1, L),
+    # bandeau semaine + KPI (plus de bandeau noir : les 13 lignes du haut sont
+    # a Preda, et il ne veut pas de titre de ma part)
+    reqs += banniere(sid, depart, 1, L)
+    reqs.append({"mergeCells": {"range": _rng(sid, depart, depart, 1, L),
                                 "mergeType": "MERGE_ROWS"}})
-    reqs.append(_cell(_rng(sid, 5, 5, 1, 12),
+    reqs.append(_cell(_rng(sid, depart + 1, depart + 1, 1, 12),
                       {"textFormat": {"bold": True, "fontSize": 9,
                                       "foregroundColor": GRIS_TXT},
                        "horizontalAlignment": "CENTER", "wrapStrategy": "WRAP"},
                       "userEnteredFormat(textFormat,horizontalAlignment,"
                       "wrapStrategy)"))
-    reqs.append(_cell(_rng(sid, 6, 6, 1, 12),
+    reqs.append(_cell(_rng(sid, depart + 2, depart + 2, 1, 12),
                       {"textFormat": {"bold": True, "fontSize": 12},
                        "horizontalAlignment": "CENTER"},
                       "userEnteredFormat(textFormat,horizontalAlignment)"))
-    reqs.append(_cell(_rng(sid, 6, 6, 1, 1),
+    reqs.append(_cell(_rng(sid, depart + 2, depart + 2, 1, 1),
                       {"numberFormat": {"type": "NUMBER", "pattern": ARGENT}},
                       "userEnteredFormat.numberFormat"))
 
     # tableau QUOTIDIEN
-    reqs += bloc(sid, quotidien, 9, 10, 9 + max(1, n_jours), groupes=groupes)
+    reqs += bloc(sid, quotidien, entete, entete + 1,
+                 entete + max(1, n_jours), groupes=groupes)
 
     # 📅 PAR MOIS / PAR ANNEE + 📈 PULSE (memes en-tetes -> memes formats)
     for ancre, n in ((ancres["mois"], n_mois), (ancres["annee"], n_annees)):
         reqs += banniere(sid, ancre, 1, L)
-        reqs += banniere(sid, ancre, 20, 19 + len(vvf))
+        reqs += banniere(sid, ancre, 21, 20 + len(vvf))
         reqs += bloc(sid, periode, ancre + 2, ancre + 3,
                      ancre + 2 + max(1, n), groupes=groupes)
         reqs += bloc(sid, vvf, ancre + 2, ancre + 3, ancre + 2 + max(1, n),
-                     col1=20)
+                     col1=21)          # colonne T laissee VIDE (demande Preda)
 
     # ℹ️ NOTES : du texte qui respire, pas un mur
     reqs += notes(sid, ligne_notes, max(1, n_notes), L)
@@ -261,14 +319,14 @@ def habiller(sh, ws, quotidien, n_jours, periode, n_mois, n_annees,
                               "userEnteredFormat.textFormat"))
             reqs += bloc(sid, whales, a + 2, a + 3, a + 2 + n_whales, col1=c1)
 
-    # Figer l'en-tete du quotidien. PAS la colonne des dates : Google refuse de
-    # figer une colonne qui couperait une cellule FUSIONNEE (le titre s'etend
-    # de A a S). Constate le 13/07 — et comme un batch_update est ATOMIQUE,
-    # cette seule requete avait annule les 275 autres.
+    # AUCUN figeage (Preda n'en veut pas). NB : figer une COLONNE etait de
+    # toute facon impossible — Google refuse de couper une cellule fusionnee
+    # (le titre s'etend de A a S).
     reqs.append({"updateSheetProperties": {
         "properties": {"sheetId": sid,
-                       "gridProperties": {"frozenRowCount": 9}},
-        "fields": "gridProperties.frozenRowCount"}})
+                       "gridProperties": {"frozenRowCount": 0,
+                                          "frozenColumnCount": 0}},
+        "fields": "gridProperties(frozenRowCount,frozenColumnCount)"}})
     return _envoyer(sh, reqs)
 
 

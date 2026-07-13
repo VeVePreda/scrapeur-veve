@@ -63,21 +63,29 @@ OLD_HOME_TAB = "🏠ACCUEIL"          # supprime au 1er run (choix Preda 10/07)
 WEEK_DAYS = int(os.environ.get("STATS_WEEK_DAYS", "7"))
 TOP_SERIES = int(os.environ.get("STATS_TOP_SERIES", "8"))
 
-TABLE_START_ROW = 10                 # 1re ligne de donnees du tableau quotidien
-GROUP_ROW = 8                        # ligne des groupes (fusionnee)
-HEADER_ROW = 9                       # ligne des colonnes
-MODULE_COL = "T"                     # colonne des modules de droite (tableau A:R)
+# ⚠️ LES LIGNES 1 A 13 APPARTIENNENT A PREDA (13/07). Il y met son contenu.
+# La page ne les ECRIT PAS, ne les EFFACE PAS, ne les FORMATE PAS. Tout le
+# reste demarre en dessous. Le bandeau noir (titre + sous-titre) est SUPPRIME.
+ZONE_PREDA = int(os.environ.get("STATS_ZONE_PREDA", "13"))
+START_ROW = ZONE_PREDA + 1           # 14 : 1re ligne que la page s'autorise
+TABLE_START_ROW = 20                 # 1re ligne de donnees du tableau quotidien
+GROUP_ROW = 18                       # ligne des groupes
+HEADER_ROW = 19                      # ligne des colonnes
+# Le tableau occupe A..S (19 col.). La colonne T reste VIDE (demande Preda) :
+# les modules de droite commencent en U, et le 2e bloc de modules recule en AH
+# pour ne pas percuter le PULSE (U..AF, 12 colonnes).
+MODULE_COL = "U"                     # modules de droite (apres la colonne vide T)
 LISTING_TAB = "_ListingDaily"        # source du groupe LISTING (chain_run)
 PULSE_TAB = "_MonthlyPulse"          # source du 📅 pulse mensuel (ledger)
-PULSE_ROW = 49
-YEAR_ROW = 116                       # 📅 PAR ANNÉE + 📈 PULSE annuel (sous les 60 mois)
-NOTES_ROW = 132                      # ℹ️ notes & legendes, sous le tableau annuel (v14)
+PULSE_ROW = 59
+YEAR_ROW = 126                       # 📅 PAR ANNÉE + 📈 PULSE annuel
+NOTES_ROW = 142                      # ℹ️ notes & legendes, sous le tableau annuel (v14)
 # 2e colonne de modules : AF (la colonne T est prise par les tailles (8-20),
 # la sante (22-35) PUIS par le PULSE des le rang 49 -> tout bloc pose en T
 # au-dela de 36 entrerait en COLLISION avec le pulse).
-MODULE_COL2 = "AF"
-BURNS_ROW = 8                        # 🔥 synthese burns (AF8)
-UNIVERS_ROW = 24                     # 🏪 univers de marche (AF24)
+MODULE_COL2 = "AH"
+BURNS_ROW = 18                       # 🔥 synthese burns
+UNIVERS_ROW = 34                     # 🏪 univers de marche
 UNIVERS_TAB = "_MarketUniverse"      # ecrit par scraper/market_universe.py
 
 # 🐋 CLASSEMENT WHALES (13/07) : l'onglet 🐋A-WHALES est supprime, son
@@ -85,7 +93,7 @@ UNIVERS_TAB = "_MarketUniverse"      # ecrit par scraper/market_universe.py
 # (ecrit par le workflow ledger, comme _MonthlyPulse). Le detail par wallet
 # (rangs + profil complet) vit dans 🟣C-PSEUDOS.
 WHALES_TAB = "_Whales"
-WHALES_ROW = int(os.environ.get("STATS_WHALES_ROW", "165"))
+WHALES_ROW = int(os.environ.get("STATS_WHALES_ROW", "175"))
 WHALES_TOP = int(os.environ.get("STATS_WHALES_TOP", "20"))
 WHALE_COLS = ["Rang", "Wallet", "Pseudo", "Critère", "Exemplaires",
               "Collectibles", "Valeur store $", "Valeur floor $", "Score",
@@ -95,7 +103,7 @@ WHALE_COLS = ["Rang", "Wallet", "Pseudo", "Critère", "Exemplaires",
 COLS_TABLE = ["Date", "Drop", "Global", "Mint", "Airdrop", "Market", "Burn",
               "Unique", "Nouveaux", "Anciens", "Quantité", "Comptes",
               "Total", "Drop", "Market", "Global $", "OMI→NFT", "OMI→GEM",
-              "💎 Gems $"]
+              "Gems $"]
 COLS_VVF = ["Mois", "Acheteurs uniques", "Vendeurs uniques",
             "Minters uniques", "Drops", "Acc. nette moy", "Net+", "Net−",
             "Rétention %", "Churn %", "OG 21-22", "OG %"]
@@ -427,11 +435,11 @@ def _period_tables(recs, cat, usd, nft, gem, mkt, label, titre, titre_vvf,
     table: List[List] = [
         [titre],
         ["", "", "TRANSACTION", "", "", "", "", "ACTIF", "", "",
-         "LISTING", "", "REVENUE", "", "", "OMI BURN", "", "", ""],
+         "LISTING", "", "REVENUE", "", "", "OMI BURN", "", "", "ACHAT"],
         [label, "Drop", "Global", "Mint", "Airdrop", "Market", "Burn",
          "Unique", "Nouveaux", "Anciens", "Quantité", "Comptes",
          "Total", "Drop", "Market", "Global $", "OMI→NFT", "OMI→GEM",
-         "💎 Gems $"],
+         "Gems $"],
     ]
     vvf: List[List] = [
         [titre_vvf],
@@ -1007,13 +1015,9 @@ def build_table_grid(daily, revenue, week, omi, listing, airdrop, drops,
     omi_usd = omi_usd or {}
     gems = gems or {}
     g: List[List] = []
-    g.append(["📊  STATS VEVE — ACTIVITÉ ON-CHAIN", "", "", "", "", "", "",
-              "", "", "", "", "", "", "", "", "", "", "", "",
-              f"maj : {now_utc}"])
-    g.append(["Jours pacifiques terminés uniquement · Revenue drop = mints × "
-              "prix store · Revenue market = ventes StackR réelles ($) · "
-              "OMI→NFT/GEM : décompo burns (se remplit avec le backfill)"])
-    g.append([])
+    # Le bandeau noir (titre + sous-titre) est SUPPRIME (demande Preda 13/07) :
+    # les 13 premieres lignes sont a lui. La grille commence donc au bandeau de
+    # la semaine, et sera ecrite en A{START_ROW}.
     g.append([f"▼  SEMAINE DU JEUDI {week['start']} AU MERCREDI "
               f"{week['end']}"])
     g.append(["Revenue drop", "Transactions", "Mints", "Airdrops", "Market",
@@ -1026,11 +1030,11 @@ def build_table_grid(daily, revenue, week, omi, listing, airdrop, drops,
               week["omi"]])
     g.append([])
     g.append(["", "", "TRANSACTION", "", "", "", "", "ACTIF", "", "",
-              "LISTING", "", "REVENUE", "", "", "OMI BURN", "", "", ""])
+              "LISTING", "", "REVENUE", "", "", "OMI BURN", "", "", "ACHAT"])
     g.append(["Date", "Drop", "Global", "Mint", "Airdrop", "Market", "Burn",
               "Unique", "Nouveaux", "Anciens", "Quantité", "Comptes",
               "Total", "Drop", "Market",
-              "Global $", "OMI→NFT", "OMI→GEM", "💎 Gems $"])
+              "Global $", "OMI→NFT", "OMI→GEM", "Gems $"])
     for d in daily:
         drop = round(revenue.get(d["date"], 0))
         li = listing.get(d["date"])
@@ -1339,9 +1343,12 @@ def write_stats(sh) -> Dict[str, Any]:
     sante_off = (len(wsize) + 1) if wsize else 0      # lignes avant la santé
     notes = build_notes_grid()
 
-    ws = _open_worksheet(sh, STATS_TAB, cols=40)   # AF..AI = 2e colonne modules
-    ws.clear()
-    ws.update(range_name="A1", values=table, value_input_option="RAW")
+    ws = _open_worksheet(sh, STATS_TAB, cols=42)   # AH..AK = 2e colonne modules
+    # ⚠️ PAS de ws.clear() : il effacerait les 13 lignes de Preda.
+    # On ne nettoie QUE la zone qui nous appartient.
+    ws.batch_clear([f"A{START_ROW}:AZ{ws.row_count}"])
+    ws.update(range_name=f"A{START_ROW}", values=table,
+              value_input_option="RAW")
     ws.update(range_name=f"{MODULE_COL}{GROUP_ROW}", values=modules,
               value_input_option="RAW")
     ws.update(range_name=f"A{NOTES_ROW}", values=notes,
@@ -1359,16 +1366,16 @@ def write_stats(sh) -> Dict[str, Any]:
     if monthly_g:
         ws.update(range_name=f"A{PULSE_ROW}", values=monthly_g,
                   value_input_option="RAW")
-        ws.update(range_name=f"T{PULSE_ROW}", values=vvf_g,
+        ws.update(range_name=f"{MODULE_COL}{PULSE_ROW}", values=vvf_g,
                   value_input_option="RAW")
         ws.update(range_name=f"A{YEAR_ROW}", values=annual_g,
                   value_input_option="RAW")
-        ws.update(range_name=f"T{YEAR_ROW}", values=vvfy_g,
+        ws.update(range_name=f"{MODULE_COL}{YEAR_ROW}", values=vvfy_g,
                   value_input_option="RAW")
         try:
             for row in (PULSE_ROW, YEAR_ROW):
                 ws.format(f"A{row}:S{row}", VIOLET)
-                ws.format(f"T{row}:AE{row}", VIOLET)
+                ws.format(f"U{row}:AF{row}", VIOLET)
                 ws.format(f"{row + 2}:{row + 2}", BOLD)
         except Exception:
             pass
@@ -1378,8 +1385,8 @@ def write_stats(sh) -> Dict[str, Any]:
         ws.update(range_name=f"{MODULE_COL2}{BURNS_ROW}", values=burns_g,
                   value_input_option="RAW")
         try:
-            ws.format(f"AF{BURNS_ROW}:AI{BURNS_ROW}", VIOLET)
-            ws.format(f"AF{BURNS_ROW + 1}:AI{BURNS_ROW + 1}", BOLD)
+            ws.format(f"AH{BURNS_ROW}:AK{BURNS_ROW}", VIOLET)
+            ws.format(f"AH{BURNS_ROW + 1}:AK{BURNS_ROW + 1}", BOLD)
         except Exception:
             pass
 
@@ -1389,9 +1396,9 @@ def write_stats(sh) -> Dict[str, Any]:
         ws.update(range_name=f"{MODULE_COL2}{UNIVERS_ROW}", values=univ_g,
                   value_input_option="RAW")
         try:
-            ws.format(f"AF{UNIVERS_ROW}:AI{UNIVERS_ROW}", VIOLET)
-            ws.format(f"AF{UNIVERS_ROW + 1}:AI{UNIVERS_ROW + 1}", BOLD)
-            ws.format(f"AF{UNIVERS_ROW + 12}:AI{UNIVERS_ROW + 12}", BOLD)
+            ws.format(f"AH{UNIVERS_ROW}:AK{UNIVERS_ROW}", VIOLET)
+            ws.format(f"AH{UNIVERS_ROW + 1}:AK{UNIVERS_ROW + 1}", BOLD)
+            ws.format(f"AH{UNIVERS_ROW + 12}:AK{UNIVERS_ROW + 12}", BOLD)
         except Exception:
             pass
 
@@ -1409,8 +1416,8 @@ def write_stats(sh) -> Dict[str, Any]:
     # bannieres des modules de droite (💰 en T8, 🩺 juste en dessous)
     try:
         if wsize:
-            ws.format(f"T{GROUP_ROW}:AD{GROUP_ROW}", VIOLET)
-            ws.format(f"T{GROUP_ROW + 1}:AD{GROUP_ROW + 1}", BOLD)
+            ws.format(f"U{GROUP_ROW}:AE{GROUP_ROW}", VIOLET)
+            ws.format(f"U{GROUP_ROW + 1}:AE{GROUP_ROW + 1}", BOLD)
         ws.format(f"A{NOTES_ROW}:S{NOTES_ROW}", VIOLET)
     except Exception:
         pass
@@ -1426,7 +1433,8 @@ def write_stats(sh) -> Dict[str, Any]:
             sh, ws, COLS_TABLE, len(daily), COLS_TABLE,
             max(0, len(monthly_g) - 3), max(0, len(annual_g) - 3), COLS_VVF,
             WHALE_COLS, max(0, len(whales_g) - 3), NOTES_ROW, len(notes),
-            {"mois": PULSE_ROW, "annee": YEAR_ROW, "whales": WHALES_ROW})
+            {"mois": PULSE_ROW, "annee": YEAR_ROW, "whales": WHALES_ROW,
+             "depart": START_ROW, "entete": HEADER_ROW})
         print(f"Habillage : {n_req} requetes (formats deduits des EN-TETES).",
               flush=True)
     except Exception as e:
