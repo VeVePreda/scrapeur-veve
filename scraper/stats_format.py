@@ -63,6 +63,9 @@ DECIMAL = "#,##0.00"
 # noms EXACTS -> format (le reste est deduit)
 FORMATS: Dict[str, str] = {
     "Total": ARGENT, "Drop": ARGENT, "Market": ARGENT,
+    # le cours est minuscule (0,000168 $) : un format a 6 decimales, sinon il
+    # s'affiche "0 $" et la verification devient impossible.
+    "Cours OMI $": '0.000000" $"',
     "Revenue drop": ARGENT, "💎 Gems $": ARGENT,
     "Global $": ARGENT_APPROX,
     "OMI→NFT": ENTIER, "OMI→GEM": ENTIER, "OMI brûlés": ENTIER,
@@ -165,6 +168,15 @@ def bloc(sid: int, entetes: List[str], ligne_entete: int, ligne1: int,
     # faire toute la largeur de C18:G18, pas se tasser sur une seule case).
     if groupes:
         lg = ligne_entete - 1
+        # les colonnes hors famille (Date, Drop) : un gris clair, pour que la
+        # ligne des groupes soit CONTINUE (Preda : "c'est plus harmonieux")
+        libres = [col1 + i for i, g in enumerate(_familles(entetes, groupes))
+                  if not g]
+        for c in libres:
+            reqs.append(_cell(
+                _rng(sid, lg, lg, c, c),
+                {"backgroundColor": GRIS},
+                "userEnteredFormat.backgroundColor"))
         for fam, c_deb, c_fin in _plages(groupes, col1):
             if c_fin > c_deb:
                 reqs.append({"mergeCells": {
@@ -222,11 +234,16 @@ def bloc(sid: int, entetes: List[str], ligne_entete: int, ligne1: int,
 
 
 def banniere(sid: int, ligne: int, c1: int, c2: int) -> List[dict]:
+    """Un bandeau violet : texte BLANC, aligne a GAUCHE (Preda 13/07 — le titre
+    d'un bandeau se lit au debut, pas au milieu)."""
     return [_cell(_rng(sid, ligne, ligne, c1, c2),
                   {"backgroundColor": VIOLET,
                    "textFormat": {"bold": True, "foregroundColor": BLANC,
-                                  "fontSize": 10}},
-                  "userEnteredFormat(backgroundColor,textFormat)")]
+                                  "fontSize": 10},
+                   "horizontalAlignment": "LEFT",
+                   "verticalAlignment": "MIDDLE"},
+                  "userEnteredFormat(backgroundColor,textFormat,"
+                  "horizontalAlignment,verticalAlignment)")]
 
 
 def notes(sid: int, ligne: int, n: int, c2: int) -> List[dict]:
@@ -270,15 +287,18 @@ def purger(sh, sid: int, depart: int) -> List[dict]:
 
 
 def habiller(sh, ws, quotidien, n_jours, periode, n_mois, n_annees,
-             vvf, whales, n_whales, ligne_notes, n_notes, ancres) -> int:
+             vvf, whales, n_whales, ligne_notes, n_notes, ancres,
+             bandeaux=None) -> int:
     """Habille la page SOUS la zone de Preda. Chaque bloc est decrit par SES
     EN-TETES : les formats suivent les noms, jamais les positions."""
     sid = ws.id
     L = len(quotidien)                      # 19 colonnes (A..S)
     depart = ancres["depart"]               # 14 : rien au-dessus
     entete = ancres["entete"]               # 19
+    # 20 colonnes (A..T) : le COURS rejoint la famille ACHAT, juste avant Gems.
     groupes = ["", "", "TRANSACTION", "", "", "", "", "ACTIF", "", "",
-               "LISTING", "", "REVENUE", "", "", "OMI BURN", "", "", "ACHAT"]
+               "LISTING", "", "REVENUE", "", "", "OMI BURN", "", "",
+               "ACHAT", ""]
     reqs = purger(sh, sid, depart)
 
     # bandeau semaine + KPI (plus de bandeau noir : les 13 lignes du haut sont
@@ -312,6 +332,13 @@ def habiller(sh, ws, quotidien, n_jours, periode, n_mois, n_annees,
                      ancre + 2 + max(1, n), groupes=groupes)
         reqs += bloc(sid, vvf, ancre + 2, ancre + 3, ancre + 2 + max(1, n),
                      col1=21)          # colonne T laissee VIDE (demande Preda)
+
+    # Les bandeaux des MODULES de droite (💰 tailles · 🩺 sante · 🔥 burns ·
+    # 🏪 univers). C'est l'Apps Script qui les posait — en le supprimant, la
+    # 🩺 SANTE avait perdu le sien. Ils reviennent, en violet, texte blanc,
+    # alignes a gauche comme les autres.
+    for ligne, c1, c2 in (bandeaux or ()):
+        reqs += banniere(sid, ligne, c1, c2)
 
     # ℹ️ NOTES : du texte qui respire, pas un mur
     reqs += notes(sid, ligne_notes, max(1, n_notes), L)

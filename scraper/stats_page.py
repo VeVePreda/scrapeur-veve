@@ -74,7 +74,7 @@ HEADER_ROW = 19                      # ligne des colonnes
 # Le tableau occupe A..S (19 col.). La colonne T reste VIDE (demande Preda) :
 # les modules de droite commencent en U, et le 2e bloc de modules recule en AH
 # pour ne pas percuter le PULSE (U..AF, 12 colonnes).
-MODULE_COL = "U"                     # modules de droite (apres la colonne vide T)
+MODULE_COL = "V"                     # modules de droite (apres la colonne vide U)
 LISTING_TAB = "_ListingDaily"        # source du groupe LISTING (chain_run)
 PULSE_TAB = "_MonthlyPulse"          # source du 📅 pulse mensuel (ledger)
 PULSE_ROW = 59
@@ -83,7 +83,7 @@ NOTES_ROW = 142                      # ℹ️ notes & legendes, sous le tableau 
 # 2e colonne de modules : AF (la colonne T est prise par les tailles (8-20),
 # la sante (22-35) PUIS par le PULSE des le rang 49 -> tout bloc pose en T
 # au-dela de 36 entrerait en COLLISION avec le pulse).
-MODULE_COL2 = "AH"
+MODULE_COL2 = "AI"
 BURNS_ROW = 18                       # 🔥 synthese burns
 UNIVERS_ROW = 34                     # 🏪 univers de marche
 UNIVERS_TAB = "_MarketUniverse"      # ecrit par scraper/market_universe.py
@@ -103,7 +103,7 @@ WHALE_COLS = ["Rang", "Wallet", "Pseudo", "Critère", "Exemplaires",
 COLS_TABLE = ["Date", "Drop", "Global", "Mint", "Airdrop", "Market", "Burn",
               "Unique", "Nouveaux", "Anciens", "Quantité", "Comptes",
               "Total", "Drop", "Market", "Global $", "OMI→NFT", "OMI→GEM",
-              "Gems $"]
+              "Cours OMI $", "Gems $"]
 COLS_VVF = ["Mois", "Acheteurs uniques", "Vendeurs uniques",
             "Minters uniques", "Drops", "Acc. nette moy", "Net+", "Net−",
             "Rétention %", "Churn %", "OG 21-22", "OG %"]
@@ -428,18 +428,18 @@ def _ret_pct(c):
 
 
 def _period_tables(recs, cat, usd, nft, gem, mkt, label, titre, titre_vvf,
-                   gems=None):
+                   gems=None, cours=None):
     """Couple (tableau periode, pulse periode) pour un grain donne — utilise
     pour les MOIS ("YYYY-MM") et les ANNÉES ("YYYY"). Memes 18 colonnes que le
     tableau quotidien pour le tableau de gauche."""
     table: List[List] = [
         [titre],
         ["", "", "TRANSACTION", "", "", "", "", "ACTIF", "", "",
-         "LISTING", "", "REVENUE", "", "", "OMI BURN", "", "", "ACHAT"],
+         "LISTING", "", "REVENUE", "", "", "OMI BURN", "", "", "ACHAT", ""],
         [label, "Drop", "Global", "Mint", "Airdrop", "Market", "Burn",
          "Unique", "Nouveaux", "Anciens", "Quantité", "Comptes",
          "Total", "Drop", "Market", "Global $", "OMI→NFT", "OMI→GEM",
-         "Gems $"],
+         "Cours OMI $", "Gems $"],
     ]
     vvf: List[List] = [
         [titre_vvf],
@@ -478,6 +478,7 @@ def _period_tables(recs, cat, usd, nft, gem, mkt, label, titre, titre_vvf,
                       round(u) if u else "",
                       round(onft) if onft else "",
                       round(ogem) if ogem else "",
+                      (cours or {}).get(p) or "",     # cours MOYEN de la periode
                       round((gems or {}).get(p) or 0) or ""])
         c = r.get("churn_pct", "")
         vvf.append([p, _n(r.get("acheteurs")), _n(r.get("vendeurs")),
@@ -509,6 +510,15 @@ def build_pulse_section(pulse_records, omi=None, omi_nft=None, omi_gem=None,
     pulse_records = [r for r in pulse_records
                      if len(str(r.get("month", ""))) == 7]
 
+    def _moyenne(src, n):
+        somme: Dict[str, float] = defaultdict(float)
+        cpt: Dict[str, int] = defaultdict(int)
+        for d, v in (src or {}).items():
+            if v:
+                somme[d[:n]] += v
+                cpt[d[:n]] += 1
+        return {k: somme[k] / cpt[k] for k in somme if cpt[k]}
+
     def _by(src, n):
         out: Dict[str, float] = defaultdict(float)
         for d, v in (src or {}).items():
@@ -522,6 +532,10 @@ def build_pulse_section(pulse_records, omi=None, omi_nft=None, omi_gem=None,
     mkt_m, mkt_y = _by(market_rev, 7), _by(market_rev, 4)
     gems_d = gems_achetes(omi_gem or {}, rates or {})
     gems_m, gems_y = _by(gems_d, 7), _by(gems_d, 4)
+    # cours MOYEN de la periode. ⚠️ Il ne sert PAS a refaire le calcul : le
+    # total du mois est la SOMME des jours, chacun valorise a SON cours. La
+    # moyenne est la pour situer, pas pour multiplier (dit dans la legende).
+    cours_m, cours_y = _moyenne(rates, 7), _moyenne(rates, 4)
 
     recs = sorted(pulse_records, key=lambda r: str(r.get("month", "")),
                   reverse=True)[:PULSE_MONTHS]
@@ -529,16 +543,16 @@ def build_pulse_section(pulse_records, omi=None, omi_nft=None, omi_gem=None,
         recs, cat_m, usd_m, nft_m, gem_m, mkt_m, "Mois",
         "📅  PAR MOIS — mêmes colonnes que le tableau quotidien "
         "(archive on-chain, recalculé par le workflow ledger)",
-        "📈  PULSE VEVEFOX — par mois (wallets UNIQUES par colonne)",
-        gems=gems_m)
+        "📈  PULSE — par mois (wallets UNIQUES par colonne)",
+        gems=gems_m, cours=cours_m)
 
     yrecs = sorted(yearly, key=lambda r: str(r.get("month", "")), reverse=True)
     annual, vvf_y = _period_tables(
         yrecs, cat_y, usd_y, nft_y, gem_y, mkt_y, "Année",
         "📅  PAR ANNÉE — mêmes colonnes que le tableau quotidien "
         "(wallets = UNIQUES sur l'année, jamais la somme des mois)",
-        "📈  PULSE VEVEFOX — par année (wallets UNIQUES par colonne)",
-        gems=gems_y)
+        "📈  PULSE — par année (wallets UNIQUES par colonne)",
+        gems=gems_y, cours=cours_y)
     return monthly, vvf, annual, vvf_y
 
 
@@ -1005,7 +1019,8 @@ def compute_split(items, week_days: set) -> Dict[str, int]:
 
 def build_table_grid(daily, revenue, week, omi, listing, airdrop, drops,
                      now_utc: str, omi_nft=None, omi_gem=None,
-                     market_rev=None, omi_usd=None, gems=None) -> List[List]:
+                     market_rev=None, omi_usd=None, gems=None,
+                     rates=None) -> List[List]:
     """Grille A1:R.. : titre, bande KPI 7 jours, tableau quotidien groupe.
     Les mints d'airdrop sortent de la colonne Mint vers Airdrop (le Global
     reste complet — separer sans jeter, choix Preda)."""
@@ -1014,6 +1029,7 @@ def build_table_grid(daily, revenue, week, omi, listing, airdrop, drops,
     market_rev = market_rev or {}
     omi_usd = omi_usd or {}
     gems = gems or {}
+    rates = rates or {}
     g: List[List] = []
     # Le bandeau noir (titre + sous-titre) est SUPPRIME (demande Preda 13/07) :
     # les 13 premieres lignes sont a lui. La grille commence donc au bandeau de
@@ -1030,11 +1046,11 @@ def build_table_grid(daily, revenue, week, omi, listing, airdrop, drops,
               week["omi"]])
     g.append([])
     g.append(["", "", "TRANSACTION", "", "", "", "", "ACTIF", "", "",
-              "LISTING", "", "REVENUE", "", "", "OMI BURN", "", "", "ACHAT"])
+              "LISTING", "", "REVENUE", "", "", "OMI BURN", "", "", "ACHAT", ""])
     g.append(["Date", "Drop", "Global", "Mint", "Airdrop", "Market", "Burn",
               "Unique", "Nouveaux", "Anciens", "Quantité", "Comptes",
               "Total", "Drop", "Market",
-              "Global $", "OMI→NFT", "OMI→GEM", "Gems $"])
+              "Global $", "OMI→NFT", "OMI→GEM", "Cours OMI $", "Gems $"])
     for d in daily:
         drop = round(revenue.get(d["date"], 0))
         li = listing.get(d["date"])
@@ -1051,6 +1067,7 @@ def build_table_grid(daily, revenue, week, omi, listing, airdrop, drops,
                   round(omi_usd[d["date"]]) if d["date"] in omi_usd else "",
                   round(omi_nft[d["date"]]) if d["date"] in omi_nft else "",
                   round(omi_gem[d["date"]]) if d["date"] in omi_gem else "",
+                  rates.get(d["date"]) or "",          # le cours, pour VERIFIER
                   round(gems[d["date"]]) if d["date"] in gems else ""])
     return g
 
@@ -1148,6 +1165,13 @@ def build_notes_grid() -> List[List]:
               "wallets (Unique, Acheteurs, Vendeurs, Minters) sont des "
               "UNIQUES sur l'année — ils sont donc INFÉRIEURS à la somme des "
               "mois (un même wallet actif 12 mois ne compte qu'une fois).", ""])
+    g.append(["💱 COURS OMI $ : le cours du jour, affiché POUR QUE TU PUISSES "
+              "REFAIRE LE CALCUL À LA MAIN — Gems $ = (OMI→GEM ÷ 0,07) × ce "
+              "cours, et Global $ = OMI brûlés × ce cours. Source : gate.io "
+              "(CryptoCompare en secours). ⚠️ Sur le MOIS et l'ANNÉE, c'est la "
+              "MOYENNE des cours quotidiens : elle situe, elle ne sert pas à "
+              "multiplier — le total de la période est la SOMME des jours, "
+              "chacun valorisé à SON cours.", ""])
     g.append(["💎 GEMS ACHETÉS ($) : déduit du burn, sans aucune collecte "
               "nouvelle. Le contrat OmiToGems brûle 7 % de chaque conversion "
               "— c'est la colonne OMI→GEM. Donc OMI dépensés = OMI→GEM / 0,07, "
@@ -1329,7 +1353,7 @@ def write_stats(sh) -> Dict[str, Any]:
     gems_daily = gems_achetes(omi_gem, mkt_rates)
     table = build_table_grid(daily, revenue, week, omi, listing, airdrop,
                              drops, now_utc, omi_nft, omi_gem, market_rev,
-                             omi_usd_daily, gems_daily)
+                             omi_usd_daily, gems_daily, mkt_rates)
     try:
         sante_rows = _health.build_rows(sh)
     except Exception as e:
@@ -1343,7 +1367,7 @@ def write_stats(sh) -> Dict[str, Any]:
     sante_off = (len(wsize) + 1) if wsize else 0      # lignes avant la santé
     notes = build_notes_grid()
 
-    ws = _open_worksheet(sh, STATS_TAB, cols=42)   # AH..AK = 2e colonne modules
+    ws = _open_worksheet(sh, STATS_TAB, cols=44)   # AI..AL = 2e colonne modules
     # ⚠️ PAS de ws.clear() : il effacerait les 13 lignes de Preda.
     # On ne nettoie QUE la zone qui nous appartient.
     ws.batch_clear([f"A{START_ROW}:AZ{ws.row_count}"])
@@ -1375,7 +1399,7 @@ def write_stats(sh) -> Dict[str, Any]:
         try:
             for row in (PULSE_ROW, YEAR_ROW):
                 ws.format(f"A{row}:S{row}", VIOLET)
-                ws.format(f"U{row}:AF{row}", VIOLET)
+                ws.format(f"V{row}:AG{row}", VIOLET)
                 ws.format(f"{row + 2}:{row + 2}", BOLD)
         except Exception:
             pass
@@ -1385,8 +1409,8 @@ def write_stats(sh) -> Dict[str, Any]:
         ws.update(range_name=f"{MODULE_COL2}{BURNS_ROW}", values=burns_g,
                   value_input_option="RAW")
         try:
-            ws.format(f"AH{BURNS_ROW}:AK{BURNS_ROW}", VIOLET)
-            ws.format(f"AH{BURNS_ROW + 1}:AK{BURNS_ROW + 1}", BOLD)
+            ws.format(f"AI{BURNS_ROW}:AL{BURNS_ROW}", VIOLET)
+            ws.format(f"AI{BURNS_ROW + 1}:AL{BURNS_ROW + 1}", BOLD)
         except Exception:
             pass
 
@@ -1396,9 +1420,9 @@ def write_stats(sh) -> Dict[str, Any]:
         ws.update(range_name=f"{MODULE_COL2}{UNIVERS_ROW}", values=univ_g,
                   value_input_option="RAW")
         try:
-            ws.format(f"AH{UNIVERS_ROW}:AK{UNIVERS_ROW}", VIOLET)
-            ws.format(f"AH{UNIVERS_ROW + 1}:AK{UNIVERS_ROW + 1}", BOLD)
-            ws.format(f"AH{UNIVERS_ROW + 12}:AK{UNIVERS_ROW + 12}", BOLD)
+            ws.format(f"AI{UNIVERS_ROW}:AL{UNIVERS_ROW}", VIOLET)
+            ws.format(f"AI{UNIVERS_ROW + 1}:AL{UNIVERS_ROW + 1}", BOLD)
+            ws.format(f"AI{UNIVERS_ROW + 12}:AL{UNIVERS_ROW + 12}", BOLD)
         except Exception:
             pass
 
@@ -1416,8 +1440,8 @@ def write_stats(sh) -> Dict[str, Any]:
     # bannieres des modules de droite (💰 en T8, 🩺 juste en dessous)
     try:
         if wsize:
-            ws.format(f"U{GROUP_ROW}:AE{GROUP_ROW}", VIOLET)
-            ws.format(f"U{GROUP_ROW + 1}:AE{GROUP_ROW + 1}", BOLD)
+            ws.format(f"V{GROUP_ROW}:AF{GROUP_ROW}", VIOLET)
+            ws.format(f"V{GROUP_ROW + 1}:AF{GROUP_ROW + 1}", BOLD)
         ws.format(f"A{NOTES_ROW}:S{NOTES_ROW}", VIOLET)
     except Exception:
         pass
@@ -1434,7 +1458,13 @@ def write_stats(sh) -> Dict[str, Any]:
             max(0, len(monthly_g) - 3), max(0, len(annual_g) - 3), COLS_VVF,
             WHALE_COLS, max(0, len(whales_g) - 3), NOTES_ROW, len(notes),
             {"mois": PULSE_ROW, "annee": YEAR_ROW, "whales": WHALES_ROW,
-             "depart": START_ROW, "entete": HEADER_ROW})
+             "depart": START_ROW, "entete": HEADER_ROW},
+            bandeaux=[
+                (GROUP_ROW, 22, 32),                    # 💰 V..AF
+                (GROUP_ROW + sante_off, 22, 25),        # 🩺 V..Y
+                (BURNS_ROW, 35, 38),                    # 🔥 AI..AL
+                (UNIVERS_ROW, 35, 38),                  # 🏪 AI..AL
+            ])
         print(f"Habillage : {n_req} requetes (formats deduits des EN-TETES).",
               flush=True)
     except Exception as e:
