@@ -16,30 +16,38 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-NOIR = {"red": 0.043, "green": 0.043, "blue": 0.043}
-OR = {"red": 0.96, "green": 0.70, "blue": 0.00}
-VIOLET = {"red": 0.482, "green": 0.173, "blue": 0.749}
+# ── THEME SOMBRE (Preda 13/07) ───────────────────────────────────────────────
+FOND = {'red': 0.21176470588235294, 'green': 0.2235294117647059, 'blue': 0.24705882352941178}          # #36393f
+FOND_ALT = {'red': 0.24705882352941178, 'green': 0.2627450980392157, 'blue': 0.2901960784313726}      # zebrure : une nuance a peine plus claire
 BLANC = {"red": 1, "green": 1, "blue": 1}
-GRIS = {"red": 0.95, "green": 0.95, "blue": 0.96}
-GRIS_TXT = {"red": 0.4, "green": 0.4, "blue": 0.4}
-LILAS = {"red": 0.973, "green": 0.957, "blue": 0.988}
+GRIS_FONCE2 = {'red': 0.4, 'green': 0.4, 'blue': 0.4}   # le texte sur les cellules claires
+VIOLET = {'red': 0.4823529411764706, 'green': 0.17254901960784313, 'blue': 0.7490196078431373}
+OR = {'red': 0.9607843137254902, 'green': 0.7019607843137254, 'blue': 0.00392156862745098}
 
-# Teintes de GROUPE (une famille = une couleur, du quotidien au mensuel)
+# Les COULEURS DE FAMILLE, telles que Preda les veut (celles de l'ancien .gs).
+# Ligne des GROUPES (18) : soutenue. Ligne des EN-TETES (19) : la meme, delavee.
 GROUPES = {
-    "TRANSACTION": {"red": 0.886, "green": 0.922, "blue": 0.953},
-    "ACTIF": {"red": 0.906, "green": 0.937, "blue": 0.894},
-    "LISTING": {"red": 0.906, "green": 0.890, "blue": 0.937},
-    "REVENUE": {"red": 0.973, "green": 0.953, "blue": 0.878},
-    "OMI BURN": {"red": 0.953, "green": 0.878, "blue": 0.878},
-    "ACHAT": {"red": 0.878, "green": 0.937, "blue": 0.937},   # gems (Preda)
+    "TRANSACTION": {'red': 0.8117647058823529, 'green': 0.8862745098039215, 'blue': 0.9529411764705882},
+    "ACTIF": {'red': 0.8509803921568627, 'green': 0.9176470588235294, 'blue': 0.8274509803921568},
+    "LISTING": {'red': 0.8509803921568627, 'green': 0.8235294117647058, 'blue': 0.9137254901960784},
+    "REVENUE": {'red': 1.0, 'green': 0.9490196078431372, 'blue': 0.8},
+    "OMI BURN": {'red': 0.9568627450980393, 'green': 0.8, 'blue': 0.8},
+    "ACHAT": {'red': 0.8156862745098039, 'green': 0.8784313725490196, 'blue': 0.8901960784313725},
 }
-# La ligne d'EN-TETES reprend la teinte de sa famille, en plus pale : c'est ce
-# qui rendait le tableau lisible d'un coup d'oeil (l'ancien .gs le faisait, je
-# l'avais perdu en passant tout en gris — remonte par Preda le 13/07).
+ENTETES = {
+    "TRANSACTION": {'red': 0.8862745098039215, 'green': 0.9215686274509803, 'blue': 0.9529411764705882},
+    "ACTIF": {'red': 0.9058823529411765, 'green': 0.9372549019607843, 'blue': 0.8941176470588236},
+    "LISTING": {'red': 0.9058823529411765, 'green': 0.8901960784313725, 'blue': 0.9372549019607843},
+    "REVENUE": {'red': 0.9725490196078431, 'green': 0.9529411764705882, 'blue': 0.8784313725490196},
+    "OMI BURN": {'red': 0.9529411764705882, 'green': 0.8784313725490196, 'blue': 0.8784313725490196},
+    "ACHAT": {'red': 0.8941176470588236, 'green': 0.9294117647058824, 'blue': 0.9372549019607843},
+}
+GRIS = {'red': 0.9098039215686274, 'green': 0.9098039215686274, 'blue': 0.9098039215686274}          # familles sans couleur (Date, Drop, pulse)
+GRIS_TXT = {'red': 0.6, 'green': 0.6, 'blue': 0.6}
 
 
-def _pale(c: dict) -> dict:
-    return {k: v + (1.0 - v) * 0.45 for k, v in c.items()}
+def _entete(fam: str) -> dict:
+    return ENTETES.get(fam, GRIS)
 
 # ── FORMATS PAR NOM ─────────────────────────────────────────────────────────
 ARGENT = '#,##0" $"'
@@ -114,6 +122,20 @@ def _cell(rng: dict, fmt: dict, champs: str) -> dict:
                            "fields": champs}}
 
 
+def _plages(groupes: List[str], col1: int):
+    """[(famille, 1re colonne, derniere colonne)] — une famille COURT sur ses
+    sous-colonnes jusqu'a la suivante."""
+    out, fam, deb = [], "", 0
+    for i, g in enumerate(groupes):
+        if g:
+            if fam:
+                out.append((fam, deb, col1 + i - 1))
+            fam, deb = g, col1 + i
+    if fam:
+        out.append((fam, deb, col1 + len(groupes) - 1))
+    return out
+
+
 def _familles(entetes: List[str], groupes: List[str]) -> List[str]:
     """La famille de CHAQUE colonne : la ligne de groupes ne porte le libelle
     que sur sa 1re colonne, il court jusqu'au groupe suivant."""
@@ -134,19 +156,25 @@ def bloc(sid: int, entetes: List[str], ligne_entete: int, ligne1: int,
     sont simplement ignorees."""
     reqs: List[dict] = []
     n = len(entetes)
-    # ligne de groupes (couleur par famille)
+    # ligne des GROUPES : chaque famille est FUSIONNEE sur ses sous-colonnes,
+    # son nom CENTRE et en MAJUSCULES (demande Preda 13/07 : "TRANSACTION" doit
+    # faire toute la largeur de C18:G18, pas se tasser sur une seule case).
     if groupes:
-        for i, g in enumerate(groupes):
-            if not g:
-                continue
-            c = col1 + i
+        lg = ligne_entete - 1
+        for fam, c_deb, c_fin in _plages(groupes, col1):
+            if c_fin > c_deb:
+                reqs.append({"mergeCells": {
+                    "range": _rng(sid, lg, lg, c_deb, c_fin),
+                    "mergeType": "MERGE_ALL"}})
             reqs.append(_cell(
-                _rng(sid, ligne_entete - 1, ligne_entete - 1, c, c),
-                {"backgroundColor": GROUPES.get(g, GRIS),
-                 "textFormat": {"bold": True, "fontSize": 9},
-                 "horizontalAlignment": "CENTER"},
+                _rng(sid, lg, lg, c_deb, c_fin),
+                {"backgroundColor": GROUPES.get(fam, GRIS),
+                 "textFormat": {"bold": True, "fontSize": 10,
+                                "foregroundColor": GRIS_FONCE2},
+                 "horizontalAlignment": "CENTER",
+                 "verticalAlignment": "MIDDLE"},
                 "userEnteredFormat(backgroundColor,textFormat,"
-                "horizontalAlignment)"))
+                "horizontalAlignment,verticalAlignment)"))
     # en-tetes : chacun prend la teinte PALE de sa famille
     familles = _familles(entetes, groupes)
     for i, nom in enumerate(entetes):
@@ -154,8 +182,9 @@ def bloc(sid: int, entetes: List[str], ligne_entete: int, ligne1: int,
         fam = familles[i]
         reqs.append(_cell(
             _rng(sid, ligne_entete, ligne_entete, c, c),
-            {"backgroundColor": _pale(GROUPES[fam]) if fam in GROUPES else GRIS,
-             "textFormat": {"bold": True, "fontSize": 9},
+            {"backgroundColor": _entete(fam),
+             "textFormat": {"bold": True, "fontSize": 9,
+                            "foregroundColor": GRIS_FONCE2},
              "horizontalAlignment": "CENTER",
              "wrapStrategy": "WRAP",
              "verticalAlignment": "MIDDLE"},
@@ -169,8 +198,10 @@ def bloc(sid: int, entetes: List[str], ligne_entete: int, ligne1: int,
         f = _fmt(nom)
         fam = familles[i]
         style = {"horizontalAlignment": "LEFT" if not f else "RIGHT",
-                 "textFormat": {"fontSize": 9}}
-        champs = "userEnteredFormat(horizontalAlignment,textFormat"
+                 "backgroundColor": FOND,
+                 "textFormat": {"fontSize": 9, "foregroundColor": BLANC}}
+        champs = ("userEnteredFormat(horizontalAlignment,backgroundColor,"
+                  "textFormat")
         if f:
             style["numberFormat"] = {"type": "NUMBER", "pattern": f}
             champs += ",numberFormat"
@@ -182,10 +213,11 @@ def bloc(sid: int, entetes: List[str], ligne_entete: int, ligne1: int,
             "properties": {"pixelSize": _largeur(fam, nom)},
             "fields": "pixelSize"}})
     # zebrure : lisible sans effort
+    # zebrure : deux nuances de sombre, juste assez pour suivre une ligne
     reqs.append({"addBanding": {"bandedRange": {
         "range": _rng(sid, ligne1, ligne2, col1, col1 + n - 1),
-        "rowProperties": {"firstBandColor": BLANC,
-                          "secondBandColor": LILAS}}}})
+        "rowProperties": {"firstBandColor": FOND,
+                          "secondBandColor": FOND_ALT}}}})
     return reqs
 
 
@@ -197,30 +229,6 @@ def banniere(sid: int, ligne: int, c1: int, c2: int) -> List[dict]:
                   "userEnteredFormat(backgroundColor,textFormat)")]
 
 
-def titre(sid: int, c2: int) -> List[dict]:
-    return [
-        {"mergeCells": {"range": _rng(sid, 1, 1, 1, c2), "mergeType":
-                        "MERGE_ROWS"}},
-        _cell(_rng(sid, 1, 1, 1, c2),
-              {"backgroundColor": NOIR,
-               "textFormat": {"bold": True, "fontSize": 15,
-                              "foregroundColor": OR},
-               "horizontalAlignment": "CENTER"},
-              "userEnteredFormat(backgroundColor,textFormat,"
-              "horizontalAlignment)"),
-        {"mergeCells": {"range": _rng(sid, 2, 2, 1, c2), "mergeType":
-                        "MERGE_ROWS"}},
-        _cell(_rng(sid, 2, 2, 1, c2),
-              {"backgroundColor": NOIR,
-               "textFormat": {"italic": True, "fontSize": 9,
-                              "foregroundColor": {"red": 0.8, "green": 0.8,
-                                                  "blue": 0.8}},
-               "horizontalAlignment": "CENTER"},
-              "userEnteredFormat(backgroundColor,textFormat,"
-              "horizontalAlignment)"),
-    ]
-
-
 def notes(sid: int, ligne: int, n: int, c2: int) -> List[dict]:
     """Les notes : une colonne LARGE, du texte qui respire, pas un mur."""
     return [
@@ -230,9 +238,11 @@ def notes(sid: int, ligne: int, n: int, c2: int) -> List[dict]:
         {"mergeCells": {"range": _rng(sid, ligne + 1, ligne + n, 1, c2),
                         "mergeType": "MERGE_ROWS"}},
         _cell(_rng(sid, ligne + 1, ligne + n, 1, c2),
-              {"textFormat": {"fontSize": 9}, "wrapStrategy": "WRAP",
-               "verticalAlignment": "MIDDLE"},
-              "userEnteredFormat(textFormat,wrapStrategy,verticalAlignment)"),
+              {"backgroundColor": FOND,
+               "textFormat": {"fontSize": 9, "foregroundColor": BLANC},
+               "wrapStrategy": "WRAP", "verticalAlignment": "MIDDLE"},
+              "userEnteredFormat(backgroundColor,textFormat,wrapStrategy,"
+              "verticalAlignment)"),
     ]
 
 
@@ -273,21 +283,33 @@ def habiller(sh, ws, quotidien, n_jours, periode, n_mois, n_annees,
                "LISTING", "", "REVENUE", "", "", "OMI BURN", "", "", "ACHAT"]
     reqs = purger(sh, sid, depart)
 
+    # LE FOND SOMBRE, sur TOUTE la zone qui nous appartient (y compris les
+    # cellules vides : sans ca, le blanc de Google perce entre les blocs).
+    # Il s'arrete NET a la ligne de Preda.
+    reqs.append(_cell(_rng(sid, depart, ws.row_count, 1, 42),
+                      {"backgroundColor": FOND,
+                       "textFormat": {"foregroundColor": BLANC}},
+                      "userEnteredFormat(backgroundColor,textFormat)"))
+
     # bandeau semaine + KPI (plus de bandeau noir : les 13 lignes du haut sont
     # a Preda, et il ne veut pas de titre de ma part)
     reqs += banniere(sid, depart, 1, L)
     reqs.append({"mergeCells": {"range": _rng(sid, depart, depart, 1, L),
                                 "mergeType": "MERGE_ROWS"}})
     reqs.append(_cell(_rng(sid, depart + 1, depart + 1, 1, 12),
-                      {"textFormat": {"bold": True, "fontSize": 9,
+                      {"backgroundColor": FOND,
+                       "textFormat": {"bold": True, "fontSize": 9,
                                       "foregroundColor": GRIS_TXT},
                        "horizontalAlignment": "CENTER", "wrapStrategy": "WRAP"},
-                      "userEnteredFormat(textFormat,horizontalAlignment,"
-                      "wrapStrategy)"))
+                      "userEnteredFormat(backgroundColor,textFormat,"
+                      "horizontalAlignment,wrapStrategy)"))
     reqs.append(_cell(_rng(sid, depart + 2, depart + 2, 1, 12),
-                      {"textFormat": {"bold": True, "fontSize": 12},
+                      {"backgroundColor": FOND,
+                       "textFormat": {"bold": True, "fontSize": 12,
+                                      "foregroundColor": OR},
                        "horizontalAlignment": "CENTER"},
-                      "userEnteredFormat(textFormat,horizontalAlignment)"))
+                      "userEnteredFormat(backgroundColor,textFormat,"
+                      "horizontalAlignment)"))
     reqs.append(_cell(_rng(sid, depart + 2, depart + 2, 1, 1),
                       {"numberFormat": {"type": "NUMBER", "pattern": ARGENT}},
                       "userEnteredFormat.numberFormat"))
@@ -315,8 +337,11 @@ def habiller(sh, ws, quotidien, n_jours, periode, n_mois, n_annees,
         for i in range(3):
             c1 = 1 + i * 11
             reqs.append(_cell(_rng(sid, a + 1, a + 1, c1, c1 + 9),
-                              {"textFormat": {"bold": True, "fontSize": 10}},
-                              "userEnteredFormat.textFormat"))
+                              {"textFormat": {"bold": True, "fontSize": 10,
+                                              "foregroundColor": BLANC},
+                               "horizontalAlignment": "CENTER"},
+                              "userEnteredFormat(textFormat,"
+                              "horizontalAlignment)"))
             reqs += bloc(sid, whales, a + 2, a + 3, a + 2 + n_whales, col1=c1)
 
     # AUCUN figeage (Preda n'en veut pas). NB : figer une COLONNE etait de
