@@ -37,6 +37,7 @@ from __future__ import annotations
 import datetime as _dt
 import json
 import os
+import re
 from typing import Any, Dict, List, Optional
 
 import gspread
@@ -55,15 +56,37 @@ COLLECTIBLE_COLD = [
     "daily_mcp_points", "gemsPerMcp", "veve_series_name", "series_uuid",
     "veve_brand", "brand_uuid", "veve_licensor", "licensor_uuid",
     "veve_url", "image_url", "tracker_uuid", "description", "special_edition",
-    "market_fee", "first_available_edition", "is_blindbox", "drop_method",
+    "market_fee", "supply", "store_price_gems", "mcp_priority",
+    "first_available_edition", "is_blindbox", "drop_method",
 ]
 COMICS_COLD = [
     "veve_uuid", "name", "category", "edition_type", "rarity", "releaseDate",
     "daily_mcp_points", "noMarketListing", "gemsPerMcp", "veve_series_name",
     "series_uuid", "veve_brand", "brand_uuid", "veve_licensor", "licensor_uuid",
     "veve_url", "image_url", "tracker_uuid", "description", "drop_method",
-    "market_fee", "first_available_edition", "start_year",
+    "market_fee", "supply", "store_price_gems", "mcp_priority",
+    "veve_exclusive", "first_available_edition", "start_year",
 ]
+# ---------------------------------------------------------------------------
+# Colonnes FROIDES ajoutees le 2026-07-13 (chantier "page Classement").
+#
+#   supply           = nombre total d'editions emises (GraphQL `totalIssued`).
+#                      COMICS : c'est le total de la SERIE (toutes raretes
+#                      confondues), repete sur chaque ligne de rarete — c'est
+#                      exactement le "Supply" des cartes Discord de Preda.
+#                      COLLECTIBLES : le supply de l'item.
+#   store_price_gems = prix boutique en gems (GraphQL `storePrice`, 1 gem ~ 1 $).
+#   mcp_priority     = points MCP a depenser pour l'acces prioritaire au drop.
+#                      Champ VeVe non identifie a ce jour -> sonde au demarrage
+#                      du backfill ; colonne MANUELLE si VeVe ne l'expose pas.
+#   veve_exclusive   = TRUE si la description annonce une cover exclusive VeVe.
+#
+# Ces valeurs etaient DEJA collectees (veve_detail.COMIC_QUERY / _map_node) puis
+# JETEES par DROP_COLUMNS juste avant l'ecriture. On les recopie desormais dans
+# des colonnes froides dediees ; DROP_COLUMNS continue de jeter les champs bruts
+# (`rarity_editions`, `veve_store_price`) qui, eux, appartiennent a 🟠H-PRIX.
+# ---------------------------------------------------------------------------
+NEW_COLD_COLUMNS = ["supply", "store_price_gems", "mcp_priority", "veve_exclusive"]
 # Operational bookkeeping columns appended after the cold columns (needed by the
 # pipeline: new-drop detection, ordering, enrichment tracking).
 BOOKKEEPING = ["veve_enriched_at", "first_seen", "last_seen"]
@@ -251,6 +274,51 @@ def get_enriched_ids(spreadsheet_id: str, tab: str = "") -> set:
 # Normalisation: fold duplicate columns into the canonical veve_* / edition_type
 # ---------------------------------------------------------------------------
 
+# "This release features VeVe-Exclusive Rare & Ultra Rare covers by Jan Bazaldua..."
+# Le tiret peut etre un espace, un trait d'union ou une apostrophe typographique
+# selon les fiches -> on tolere tout separateur non alphabetique.
+_EXCLUSIVE_RE = re.compile(r"veve[^a-z0-9]{0,3}exclusive", re.IGNORECASE)
+
+
+def _is_exclusive_cover(description: Any) -> Optional[bool]:
+    """TRUE / FALSE si la description annonce (ou non) une cover exclusive VeVe.
+
+    Renvoie None quand il n'y a PAS de description : on ne sait pas, et ecrire
+    FALSE ferait passer une inconnue pour une reponse. Une fiche enrichie sans le
+    mot-cle, elle, est un vrai FALSE.
+    """
+    if description in (None, ""):
+        return None
+    return bool(_EXCLUSIVE_RE.search(str(description)))
+
+
+def _fill_new_cold(rec: Dict[str, Any]) -> None:
+    """Alimente supply / store_price_gems / mcp_priority / veve_exclusive.
+
+    IDEMPOTENT et NON DESTRUCTIF : une valeur deja presente dans la ligne (donc
+    relue du sheet) n'est jamais ecrasee par du vide. C'est indispensable ici :
+    sync_catalogue relit TOUTES les lignes existantes a chaque run, et ces
+    lignes-la n'ont plus les champs bruts d'enrichissement (`rarity_editions`,
+    `veve_store_price`) — les recalculer donnerait "" et effacerait le backfill.
+    """
+    if not rec.get("supply"):
+        # totalIssued (GraphQL) sinon releaseAmount (my-nft-tracker).
+        rec["supply"] = rec.get("rarity_editions") or rec.get("releaseAmount") or ""
+    if not rec.get("store_price_gems"):
+        rec["store_price_gems"] = (rec.get("veve_store_price")
+                                   or rec.get("storePrice") or "")
+    if not rec.get("mcp_priority"):
+        # Rempli par l'enrichissement SI VeVe expose le champ (sonde du backfill),
+        # sinon colonne manuelle : on ne touche pas a ce que Preda a saisi.
+        rec["mcp_priority"] = rec.get("mcp_priority") or ""
+    if str(rec.get("category", "")).lower() == "comic":
+        excl = _is_exclusive_cover(rec.get("description"))
+        if excl is not None:
+            rec["veve_exclusive"] = excl
+        else:
+            rec.setdefault("veve_exclusive", "")
+
+
 def _normalise(rec: Dict[str, Any]) -> Dict[str, Any]:
     """Fold tracker duplicates into the canonical columns, format the fee, strip
     dropped columns. Mutates and returns `rec`."""
@@ -262,6 +330,10 @@ def _normalise(rec: Dict[str, Any]) -> Dict[str, Any]:
         rec["market_fee"] = _fmt_fee(rec.get("market_fee"))
     rec["veve_url"] = build_veve_url(rec.get("category"), rec.get("veve_uuid"),
                                      rec.get("series_uuid"))
+    # ORDRE IMPORTANT : on recopie les champs bruts AVANT que DROP_COLUMNS ne les
+    # jette. C'est tout le bug qu'on repare : les donnees etaient la, on les
+    # supprimait a la derniere ligne.
+    _fill_new_cold(rec)
     for dc in DROP_COLUMNS:
         rec.pop(dc, None)
     return rec
