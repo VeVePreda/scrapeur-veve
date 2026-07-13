@@ -98,6 +98,24 @@ BURNS_RATE_DAYS = int(os.environ.get("STATS_BURN_RATE_DAYS", "30"))
 # 60 mois par defaut : l'histoire complete 2021->2026 (pulse IMX) tient
 # dans la zone mensuelle (gs v6 formate jusqu'a la ligne 120).
 PULSE_MONTHS = int(os.environ.get("STATS_PULSE_MONTHS", "60"))
+
+# 💎 GEMS ACHETES (demande Preda 13/07) — AUCUNE collecte nouvelle.
+# Le contrat OmiToGems brule exactement GEM_BURN_PCT de chaque conversion, et
+# c'est ce que mesure deja la colonne omi_gem de 🔥H-BURNS. Donc :
+#     OMI depenses en gems = omi_gem / GEM_BURN_PCT
+#     gems achetes ($)     = ces OMI x le cours du jour
+# Et comme 1 gem = 1 $, ce montant EST le nombre de gems achetes.
+# Interet : un pic d'achat de gems la VEILLE d'un drop = signal d'anticipation.
+GEM_BURN_PCT = float(os.environ.get("GEM_BURN_PCT", "0.07"))
+
+
+def gems_achetes(omi_gem: dict, rates: dict) -> dict:
+    """{date -> $ de gems achetes} depuis le burn de 7 % et le cours du jour."""
+    if not omi_gem or GEM_BURN_PCT <= 0:
+        return {}
+    usd = omi_to_usd({d: v / GEM_BURN_PCT for d, v in omi_gem.items()},
+                     rates or {})
+    return {d: v for d, v in usd.items() if v}
 # AIRDROP (seuils Preda 11/07) : (jour, uuid) avec mints >= MIN et minters
 # uniques >= RATIO x mints — detecte ici depuis ChainItems (fenetre 35 j).
 AIRDROP_MIN_MINTS = int(os.environ.get("AIRDROP_MIN_MINTS", "2000"))
@@ -392,17 +410,19 @@ def _ret_pct(c):
         return ""
 
 
-def _period_tables(recs, cat, usd, nft, gem, mkt, label, titre, titre_vvf):
+def _period_tables(recs, cat, usd, nft, gem, mkt, label, titre, titre_vvf,
+                   gems=None):
     """Couple (tableau periode, pulse periode) pour un grain donne — utilise
     pour les MOIS ("YYYY-MM") et les ANNÉES ("YYYY"). Memes 18 colonnes que le
     tableau quotidien pour le tableau de gauche."""
     table: List[List] = [
         [titre],
         ["", "", "TRANSACTION", "", "", "", "", "ACTIF", "", "",
-         "LISTING", "", "REVENUE", "", "", "OMI BURN", "", ""],
+         "LISTING", "", "REVENUE", "", "", "OMI BURN", "", "", ""],
         [label, "Drop", "Global", "Mint", "Airdrop", "Market", "Burn",
          "Unique", "Nouveaux", "Anciens", "Quantité", "Comptes",
-         "Total", "Drop", "Market", "Global $", "OMI→NFT", "OMI→GEM"],
+         "Total", "Drop", "Market", "Global $", "OMI→NFT", "OMI→GEM",
+         "💎 Gems $"],
     ]
     vvf: List[List] = [
         [titre_vvf],
@@ -440,7 +460,8 @@ def _period_tables(recs, cat, usd, nft, gem, mkt, label, titre, titre_vvf):
                       total, rdrop or "", rmkt or "",
                       round(u) if u else "",
                       round(onft) if onft else "",
-                      round(ogem) if ogem else ""])
+                      round(ogem) if ogem else "",
+                      round((gems or {}).get(p) or 0) or ""])
         c = r.get("churn_pct", "")
         vvf.append([p, _n(r.get("acheteurs")), _n(r.get("vendeurs")),
                     _n(r.get("minters_uniques")), nd or "",
@@ -482,6 +503,8 @@ def build_pulse_section(pulse_records, omi=None, omi_nft=None, omi_gem=None,
     nft_m, nft_y = _by(omi_nft, 7), _by(omi_nft, 4)
     gem_m, gem_y = _by(omi_gem, 7), _by(omi_gem, 4)
     mkt_m, mkt_y = _by(market_rev, 7), _by(market_rev, 4)
+    gems_d = gems_achetes(omi_gem or {}, rates or {})
+    gems_m, gems_y = _by(gems_d, 7), _by(gems_d, 4)
 
     recs = sorted(pulse_records, key=lambda r: str(r.get("month", "")),
                   reverse=True)[:PULSE_MONTHS]
@@ -489,14 +512,16 @@ def build_pulse_section(pulse_records, omi=None, omi_nft=None, omi_gem=None,
         recs, cat_m, usd_m, nft_m, gem_m, mkt_m, "Mois",
         "📅  PAR MOIS — mêmes colonnes que le tableau quotidien "
         "(archive on-chain, recalculé par le workflow ledger)",
-        "📈  PULSE VEVEFOX — par mois (wallets UNIQUES par colonne)")
+        "📈  PULSE VEVEFOX — par mois (wallets UNIQUES par colonne)",
+        gems=gems_m)
 
     yrecs = sorted(yearly, key=lambda r: str(r.get("month", "")), reverse=True)
     annual, vvf_y = _period_tables(
         yrecs, cat_y, usd_y, nft_y, gem_y, mkt_y, "Année",
         "📅  PAR ANNÉE — mêmes colonnes que le tableau quotidien "
         "(wallets = UNIQUES sur l'année, jamais la somme des mois)",
-        "📈  PULSE VEVEFOX — par année (wallets UNIQUES par colonne)")
+        "📈  PULSE VEVEFOX — par année (wallets UNIQUES par colonne)",
+        gems=gems_y)
     return monthly, vvf, annual, vvf_y
 
 
@@ -950,7 +975,7 @@ def compute_split(items, week_days: set) -> Dict[str, int]:
 
 def build_table_grid(daily, revenue, week, omi, listing, airdrop, drops,
                      now_utc: str, omi_nft=None, omi_gem=None,
-                     market_rev=None, omi_usd=None) -> List[List]:
+                     market_rev=None, omi_usd=None, gems=None) -> List[List]:
     """Grille A1:R.. : titre, bande KPI 7 jours, tableau quotidien groupe.
     Les mints d'airdrop sortent de la colonne Mint vers Airdrop (le Global
     reste complet — separer sans jeter, choix Preda)."""
@@ -958,6 +983,7 @@ def build_table_grid(daily, revenue, week, omi, listing, airdrop, drops,
     omi_gem = omi_gem or {}
     market_rev = market_rev or {}
     omi_usd = omi_usd or {}
+    gems = gems or {}
     g: List[List] = []
     g.append(["📊  STATS VEVE — ACTIVITÉ ON-CHAIN", "", "", "", "", "", "",
               "", "", "", "", "", "", "", "", "", "", "", "",
@@ -978,11 +1004,11 @@ def build_table_grid(daily, revenue, week, omi, listing, airdrop, drops,
               week["omi"]])
     g.append([])
     g.append(["", "", "TRANSACTION", "", "", "", "", "ACTIF", "", "",
-              "LISTING", "", "REVENUE", "", "", "OMI BURN", "", ""])
+              "LISTING", "", "REVENUE", "", "", "OMI BURN", "", "", ""])
     g.append(["Date", "Drop", "Global", "Mint", "Airdrop", "Market", "Burn",
               "Unique", "Nouveaux", "Anciens", "Quantité", "Comptes",
               "Total", "Drop", "Market",
-              "Global $", "OMI→NFT", "OMI→GEM"])
+              "Global $", "OMI→NFT", "OMI→GEM", "💎 Gems $"])
     for d in daily:
         drop = round(revenue.get(d["date"], 0))
         li = listing.get(d["date"])
@@ -998,7 +1024,8 @@ def build_table_grid(daily, revenue, week, omi, listing, airdrop, drops,
                   round(mkt) if mkt else "",              # ventes StackR reelles
                   round(omi_usd[d["date"]]) if d["date"] in omi_usd else "",
                   round(omi_nft[d["date"]]) if d["date"] in omi_nft else "",
-                  round(omi_gem[d["date"]]) if d["date"] in omi_gem else ""])
+                  round(omi_gem[d["date"]]) if d["date"] in omi_gem else "",
+                  round(gems[d["date"]]) if d["date"] in gems else ""])
     return g
 
 
@@ -1095,6 +1122,13 @@ def build_notes_grid() -> List[List]:
               "wallets (Unique, Acheteurs, Vendeurs, Minters) sont des "
               "UNIQUES sur l'année — ils sont donc INFÉRIEURS à la somme des "
               "mois (un même wallet actif 12 mois ne compte qu'une fois).", ""])
+    g.append(["💎 GEMS ACHETÉS ($) : déduit du burn, sans aucune collecte "
+              "nouvelle. Le contrat OmiToGems brûle 7 % de chaque conversion "
+              "— c'est la colonne OMI→GEM. Donc OMI dépensés = OMI→GEM / 0,07, "
+              "convertis au cours du jour ; et comme 1 gem = 1 $, ce montant "
+              "EST le nombre de gems achetés. À SURVEILLER : un pic la VEILLE "
+              "d'un drop = anticipation des acheteurs. Vide avant le "
+              "19/11/2025 (la conversion OMI→gems n'existait pas).", ""])
     g.append(["👴 OG 21-22 : wallets dont la 1ʳᵉ activité (toutes ères "
               "confondues) est ANTÉRIEURE à 2023, comptés parmi les actifs "
               "UNIQUES du mois. La colonne OG % dit quelle part du marché "
@@ -1265,9 +1299,10 @@ def write_stats(sh) -> Dict[str, Any]:
     omi_usd_daily = omi_to_usd(omi, mkt_rates)
 
     now_utc = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    gems_daily = gems_achetes(omi_gem, mkt_rates)
     table = build_table_grid(daily, revenue, week, omi, listing, airdrop,
                              drops, now_utc, omi_nft, omi_gem, market_rev,
-                             omi_usd_daily)
+                             omi_usd_daily, gems_daily)
     try:
         sante_rows = _health.build_rows(sh)
     except Exception as e:
@@ -1309,7 +1344,7 @@ def write_stats(sh) -> Dict[str, Any]:
                   value_input_option="RAW")
         try:
             for row in (PULSE_ROW, YEAR_ROW):
-                ws.format(f"A{row}:R{row}", VIOLET)
+                ws.format(f"A{row}:S{row}", VIOLET)
                 ws.format(f"T{row}:AE{row}", VIOLET)
                 ws.format(f"{row + 2}:{row + 2}", BOLD)
         except Exception:
@@ -1353,7 +1388,7 @@ def write_stats(sh) -> Dict[str, Any]:
         if wsize:
             ws.format(f"T{GROUP_ROW}:AD{GROUP_ROW}", VIOLET)
             ws.format(f"T{GROUP_ROW + 1}:AD{GROUP_ROW + 1}", BOLD)
-        ws.format(f"A{NOTES_ROW}:R{NOTES_ROW}", VIOLET)
+        ws.format(f"A{NOTES_ROW}:S{NOTES_ROW}", VIOLET)
     except Exception:
         pass
 
@@ -1377,7 +1412,7 @@ def write_stats(sh) -> Dict[str, Any]:
             "week_revenue": week["revenue"], "week_anciens": week["old"],
             "annees": max(0, len(annual_g) - 3),
             "jours_revenue_reel": n_reel,
-            "burns_synthese": len(burns_g),
+            "burns_synthese": len(burns_g), "gems_jours": len(gems_daily),
             "univers": len(univ_g), "whales": max(0, len(whales_g) - 3),
             "sante_row": GROUP_ROW + sante_off,
             "registres_wallets": len(known)}
