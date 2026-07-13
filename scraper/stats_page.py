@@ -423,13 +423,20 @@ def _period_tables(recs, cat, usd, nft, gem, mkt, label, titre, titre_vvf):
         u = usd.get(p)
         onft, ogem = nft.get(p), gem.get(p)
         mk = mkt.get(p)
+        # REVENUE (13/07) : Drop = mints du mois x prix store (calcule par le
+        # ledger, colonne revenue_drop du pulse) ; Total = Drop + Market.
+        # Vide avant 2026-01 : l'archive IMX ne porte pas l'uuid de l'item,
+        # donc aucun prix n'est rattachable a ces mints.
+        rdrop = _n(r.get("revenue_drop"))
+        rmkt = round(mk) if mk else 0
+        total = (rdrop + rmkt) or ""
         table.append([p, cell,
                       tokens + trades + burns, max(0, tokens - air), air,
                       trades, burns,
                       _n(r.get("actifs")), _n(r.get("nouveaux")),
                       _n(r.get("anciens")),
-                      _n(r.get("listings")), "",
-                      "", "", round(mk) if mk else "",
+                      _n(r.get("listings")), _n(r.get("listeurs")) or "",
+                      total, rdrop or "", rmkt or "",
                       round(u) if u else "",
                       round(onft) if onft else "",
                       round(ogem) if ogem else ""])
@@ -1093,6 +1100,14 @@ def build_notes_grid() -> List[List]:
               "exemplaires détenus, valeur au floor, valeur au prix store. "
               "Le détail wallet par wallet (rangs, score, activité, "
               "engagement) est dans 🟣C-PSEUDOS.", ""])
+    g.append(["📅 REVENUE du tableau PAR MOIS : Drop = mints du mois "
+              "(airdrops déduits) × prix store ACTUEL — c'est une valeur de "
+              "REMPLACEMENT, pas le prix réellement payé à l'époque (même "
+              "convention que les burns en $). VIDE avant 2026-01 : l'archive "
+              "IMX ne porte que le token_id, jamais l'uuid de l'item, donc "
+              "aucun prix n'est rattachable. Le tableau QUOTIDIEN, lui, "
+              "affiche le revenue RÉEL (flux VeVe) quand il est disponible.",
+              ""])
     g.append(["• Page recalculée chaque nuit par le daily · 📅 Pulse mensuel "
               "et 🐋 classement recalculés par le workflow ledger "
               "(hebdomadaire).", ""])

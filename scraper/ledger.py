@@ -207,7 +207,12 @@ PULSE_HEADER = ["month", "actifs", "nouveaux", "trades", "acheteurs",
                 "vendeurs", "tokens_emis", "tokens_airdrop",
                 "minters_uniques", "drops", "burns", "listings",
                 "acc_net_moy", "acc_net_pos", "acc_net_neg", "churn_pct",
-                "drops_vevecomics", "anciens"]
+                "drops_vevecomics", "anciens",
+                # 13/07 : les 3 colonnes VIDES du tableau mensuel de 📊 STATS
+                "listeurs",       # comptes UNIQUES ayant liste -> col. Comptes
+                "revenue_drop"]   # mints (hors airdrop) x prix store -> Drop
+# /!\ revenue_drop : ere CollectChain SEULEMENT. L'archive IMX ne porte que le
+# token_id, jamais l'uuid de l'item -> aucun prix rattachable avant 2026-01.
 # AIRDROP (seuils valides par Preda 11/07) : un (jour, uuid) est un airdrop si
 # mints >= MIN_MINTS ET minters uniques >= RATIO x mints (~1 exemplaire par
 # wallet, ex. Black Pink Heart, Happy New Year Tier1 Gini 0.008). Les mints
@@ -388,6 +393,7 @@ def replay(folder: str, imx_folder: str = ""):
     uuid_first_mint: Dict[str, str] = {}   # uuid -> 1er JOUR de mint (v10)
     uuid_cat: Dict[str, str] = {}          # uuid -> category (comic/collectible)
     mint_day_uuid: Counter = Counter()   # candidats airdrop (compteur leger)
+    mint_month_uuid: Counter = Counter()  # (mois, uuid) -> mints : REVENUE
     for path in _archive_files(folder):
         with gzip.open(path, "rt", encoding="utf-8") as f:
             for r in csv.DictReader(f):
@@ -423,7 +429,8 @@ def replay(folder: str, imx_folder: str = ""):
                 mo = monthly.setdefault(m, {
                     "mints": 0, "market": 0, "burns": 0, "listings": 0,
                     "actives": set(), "minters": set(), "buyers": set(),
-                    "sellers": set(), "net": Counter()})
+                    "sellers": set(), "net": Counter(),
+                    "listers": set()})
                 if kind == "mint":
                     if day == MIGRATION_DAY:
                         continue   # re-mints de migration : pas de l'activite
@@ -433,6 +440,7 @@ def replay(folder: str, imx_folder: str = ""):
                         mo["actives"].add(to)
                         mo["net"][to] += 1
                         mint_day_uuid[(day, uid)] += 1
+                        mint_month_uuid[(m, uid)] += 1
                         if m < first_month.get(to, "9999"):
                             first_month[to] = m
                     if day < uuid_first_mint.get(uid, "9999"):
@@ -457,6 +465,8 @@ def replay(folder: str, imx_folder: str = ""):
                             first_month[frm] = m
                 elif kind == "listing":
                     mo["listings"] += 1
+                    if frm and frm not in SYSTEM:
+                        mo["listers"].add(frm)      # -> colonne Comptes
                 elif kind == "system_transfer":
                     # livraison VeVe : le cote utilisateur reste actif
                     # (acquisition/retour) mais PAS une vente market.
@@ -544,13 +554,20 @@ def replay(folder: str, imx_folder: str = ""):
     for w, c in air_wallets.items():
         if w in prof:
             prof[w]["airdrop_mints"] = c
+    # un AIRDROP n'est pas une vente : ses mints sortent du revenue mensuel.
+    for (day, uid), cnt in airdrops.items():
+        k = (day[:7], uid)
+        if k in mint_month_uuid:
+            mint_month_uuid[k] = max(0, mint_month_uuid[k] - cnt)
     seq.clear()                     # libere la RAM avant l'ere IMX (runner 7 Go)
     n_imx = _ingest_imx(imx_folder, monthly, first_month)
     if n_imx:
         print(f"Pulse IMX : {n_imx} transferts 2021->{MIGRATION_DAY} integres "
               f"({len(monthly)} mois au pulse).", flush=True)
-    return ledger, prof, n, _build_pulse(monthly, first_month,
-                                         uuid_first_mint, uuid_cat, airdrops)
+    return (ledger, prof, n,
+            _build_pulse(monthly, first_month, uuid_first_mint, uuid_cat,
+                         airdrops),
+            mint_month_uuid)
 
 
 def _ingest_imx(folder: str, monthly: Dict, first_month: Dict) -> int:
@@ -614,7 +631,8 @@ def _ingest_imx(folder: str, monthly: Dict, first_month: Dict) -> int:
                 mo = monthly.setdefault(m, {
                     "mints": 0, "market": 0, "burns": 0, "listings": 0,
                     "actives": set(), "minters": set(), "buyers": set(),
-                    "sellers": set(), "net": Counter()})
+                    "sellers": set(), "net": Counter(),
+                    "listers": set()})
                 tok = (r.get("token_id") or "").strip()
                 n += 1
                 if (r.get("txn_type") or "").strip() == "mint" or frm == ZERO:
@@ -756,7 +774,8 @@ def _build_pulse(monthly, first_month, uuid_first_mint, uuid_cat=None,
                      mo["mints"], air_by_m.get(m, 0),
                      len(mo["minters"]), drops_by_m.get(m, 0),
                      mo["burns"], mo["listings"], avg, pos, neg, churn,
-                     wed_by_m.get(m, 0), anciens_by_m.get(m, 0)])
+                     wed_by_m.get(m, 0), anciens_by_m.get(m, 0),
+                     len(mo.get("listers") or ()), ""])
         prev_actives = act
     # lignes ANNUELLES (v14, demande Preda 12/07) : month = "YYYY" (4 car.),
     # filtrees par stats_page -> tableau PAR ANNEE + PULSE par annee. TOUTES
@@ -780,8 +799,10 @@ def _build_pulse(monthly, first_month, uuid_first_mint, uuid_cat=None,
         minters: set = set()
         net_y: Counter = Counter()
         trades = mints = burns = listings = air = drp = wed = 0
+        listers: set = set()
         for m in months_by_y[y]:
             mo = monthly[m]
+            listers |= (mo.get("listers") or set())
             act |= mo["actives"]
             buyers |= mo["buyers"]
             sellers |= mo["sellers"]
@@ -804,10 +825,40 @@ def _build_pulse(monthly, first_month, uuid_first_mint, uuid_cat=None,
         rows.append([y, len(act), new_by_y.get(y, 0), trades,
                      len(buyers), len(sellers), mints, air, len(minters),
                      drp, burns, listings, avg, pos, neg, churn, wed,
-                     anciens_by_y.get(y, 0)])
+                     anciens_by_y.get(y, 0), len(listers), ""])
         prev_y = act
         buyers = sellers = minters = net_y = None
     return rows
+
+
+def _fill_pulse_revenue(rows, mint_month_uuid, store_price) -> int:
+    """Remplit la colonne `revenue_drop` du pulse (mois ET annees).
+
+    Le calcul ne peut pas se faire dans replay() : il faut les prix, qui sont
+    lus dans le Sheet APRES le rejeu. On patche donc les lignes deja bâties."""
+    i = PULSE_HEADER.index("revenue_drop")
+    par_mois: Dict[str, float] = defaultdict(float)
+    sans_prix = 0
+    for (m, uid), cnt in mint_month_uuid.items():
+        p = store_price.get(uid)
+        if p:
+            par_mois[m] += cnt * p
+        else:
+            sans_prix += cnt
+    par_an: Dict[str, float] = defaultdict(float)
+    for m, v in par_mois.items():
+        par_an[m[:4]] += v
+    remplis = 0
+    for r in rows:
+        cle = str(r[0])
+        v = par_an.get(cle) if len(cle) == 4 else par_mois.get(cle)
+        if v:
+            r[i] = round(v)
+            remplis += 1
+    print(f"    revenue mensuel : {remplis} periode(s) valorisee(s) "
+          f"({sans_prix} mints sans prix connu — ere IMX ou item retire du "
+          f"store).", flush=True)
+    return remplis
 
 
 def _write_pulse(sh, rows) -> int:
@@ -954,7 +1005,8 @@ NO_BEHAVIOR = {"mints": 0, "buys": 0, "sells": 0, "durations": [],
 
 def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date,
               imx_folder: str = ""):
-    ledger_replay, prof, n, pulse_rows = replay(folder, imx_folder)
+    (ledger_replay, prof, n, pulse_rows,
+     mint_month_uuid) = replay(folder, imx_folder)
     print(f"Rejeu : {len(ledger_replay)} editions, {len(prof)} wallets, "
           f"{n} transferts.", flush=True)
 
@@ -990,6 +1042,12 @@ def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date,
     names = _read_names(sh)
     store_price, floor_price = _read_prices(sh)
     print(f"Prix : {len(store_price)} store, {len(floor_price)} floor.", flush=True)
+
+    # REVENUE DROP mensuel (colonne Drop du tableau 📅 PAR MOIS) : les mints du
+    # mois, airdrops deduits, valorises au prix store ACTUEL. Valeur de
+    # REMPLACEMENT (meme convention que les burns en $) : on n'a pas les prix
+    # historiques. Ere CollectChain seulement (l'IMX n'a pas d'uuid).
+    _fill_pulse_revenue(pulse_rows, mint_month_uuid, store_price)
 
     # valeur de chaque portefeuille (store & floor) depuis per_uuid
     value_store = Counter()
