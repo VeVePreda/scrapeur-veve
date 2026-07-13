@@ -209,6 +209,8 @@ PULSE_HEADER = ["month", "actifs", "nouveaux", "trades", "acheteurs",
                 "acc_net_moy", "acc_net_pos", "acc_net_neg", "churn_pct",
                 "drops_vevecomics", "anciens",
                 # 13/07 : les 3 colonnes VIDES du tableau mensuel de 📊 STATS
+                "og_actifs",      # actifs du mois arrives AVANT OG_CUTOFF
+                "og_pct",         # ... en % des actifs uniques du mois
                 "listeurs",       # comptes UNIQUES ayant liste -> col. Comptes
                 "revenue_drop"]   # mints (hors airdrop) x prix store -> Drop
 # /!\ revenue_drop : ere CollectChain SEULEMENT. L'archive IMX ne porte que le
@@ -226,6 +228,12 @@ AIRDROP_MINTER_RATIO = float(os.environ.get("AIRDROP_MINTER_RATIO", "0.9"))
 # detection airdrop ET des compteurs mint du pulse (le grand livre, lui,
 # garde ces mints : ils fondent la propriete).
 MIGRATION_DAY = os.environ.get("CC_MIGRATION_DAY", "2026-01-28")
+# OG (demande Preda 13/07) : un wallet est OG si son PREMIER mois d'activite,
+# toutes eres confondues (first_month fusionne IMX + CollectChain), est
+# ANTERIEUR a OG_CUTOFF. Defaut "2023" -> OG = arrive en 2021 ou 2022.
+# NB : la genese IMX est le 14/12/2021 ; l'ere GoChain (avant) n'est pas encore
+# collectee, donc les tout premiers OG sont dates de 2021-12 par defaut.
+OG_CUTOFF = os.environ.get("OG_CUTOFF", "2023")
 # Bareme d'activite en FRANCAIS (Preda 2026-07-10) — remplace
 # Active/Engaged/Dormant/Lapsed/Inactive/Ghost.
 ACTIVITIES = ["Actif", "Engagé", "Somnolant", "Inactif", "Désinscrit", "Fantôme"]
@@ -765,6 +773,9 @@ def _build_pulse(monthly, first_month, uuid_first_mint, uuid_cat=None,
         if prev_actives:
             gone = sum(1 for w in prev_actives if w not in act)
             churn = round(100.0 * gone / len(prev_actives), 1)
+        # part des OG (arrives avant OG_CUTOFF) parmi les actifs UNIQUES du mois
+        og = sum(1 for w in act if first_month.get(w, "9999") < OG_CUTOFF)
+        og_pct = round(100.0 * og / len(act), 1) if act else ""
         net = mo["net"]
         pos = sum(1 for v in net.values() if v > 0)
         neg = sum(1 for v in net.values() if v < 0)
@@ -775,6 +786,7 @@ def _build_pulse(monthly, first_month, uuid_first_mint, uuid_cat=None,
                      len(mo["minters"]), drops_by_m.get(m, 0),
                      mo["burns"], mo["listings"], avg, pos, neg, churn,
                      wed_by_m.get(m, 0), anciens_by_m.get(m, 0),
+                     og, og_pct,
                      len(mo.get("listers") or ()), ""])
         prev_actives = act
     # lignes ANNUELLES (v14, demande Preda 12/07) : month = "YYYY" (4 car.),
@@ -822,10 +834,12 @@ def _build_pulse(monthly, first_month, uuid_first_mint, uuid_cat=None,
         pos = sum(1 for v in net_y.values() if v > 0)
         neg = sum(1 for v in net_y.values() if v < 0)
         avg = round(sum(net_y.values()) / len(net_y), 2) if net_y else 0
+        og = sum(1 for w in act if first_month.get(w, "9999") < OG_CUTOFF)
+        og_pct = round(100.0 * og / len(act), 1) if act else ""
         rows.append([y, len(act), new_by_y.get(y, 0), trades,
                      len(buyers), len(sellers), mints, air, len(minters),
                      drp, burns, listings, avg, pos, neg, churn, wed,
-                     anciens_by_y.get(y, 0), len(listers), ""])
+                     anciens_by_y.get(y, 0), og, og_pct, len(listers), ""])
         prev_y = act
         buyers = sellers = minters = net_y = None
     return rows

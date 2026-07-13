@@ -408,7 +408,8 @@ def _period_tables(recs, cat, usd, nft, gem, mkt, label, titre, titre_vvf):
         [titre_vvf],
         [""],
         [label, "Acheteurs uniques", "Vendeurs uniques", "Minters uniques",
-         "Drops", "Acc. nette moy", "Net+", "Net−", "Rétention %", "Churn %"],
+         "Drops", "Acc. nette moy", "Net+", "Net−", "Rétention %", "Churn %",
+         "OG 21-22", "OG %"],
     ]
     for r in recs:
         p = str(r.get("month", ""))
@@ -444,7 +445,8 @@ def _period_tables(recs, cat, usd, nft, gem, mkt, label, titre, titre_vvf):
         vvf.append([p, _n(r.get("acheteurs")), _n(r.get("vendeurs")),
                     _n(r.get("minters_uniques")), nd or "",
                     r.get("acc_net_moy", ""), _n(r.get("acc_net_pos")),
-                    _n(r.get("acc_net_neg")), _ret_pct(c), c])
+                    _n(r.get("acc_net_neg")), _ret_pct(c), c,
+                    _n(r.get("og_actifs")) or "", r.get("og_pct", "")])
     return table, vvf
 
 
@@ -1093,6 +1095,13 @@ def build_notes_grid() -> List[List]:
               "wallets (Unique, Acheteurs, Vendeurs, Minters) sont des "
               "UNIQUES sur l'année — ils sont donc INFÉRIEURS à la somme des "
               "mois (un même wallet actif 12 mois ne compte qu'une fois).", ""])
+    g.append(["👴 OG 21-22 : wallets dont la 1ʳᵉ activité (toutes ères "
+              "confondues) est ANTÉRIEURE à 2023, comptés parmi les actifs "
+              "UNIQUES du mois. La colonne OG % dit quelle part du marché "
+              "vivant est tenue par les anciens. ⚠️ La genèse IMX est le "
+              "14/12/2021 : l'ère GoChain (avant) n'est pas encore collectée, "
+              "les tout premiers OG sont donc datés de 2021-12 par défaut.",
+              ""])
     g.append(["🔁 ENGAGEMENT (part des semaines actives depuis la 1ʳᵉ tx) : "
               "Fidèle ≥50 % · Régulier ≥25 % · Occasionnel ≥10 % · "
               "Sporadique <10 % · Unique = 1 seule semaine.", ""])
@@ -1301,7 +1310,7 @@ def write_stats(sh) -> Dict[str, Any]:
         try:
             for row in (PULSE_ROW, YEAR_ROW):
                 ws.format(f"A{row}:R{row}", VIOLET)
-                ws.format(f"T{row}:AC{row}", VIOLET)
+                ws.format(f"T{row}:AE{row}", VIOLET)
                 ws.format(f"{row + 2}:{row + 2}", BOLD)
         except Exception:
             pass
