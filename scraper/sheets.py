@@ -56,7 +56,7 @@ COLLECTIBLE_COLD = [
     "daily_mcp_points", "gemsPerMcp", "veve_series_name", "series_uuid",
     "veve_brand", "brand_uuid", "veve_licensor", "licensor_uuid",
     "veve_url", "image_url", "tracker_uuid", "description", "special_edition",
-    "market_fee", "supply", "store_price_gems", "mcp_priority",
+    "market_fee", "supply", "store_price_gems",
     "first_available_edition", "is_blindbox", "drop_method",
 ]
 COMICS_COLD = [
@@ -64,7 +64,7 @@ COMICS_COLD = [
     "daily_mcp_points", "noMarketListing", "gemsPerMcp", "veve_series_name",
     "series_uuid", "veve_brand", "brand_uuid", "veve_licensor", "licensor_uuid",
     "veve_url", "image_url", "tracker_uuid", "description", "drop_method",
-    "market_fee", "supply", "store_price_gems", "mcp_priority",
+    "market_fee", "supply", "store_price_gems",
     "veve_exclusive", "first_available_edition", "start_year",
 ]
 # ---------------------------------------------------------------------------
@@ -76,17 +76,19 @@ COMICS_COLD = [
 #                      exactement le "Supply" des cartes Discord de Preda.
 #                      COLLECTIBLES : le supply de l'item.
 #   store_price_gems = prix boutique en gems (GraphQL `storePrice`, 1 gem ~ 1 $).
-#   mcp_priority     = points MCP a depenser pour l'acces prioritaire au drop.
-#                      Champ VeVe non identifie a ce jour -> sonde au demarrage
-#                      du backfill ; colonne MANUELLE si VeVe ne l'expose pas.
 #   veve_exclusive   = TRUE si la description annonce une cover exclusive VeVe.
+#
+# PAS de colonne MCP : le cout en points de l'acces prioritaire est CONSTANT
+# (5 000, confirme par Preda le 13/07) et VeVe ne l'expose nulle part (30 noms de
+# champs sondes sur publicComicType/publicCollectibleType : "Invalid request").
+# Une colonne qui repete 18 700 fois la meme constante ne vaut pas une colonne.
 #
 # Ces valeurs etaient DEJA collectees (veve_detail.COMIC_QUERY / _map_node) puis
 # JETEES par DROP_COLUMNS juste avant l'ecriture. On les recopie desormais dans
 # des colonnes froides dediees ; DROP_COLUMNS continue de jeter les champs bruts
 # (`rarity_editions`, `veve_store_price`) qui, eux, appartiennent a 🟠H-PRIX.
 # ---------------------------------------------------------------------------
-NEW_COLD_COLUMNS = ["supply", "store_price_gems", "mcp_priority", "veve_exclusive"]
+NEW_COLD_COLUMNS = ["supply", "store_price_gems", "veve_exclusive"]
 # Operational bookkeeping columns appended after the cold columns (needed by the
 # pipeline: new-drop detection, ordering, enrichment tracking).
 BOOKKEEPING = ["veve_enriched_at", "first_seen", "last_seen"]
@@ -317,10 +319,6 @@ def _fill_new_cold(rec: Dict[str, Any]) -> None:
     if not rec.get("store_price_gems"):
         rec["store_price_gems"] = (rec.get("veve_store_price")
                                    or rec.get("storePrice") or "")
-    if not rec.get("mcp_priority"):
-        # Rempli par l'enrichissement SI VeVe expose le champ (sonde du backfill),
-        # sinon colonne manuelle : on ne touche pas a ce que Preda a saisi.
-        rec["mcp_priority"] = rec.get("mcp_priority") or ""
     if is_comic:
         excl = _is_exclusive_cover(rec.get("description"))
         if excl is not None:
