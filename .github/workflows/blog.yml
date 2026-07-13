@@ -15,7 +15,7 @@ name: VeVe blog sync
 
 on:
   schedule:
-    - cron: "41 7 * * *"          # daily light refresh (new articles only)
+    - cron: "0 2 * * *"          # daily light refresh (new articles only)
   workflow_dispatch:
     inputs:
       pages:

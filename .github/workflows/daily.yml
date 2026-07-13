@@ -3,22 +3,24 @@ name: VeVe daily sync (catalogue + chain + pseudos)
 # One daily job that runs every step in order:
 #   1. catalogue  — cold catalogues + 🟤C-MARQUE
 #   2. chain      — CollectChain activity + escrow deposits (feeds 🟣C-PSEUDOS)
-#   3. stackr     — StackR pseudo <-> wallet resolution (writes 🟣C-PSEUDOS)
+#   3. ventes     — ventes StackR (prix reels -> Revenue Market)
 #   4. dynamic    — daily edition-counter refresh (GraphQL) into 🟠H-PRIX
 #   5. wallets    — enrich 🟣C-PSEUDOS with on-chain first_seen / last_active
 #
 # The fast-moving dynamic data (floor/listings) has its own 3-hourly workflow.
-# The VeVe market step was removed (scrap account blocked, no session).
+# 13/07 : les steps 'stackr' (cookie 401) et 'market' (session VeVe morte)
+# sont SUPPRIMES — ils tapaient VeVe chaque nuit pour rien. Les pseudos
+# arrivent desormais gratuitement par veve_tx (getVeveTransactions).
 
 on:
   schedule:
     # 04:11 UTC ≈ 06:11 FR (summer). A few minutes past the hour dodges GitHub's
     # heavy on-the-hour scheduling.
-    - cron: "11 4 * * *"
+    - cron: "15 2 * * *"
   workflow_dispatch:
     inputs:
       steps:
-        description: "Etapes (all, ou liste : catalogue,chain,stackr,market,editions,registre,stats)"
+        description: "Etapes (all, ou liste : catalogue,chain,ventes,editions,registre,stats)"
         required: false
         default: "all"
 
@@ -80,26 +82,6 @@ jobs:
           gh release upload chain-archive-daily archive/transfers_daily_*.csv.gz --clobber
           echo "Uploade :" && ls -lh archive/
 
-      - name: 3) StackR pseudos
-        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'stackr')) }}
-        env:
-          STACKR_MAX_LOOKUPS: "200"
-          STACKR_COOKIE: ${{ secrets.STACKR_COOKIE }}
-        run: python -m scraper.stackr
-
-      # Mode CIBLE : la landing (25 req) donne listings+floor par produit ;
-      # seuls les produits qui ont change depuis _MarketState sont visites.
-      # Balayage complet : dimanche PT, etat vide, ou MARKET_FULL=true.
-      # Skip propre si la session VeVe (VEVE_AUTH) est morte.
-      - name: 3b) Market listings (pseudo<->wallet, mode cible)
-        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'market')) }}
-        env:
-          VEVE_AUTH: ${{ secrets.VEVE_AUTH }}
-        run: python -m scraper.veve_market
-
-      # Chantier 7 : ventes REELLES du marche StackR (endpoint public
-      # getAllLatestSales_v2) -> data/stackr_sales.csv + onglet _MarketRevenue
-      # (colonne Revenue Market de 📊 STATS). ~5 requetes/jour.
       - name: 3c) Ventes StackR (prix reels -> Revenue Market)
         if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'ventes')) }}
         env:

@@ -14,11 +14,23 @@ name: Analytics - grand livre (holdings)
 #      pour le PULSE MENSUEL uniquement (l'histoire complete sur STATS) ;
 #      grand livre / profils / scores restent CollectChain.
 # Ecrit : data/ledger.csv.gz + data/wallet_profiles.csv.gz (commites),
-# onglets 🐋A-WHALES / 🎯A-CORNERISATION / 📈H-WALLET-SIZE / 🟣C-PSEUDOS / 🏠ACCUEIL.
+# onglets 🎯A-CORNERISATION / 📈H-WALLET-SIZE(cache) / 🟣C-PSEUDOS / _Whales(cache).
+# 13/07 : l'onglet 🐋A-WHALES est SUPPRIME — le classement est rendu sur
+# 📊 STATS (source = onglet cache _Whales) et le detail wallet par wallet
+# (rangs + profil) vit dans 🟣C-PSEUDOS.
 
 on:
+  # HEBDO : jeudi 22:00 UTC = VENDREDI 00:00 heure de Paris. Le classement 🐋
+  # et la cornerisation 🎯 sont donc frais le vendredi matin, et le daily de
+  # 02:15 UTC passe APRES (aucune course sur le Sheet).
+  schedule:
+    - cron: "0 22 * * 4"
   workflow_dispatch:
     inputs:
+      steps:
+        description: "Sorties (all, ou liste : whales,corner,size,pseudos,pulse)"
+        required: false
+        default: "all"
       archive_repo:
         description: "Repo owner/name de l'archive chain-archive"
         default: "astronemagame-maker/astronema"
@@ -43,6 +55,7 @@ jobs:
       GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
       SHEET_ID: ${{ secrets.SHEET_ID }}
       WHALES_TOP: ${{ github.event.inputs.whales_top || '100' }}
+      LEDGER_STEPS: ${{ github.event.inputs.steps || 'all' }}
       ARCHIVE_DIR: dl
       SNAPSHOT_DIR: dl_snap
       IMX_DIR: dl_imx

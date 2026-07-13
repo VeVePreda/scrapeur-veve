@@ -10,7 +10,7 @@ name: Compteurs d'editions VeVe (HEBDO)
 
 on:
   schedule:
-    - cron: "11 5 * * 0"        # dimanche 05:11 UTC (hors du daily de 04:11)
+    - cron: "0 4 * * 0"        # dimanche 05:11 UTC (hors du daily de 04:11)
   workflow_dispatch:
 
 jobs:

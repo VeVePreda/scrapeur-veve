@@ -8,7 +8,7 @@ name: Comic store prices (daily)
 on:
   schedule:
     # 06:21 UTC — apres floors (05:41) et logos (05:51), loin de l'heure pile.
-    - cron: "21 6 * * *"
+    - cron: "40 0 * * *"
   workflow_dispatch:
     inputs:
       max_items:

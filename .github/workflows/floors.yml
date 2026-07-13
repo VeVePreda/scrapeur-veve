@@ -8,7 +8,7 @@ name: VeVe floors sync (collectibles)
 
 on:
   schedule:
-    - cron: "41 5 * * *"   # 05:41 UTC, offset from daily.yml (04:11) and the :17 dynamic
+    - cron: "10 1 * * *"   # 05:41 UTC, offset from daily.yml (04:11) and the :17 dynamic
   workflow_dispatch:
     inputs:
       max:

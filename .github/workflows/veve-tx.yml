@@ -4,7 +4,7 @@ name: VeVe transactions (flux public)
 # par le daily (step stats) lise deja le revenue REEL du jour precedent.
 on:
   schedule:
-    - cron: "50 3 * * *"
+    - cron: "50 1 * * *"
   workflow_dispatch:
     inputs:
       days:

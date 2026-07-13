@@ -6,7 +6,7 @@ name: Digest Discord du matin
 
 on:
   schedule:
-    - cron: "10 8 * * *"        # 08:10 UTC — 10:10 heure de Paris
+    - cron: "30 3 * * *"        # 08:10 UTC — 10:10 heure de Paris
   workflow_dispatch:
 
 permissions:
