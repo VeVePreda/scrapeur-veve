@@ -301,9 +301,19 @@ def _fill_new_cold(rec: Dict[str, Any]) -> None:
     lignes-la n'ont plus les champs bruts d'enrichissement (`rarity_editions`,
     `veve_store_price`) — les recalculer donnerait "" et effacerait le backfill.
     """
+    is_comic = str(rec.get("category", "")).lower() == "comic"
     if not rec.get("supply"):
-        # totalIssued (GraphQL) sinon releaseAmount (my-nft-tracker).
-        rec["supply"] = rec.get("rarity_editions") or rec.get("releaseAmount") or ""
+        # totalIssued (GraphQL) = le supply de la SERIE pour un comic, de l'item
+        # pour un collectible.
+        #
+        # ⚠️ PIEGE PAYE LE 13/07 : pour un COMIC, `releaseAmount` (my-nft-tracker)
+        # est le supply de la RARETE de la ligne (Cheetara #2 COMMON = 400), pas
+        # celui de la serie. L'utiliser en repli melangeait deux grandeurs dans la
+        # meme colonne. Un comic n'a donc AUCUN repli tracker : sans enrichissement
+        # GraphQL, la cellule reste vide (le backfill la remplira).
+        rec["supply"] = rec.get("rarity_editions") or ""
+        if not rec["supply"] and not is_comic:
+            rec["supply"] = rec.get("releaseAmount") or ""
     if not rec.get("store_price_gems"):
         rec["store_price_gems"] = (rec.get("veve_store_price")
                                    or rec.get("storePrice") or "")
@@ -311,7 +321,7 @@ def _fill_new_cold(rec: Dict[str, Any]) -> None:
         # Rempli par l'enrichissement SI VeVe expose le champ (sonde du backfill),
         # sinon colonne manuelle : on ne touche pas a ce que Preda a saisi.
         rec["mcp_priority"] = rec.get("mcp_priority") or ""
-    if str(rec.get("category", "")).lower() == "comic":
+    if is_comic:
         excl = _is_exclusive_cover(rec.get("description"))
         if excl is not None:
             rec["veve_exclusive"] = excl
