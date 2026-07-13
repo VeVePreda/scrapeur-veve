@@ -93,7 +93,10 @@ PSEUDOS_HEADER = ["username", "wallet_imx", "wallet_stackr", "veve_user_id",
                   "holdings", "distinct_collectibles", "acquired", "sold",
                   "retention", "median_hold_days", "collectorScore",
                   "activityStatus", "engagementLevel", "value_store",
-                  "value_floor", "qty_bucket", "airdropOnly"]
+                  "value_floor", "qty_bucket", "airdropOnly",
+                  # --- rangs whales (13/07 : l'onglet 🐋A-WHALES est absorbe
+                  #     ici ; vide = hors du top 100 du classement) ---
+                  "rang_qty", "rang_floor", "rang_store"]
 
 PAUSE = float(os.environ.get("STACKR_PAUSE", "0.35"))
 MAX_LOOKUPS = int(os.environ.get("STACKR_MAX_LOOKUPS", "200"))

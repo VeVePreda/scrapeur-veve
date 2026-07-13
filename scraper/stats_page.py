@@ -79,6 +79,17 @@ MODULE_COL2 = "AF"
 BURNS_ROW = 8                        # 🔥 synthese burns (AF8)
 UNIVERS_ROW = 24                     # 🏪 univers de marche (AF24)
 UNIVERS_TAB = "_MarketUniverse"      # ecrit par scraper/market_universe.py
+
+# 🐋 CLASSEMENT WHALES (13/07) : l'onglet 🐋A-WHALES est supprime, son
+# classement est rendu ICI, sous les notes. Source = onglet cache _Whales
+# (ecrit par le workflow ledger, comme _MonthlyPulse). Le detail par wallet
+# (rangs + profil complet) vit dans 🟣C-PSEUDOS.
+WHALES_TAB = "_Whales"
+WHALES_ROW = int(os.environ.get("STATS_WHALES_ROW", "165"))
+WHALES_TOP = int(os.environ.get("STATS_WHALES_TOP", "20"))
+WHALE_COLS = ["Rang", "Wallet", "Pseudo", "Critère", "Exemplaires",
+              "Collectibles", "Valeur store $", "Valeur floor $", "Score",
+              "Activité"]
 UNIVERS_DAYS = int(os.environ.get("STATS_UNIVERS_DAYS", "15"))  # 2 semaines
 # Offre OMI EN CIRCULATION (CoinGecko / ECOMI, juillet 2026 : 270 951 644 947 ;
 # offre TOTALE 750 Md). Env OMI_CIRCULATING pour la reactualiser.
@@ -586,6 +597,67 @@ def build_burns_summary(sh, rates) -> List[List]:
     return g
 
 
+def build_whales(sh):
+    """3 classements cote a cote (A-J | L-U | W-AF), top WHALES_TOP chacun.
+
+    Reprend la mise en page de l'ancien onglet 🐋 (titres, en-tetes, une
+    colonne vide entre les blocs) mais DANS 📊 STATS. Rien a calculer ici :
+    le ledger a deja tout mis dans l'onglet cache _Whales."""
+    def _val(x):
+        """Nombre natif si c'en est un, sinon la valeur telle quelle (locale FR
+        safe : on ne renvoie JAMAIS de chaine numerique au Sheet)."""
+        try:
+            f = float(str(x).replace(",", ".").replace(" ", ""))
+        except (TypeError, ValueError):
+            return x if x not in (None, "") else ""
+        return int(f) if f.is_integer() else round(f, 2)
+
+    rows = _records(sh, WHALES_TAB)
+    if not rows:
+        return []
+    blocs: Dict[str, list] = {}
+    for r in rows:
+        blocs.setdefault(str(r.get("bloc", "")), []).append(r)
+    if not blocs:
+        return []
+    ordre = [b for b in ("Whale Accumulatrice", "Whale Valeur Floor",
+                         "Whale Valeur Store") if b in blocs]
+    ordre += [b for b in blocs if b not in ordre]
+
+    n = len(WHALE_COLS)
+    banniere = ["🐋 CLASSEMENT WHALES — top " + str(WHALES_TOP) +
+                " (detail complet et rangs : 🟣C-PSEUDOS)"]
+    titres, entetes, corps = [], [], []
+    hauteur = 0
+    for i, b in enumerate(ordre):
+        lignes = sorted(blocs[b],
+                        key=lambda r: _n(r.get("rank")) or 9e9)[:WHALES_TOP]
+        blocs[b] = lignes
+        hauteur = max(hauteur, len(lignes))
+        if i:
+            titres.append("")
+            entetes.append("")
+        titres += [b] + [""] * (n - 1)
+        entetes += list(WHALE_COLS)
+    for k in range(hauteur):
+        ligne = []
+        for i, b in enumerate(ordre):
+            if i:
+                ligne.append("")
+            src = blocs[b]
+            if k < len(src):
+                r = src[k]
+                ligne += [_n(r.get("rank")), r.get("wallet", ""),
+                          r.get("pseudo", ""), _val(r.get("metric")),
+                          _n(r.get("holdings")), _n(r.get("distinct")),
+                          _val(r.get("value_store")), _val(r.get("value_floor")),
+                          r.get("score", ""), r.get("activity", "")]
+            else:
+                ligne += [""] * n
+        corps.append(ligne)
+    return [banniere, titres, entetes] + corps
+
+
 def build_universe(sh) -> List[List]:
     """🏪 UNIVERS DE MARCHÉ (demande Preda 12/07 : « renseigne-moi cette info
     des éléments qui ont un marché, avec un historique et une note »).
@@ -1017,8 +1089,13 @@ def build_notes_grid() -> List[List]:
     g.append(["🔁 ENGAGEMENT (part des semaines actives depuis la 1ʳᵉ tx) : "
               "Fidèle ≥50 % · Régulier ≥25 % · Occasionnel ≥10 % · "
               "Sporadique <10 % · Unique = 1 seule semaine.", ""])
+    g.append(["🐋 CLASSEMENT WHALES (bas de page) : 3 tris du même monde — "
+              "exemplaires détenus, valeur au floor, valeur au prix store. "
+              "Le détail wallet par wallet (rangs, score, activité, "
+              "engagement) est dans 🟣C-PSEUDOS.", ""])
     g.append(["• Page recalculée chaque nuit par le daily · 📅 Pulse mensuel "
-              "recalculé par le workflow ledger.", ""])
+              "et 🐋 classement recalculés par le workflow ledger "
+              "(hebdomadaire).", ""])
     return g
 
 
@@ -1236,6 +1313,17 @@ def write_stats(sh) -> Dict[str, Any]:
         except Exception:
             pass
 
+    # 🐋 CLASSEMENT WHALES (sous les notes, pleine largeur A-AF)
+    whales_g = build_whales(sh)
+    if whales_g:
+        ws.update(range_name=f"A{WHALES_ROW}", values=whales_g,
+                  value_input_option="RAW")
+        try:
+            ws.format(f"A{WHALES_ROW}:AF{WHALES_ROW}", VIOLET)
+            ws.format(f"{WHALES_ROW + 1}:{WHALES_ROW + 2}", BOLD)
+        except Exception:
+            pass
+
     # bannieres des modules de droite (💰 en T8, 🩺 juste en dessous)
     try:
         if wsize:
@@ -1266,7 +1354,7 @@ def write_stats(sh) -> Dict[str, Any]:
             "annees": max(0, len(annual_g) - 3),
             "jours_revenue_reel": n_reel,
             "burns_synthese": len(burns_g),
-            "univers": len(univ_g),
+            "univers": len(univ_g), "whales": max(0, len(whales_g) - 3),
             "sante_row": GROUP_ROW + sante_off,
             "registres_wallets": len(known)}
 

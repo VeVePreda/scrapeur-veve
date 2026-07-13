@@ -89,7 +89,11 @@ except Exception:
 SYSTEM = {ZERO, MARKET_ESCROW, BURN_SINK, ""} | DISTRIB_WALLETS
 BURN_TO = {ZERO, BURN_SINK}
 
-WHALES_TAB = "🐋A-WHALES"
+# 13/07 : l'onglet visible 🐋A-WHALES est SUPPRIME. Le classement part dans
+# 📊 STATS (via cet onglet cache, meme patron que _MonthlyPulse / _WalletSize)
+# et le detail par wallet vit dans 🟣C-PSEUDOS (rangs + profil).
+WHALES_TAB = "_Whales"
+OLD_WHALES_TAB = "🐋A-WHALES"
 CORNER_TAB = "🎯A-CORNERISATION"
 # Historique wallet-size CACHE depuis le 11/07 (fusion dans 📊 STATS, choix
 # Preda) — l'ancien onglet visible 📈H-WALLET-SIZE est supprime au 1er run.
@@ -109,7 +113,11 @@ SIZE_HEADER = ["snapshot_month", "dimension", "bucket", "wallets", "pct_wallets"
 PSEUDO_PROFILE_COLS = ["holdings", "distinct_collectibles", "acquired", "sold",
                        "retention", "median_hold_days", "collectorScore",
                        "activityStatus", "engagementLevel", "value_store",
-                       "value_floor", "qty_bucket", "airdropOnly"]
+                       "value_floor", "qty_bucket", "airdropOnly",
+                       "rang_qty", "rang_floor", "rang_store"]
+# rang_* <- position dans les 3 classements de WHALE_TYPES (vide si hors top)
+RANK_COLS = {"holdings": "rang_qty", "value_floor": "rang_floor",
+             "value_store": "rang_store"}
 CORNER_HEADER = (["veve_uuid", "name", "category", "circulating", "holders",
                   "gini"]
                  + [f"top{i}_{s}" for i in range(1, 11) for s in ("cnt", "pct")]
@@ -1034,14 +1042,19 @@ def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date,
                                      and p.get("airdrop_mints", 0) >= p["mints"])
                             else "")}
 
-    # TYPOLOGIE des whales : 3 blocs (top `top` par critere)
+    # TYPOLOGIE des whales : 3 blocs (top `top` par critere).
+    # Les rangs sont RECOPIES dans le profil -> 🟣C-PSEUDOS les porte, donc
+    # l'onglet 🐋 n'a plus de raison d'exister.
     whale_blocks = []
     for title, key in WHALE_TYPES:
         ranked = sorted(profiles.items(), key=lambda kv: -kv[1][key])[:top]
-        rows = [[rank, w, pr["pseudo"], pr[key], pr["holdings"],
-                 pr["distinct_collectibles"], pr["value_store"], pr["value_floor"],
-                 pr["collectorScore"], pr["activityStatus"]]
-                for rank, (w, pr) in enumerate(ranked, 1)]
+        rows = []
+        for rank, (w, pr) in enumerate(ranked, 1):
+            pr[RANK_COLS[key]] = rank
+            rows.append([rank, w, pr["pseudo"], pr[key], pr["holdings"],
+                         pr["distinct_collectibles"], pr["value_store"],
+                         pr["value_floor"], pr["collectorScore"],
+                         pr["activityStatus"]])
         whale_blocks.append((title, rows))
 
     # CORNERISATION : 1 ligne/collectible
@@ -1195,14 +1208,39 @@ def _enrich_pseudos(sh, profiles):
     if not rows:
         return 0
     updated = 0
+    connus = set()
     for r in rows:
         w = str(r.get("wallet_imx", "")).strip().lower()
+        if w:
+            connus.add(w)
         pr = profiles.get(w)
         if not pr:
             continue
         for c in PSEUDO_PROFILE_COLS:
             r[c] = pr.get(c, "")
         updated += 1
+
+    # Les whales ABSENTES de l'onglet y sont AJOUTEES (le trou de l'ancienne
+    # version : _enrich_pseudos n'enrichissait que les lignes existantes, donc
+    # une whale sans pseudo connu n'apparaissait nulle part hors de 🐋).
+    ajoutes = 0
+    for w in sorted(w for w, pr in profiles.items()
+                    if any(pr.get(c) for c in RANK_COLS.values())):
+        if w in connus:
+            continue
+        pr = profiles[w]
+        r = {c: "" for c in PSEUDOS_HEADER}
+        r["wallet_imx"] = w
+        r["username"] = pr.get("pseudo", "")
+        r["source"] = "ledger"
+        r["status"] = "whale"
+        for c in PSEUDO_PROFILE_COLS:
+            r[c] = pr.get(c, "")
+        rows.append(r)
+        ajoutes += 1
+    if ajoutes:
+        print(f"    🟣C-PSEUDOS : {ajoutes} whale(s) ajoutee(s) "
+              f"(absentes de l'annuaire).", flush=True)
     grid = [PSEUDOS_HEADER] + [[r.get(c, "") for c in PSEUDOS_HEADER] for r in rows]
     ws.clear()
     for i in range(0, len(grid), 20000):
@@ -1218,35 +1256,34 @@ def _enrich_pseudos(sh, profiles):
     return updated
 
 
-def _write_whales_horizontal(sh, blocks):
-    """3 tableaux cote a cote separes d'une colonne vide (top 100 chacun).
-    Ligne 1 = titres, ligne 2 = en-tetes de colonnes, puis les donnees."""
-    ncol = len(WHALE_BLOCK_COLS)
-    title_row, header_row = [], []
-    for bi, (title, _rows) in enumerate(blocks):
-        if bi > 0:
-            title_row.append("")
-            header_row.append("")
-        title_row += [title] + [""] * (ncol - 1)
-        header_row += list(WHALE_BLOCK_COLS)
-    maxlen = max((len(rows) for _t, rows in blocks), default=0)
-    data = []
-    for i in range(maxlen):
-        line = []
-        for bi, (_title, rows) in enumerate(blocks):
-            if bi > 0:
-                line.append("")
-            line += rows[i] if i < len(rows) else [""] * ncol
-        data.append(line)
-    grid = [title_row, header_row] + data
-    ws = _open_worksheet(sh, WHALES_TAB, cols=len(title_row))
+def _write_whales_flat(sh, blocks) -> int:
+    """Onglet CACHE _Whales : source du classement 🐋 rendu sur 📊 STATS.
+
+    Une ligne par (bloc, rang) — meme patron que _MonthlyPulse / _WalletSize :
+    le ledger calcule, stats_page affiche. L'onglet visible 🐋A-WHALES est
+    supprime (choix Preda 13/07) : son detail vit desormais dans 🟣C-PSEUDOS
+    (colonnes rang_qty / rang_floor / rang_store + tout le profil)."""
+    header = ["bloc"] + list(WHALE_BLOCK_COLS)
+    grid = [header]
+    for title, rows in blocks:
+        for r in rows:
+            grid.append([title] + list(r))
+    ws = _open_worksheet(sh, WHALES_TAB, cols=len(header))
     ws.clear()
     ws.update(range_name="A1", values=grid, value_input_option="RAW")
     try:
-        ws.freeze(rows=2)
-        ws.format("1:2", {"textFormat": {"bold": True}})
+        ws.freeze(rows=1)
+        ws.format("1:1", {"textFormat": {"bold": True}})
+        ws.hide()
     except Exception:
         pass
+    try:
+        sh.del_worksheet(sh.worksheet(OLD_WHALES_TAB))
+        print(f"    onglet {OLD_WHALES_TAB} supprime (classement -> 📊 STATS, "
+              f"detail -> 🟣C-PSEUDOS).", flush=True)
+    except Exception:
+        pass
+    return len(grid) - 1
 
 
 def _bar(pct, width=18):
@@ -1426,6 +1463,15 @@ def main() -> int:
             pass
         return 1
 
+    # Etapes ciblables a la main (meme patron que daily.yml) :
+    #   all | whales | size | pseudos | pulse | corner
+    # Le rejeu de l'archive est toujours fait (c'est lui qui produit tout) ;
+    # les gates evitent de REECRIRE les onglets qu'on ne veut pas toucher.
+    steps = os.environ.get("LEDGER_STEPS", "all").lower()
+
+    def do(step: str) -> bool:
+        return "all" in steps or step in steps
+
     sh = _client().open_by_key(sheet_id)
     (ledger, prof, whale_blocks, corner, size_rows, profiles,
      pulse_rows) = build_all(folder, snap_folder, sh, top, today, imx_folder)
@@ -1433,20 +1479,24 @@ def main() -> int:
     _save_ledger(ledger, os.environ.get("LEDGER_OUT", "data/ledger.csv.gz"))
     _save_profiles(profiles,
                    os.environ.get("PROFILES_OUT", "data/wallet_profiles.csv.gz"))
-    _write_whales_horizontal(sh, whale_blocks)             # typologie 🐋 (3 tableaux)
-    _write(sh, CORNER_TAB, CORNER_HEADER, corner)          # 🎯
-    _write_size_history(sh, size_rows, today.strftime("%Y-%m"))   # 📈 historique
-    enriched = _enrich_pseudos(sh, profiles)               # 🟣 profils
-    try:
-        _write_pulse(sh, pulse_rows)                       # 📅 pulse (cache)
-    except Exception as e:
-        print(f"pulse warning: {e}", flush=True)
+    enriched = 0
+    if do("whales"):
+        _write_whales_flat(sh, whale_blocks)               # 🐋 -> _Whales (cache)
+    if do("corner"):
+        _write(sh, CORNER_TAB, CORNER_HEADER, corner)      # 🎯
+    if do("size"):
+        _write_size_history(sh, size_rows, today.strftime("%Y-%m"))   # 📈
+    if do("pseudos"):
+        enriched = _enrich_pseudos(sh, profiles)           # 🟣 profils
+    if do("pulse"):
+        try:
+            _write_pulse(sh, pulse_rows)                   # 📅 pulse (cache)
+        except Exception as e:
+            print(f"pulse warning: {e}", flush=True)
 
     # --- confort visuel : couleurs de tiers + heatmap Gini + formats nombres ---
     try:
         from scraper.stackr import PSEUDOS_HEADER
-        _fmt.format_tab(sh, WHALES_TAB, WHALE_BLOCK_COLS + [""] + WHALE_BLOCK_COLS
-                        + [""] + WHALE_BLOCK_COLS, header_rows=2)
         _fmt.format_tab(sh, CORNER_TAB, CORNER_HEADER, header_rows=1)
         _fmt.format_tab(sh, SIZE_TAB, SIZE_HEADER, header_rows=1)
         _fmt.format_tab(sh, "🟣C-PSEUDOS", PSEUDOS_HEADER, header_rows=1)
