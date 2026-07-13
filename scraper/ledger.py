@@ -202,6 +202,21 @@ SCORES = ["Diamond-Hands", "Serious Collector", "Collector", "Trader",
 # part des SEMAINES ACTIVES depuis la 1re transaction du wallet.
 ENGAGEMENTS = ["Fidèle", "Régulier", "Occasionnel", "Sporadique", "Unique"]
 # Pulse mensuel (VeveFox "Monthly Market Pulse") — onglet cache lu par 📊 STATS.
+# ── 👴 ANCIENS AU JOUR LE JOUR (13/07) ───────────────────────────────────────
+# `week_anciens` restait a 0 sur 📊 STATS. Diagnostic : stats_page deduisait le
+# "reveil" des REGISTRES wallets, dont le `last_active` est CONTAMINE par la
+# fenetre (le scan deep a demarre le 09/07, soit DEDANS) -> l'ecart tombait a
+# quelques jours et plus personne ne pouvait depasser les 180. Et on ne peut
+# pas simplement ecarter les dates de la fenetre : le registre ne garde QU'UNE
+# last_active par wallet ; en la jetant, on retomberait sur la date IMX et on
+# INVENTERAIT des reveils pour des wallets actifs en mars.
+# La bonne source, c'est ICI : le ledger a l'archive COMPLETE (IMX + CC) et
+# calcule deja les anciens MENSUELS. Il les calcule desormais aussi au JOUR.
+REVEIL_GAP = int(os.environ.get("REVEIL_GAP_DAYS", "180"))    # >6 mois
+REVEIL_FENETRE = int(os.environ.get("REVEIL_FENETRE_JOURS", "60"))
+REVEIL_TAB = "_Reveils"           # onglet cache, lu par 📊 STATS
+REVEIL_HEADER = ["date_pt", "anciens"]
+
 PULSE_TAB = "_MonthlyPulse"
 PULSE_HEADER = ["month", "actifs", "nouveaux", "trades", "acheteurs",
                 "vendeurs", "tokens_emis", "tokens_airdrop",
@@ -413,6 +428,20 @@ def replay(folder: str, imx_folder: str = ""):
     uuid_cat: Dict[str, str] = {}          # uuid -> category (comic/collectible)
     mint_day_uuid: Counter = Counter()   # candidats airdrop (compteur leger)
     mint_month_uuid: Counter = Counter()  # (mois, uuid) -> mints : REVENUE
+    # 👴 reveils : derniere activite AVANT la fenetre, 1re activite DEDANS
+    debut_f = (_dt.date.today()
+               - _dt.timedelta(days=REVEIL_FENETRE)).isoformat()
+    avant: Dict[str, str] = {}
+    dedans: Dict[str, str] = {}
+
+    def _voir(w: str, jour: str) -> None:
+        if not w or not jour or w in SYSTEM:
+            return
+        if jour < debut_f:
+            if jour > avant.get(w, ""):
+                avant[w] = jour
+        elif jour < dedans.get(w, "9999"):
+            dedans[w] = jour
     for path in _archive_files(folder):
         with gzip.open(path, "rt", encoding="utf-8") as f:
             for r in csv.DictReader(f):
@@ -432,6 +461,8 @@ def replay(folder: str, imx_folder: str = ""):
                 frm = sys.intern((r.get("from") or "").strip().lower())
                 to = sys.intern((r.get("to") or "").strip().lower())
                 day = sys.intern((r.get("date_pt") or "").strip())
+                _voir(frm, day)
+                _voir(to, day)
                 seq[(sys.intern(uid), sys.intern(ed))].append(
                     (ts, frm, to, day, key))
                 n += 1
@@ -579,7 +610,7 @@ def replay(folder: str, imx_folder: str = ""):
         if k in mint_month_uuid:
             mint_month_uuid[k] = max(0, mint_month_uuid[k] - cnt)
     seq.clear()                     # libere la RAM avant l'ere IMX (runner 7 Go)
-    n_imx = _ingest_imx(imx_folder, monthly, first_month)
+    n_imx = _ingest_imx(imx_folder, monthly, first_month, voir=_voir)
     g_lus, g_rec = _ingest_gochain(first_month)
     if g_lus:
         print(f"GoChain : {g_lus} wallets lus, {g_rec} anteriorites RECULEES "
@@ -587,13 +618,32 @@ def replay(folder: str, imx_folder: str = ""):
     if n_imx:
         print(f"Pulse IMX : {n_imx} transferts 2021->{MIGRATION_DAY} integres "
               f"({len(monthly)} mois au pulse).", flush=True)
+    # 👴 REVEILS : 1re activite DANS la fenetre apres une absence de plus de
+    # REVEIL_GAP jours. Calcule sur l'archive COMPLETE (IMX + CC) — la seule
+    # source qui connaisse l'AVANT.
+    reveils: Counter = Counter()
+    for w, jour in dedans.items():
+        veille = avant.get(w)
+        if not veille:
+            continue                      # jamais vu avant : c'est un NOUVEAU
+        try:
+            ecart = (_dt.date.fromisoformat(jour)
+                     - _dt.date.fromisoformat(veille)).days
+        except ValueError:
+            continue
+        if ecart > REVEIL_GAP:
+            reveils[jour] += 1
+    print(f"Reveils : {sum(reveils.values())} wallet(s) revenus apres plus de "
+          f"{REVEIL_GAP} j d'absence (fenetre de {REVEIL_FENETRE} j).",
+          flush=True)
     return (ledger, prof, n,
             _build_pulse(monthly, first_month, uuid_first_mint, uuid_cat,
                          airdrops),
-            mint_month_uuid)
+            mint_month_uuid, reveils)
 
 
-def _ingest_imx(folder: str, monthly: Dict, first_month: Dict) -> int:
+def _ingest_imx(folder: str, monthly: Dict, first_month: Dict,
+                voir=None) -> int:
     """PULSE IMX 2021->2026 (demande Preda : « l'histoire complete »).
 
     Fusionne l'archive IMX de paolo (imx_transfers_runNNN.csv.gz : txn_id,
@@ -640,6 +690,9 @@ def _ingest_imx(folder: str, monthly: Dict, first_month: Dict) -> int:
                 day = (r.get("date_pt") or "").strip()
                 if not day or day >= MIGRATION_DAY:
                     continue
+                if voir is not None:      # l'IMX date les DORMANTS d'avant 2026
+                    voir((r.get("from") or "").strip().lower(), day)
+                    voir((r.get("to") or "").strip().lower(), day)
                 tid = (r.get("txn_id") or "").strip()
                 if tid:
                     try:
@@ -924,6 +977,21 @@ def _fill_pulse_revenue(rows, mint_month_uuid, store_price) -> int:
     return remplis
 
 
+def _write_reveils(sh, reveils) -> int:
+    """Onglet CACHE _Reveils (date_pt, anciens), lu par 📊 STATS.
+    Meme patron que _MonthlyPulse : le ledger calcule, stats_page affiche."""
+    ws = _open_worksheet(sh, REVEIL_TAB, cols=len(REVEIL_HEADER))
+    ws.clear()
+    grid = [list(REVEIL_HEADER)] + [[j, reveils[j]] for j in sorted(reveils)]
+    ws.update(range_name="A1", values=grid, value_input_option="RAW")
+    try:
+        ws.freeze(rows=1)
+        ws.hide()
+    except Exception:
+        pass
+    return len(grid) - 1
+
+
 def _write_pulse(sh, rows) -> int:
     """Ecrit le pulse mensuel dans l'onglet cache _MonthlyPulse (lu par la
     section 📅 de 📊 STATS). Nombres natifs RAW (locale FR safe)."""
@@ -1069,7 +1137,7 @@ NO_BEHAVIOR = {"mints": 0, "buys": 0, "sells": 0, "durations": [],
 def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date,
               imx_folder: str = ""):
     (ledger_replay, prof, n, pulse_rows,
-     mint_month_uuid) = replay(folder, imx_folder)
+     mint_month_uuid, reveils) = replay(folder, imx_folder)
     print(f"Rejeu : {len(ledger_replay)} editions, {len(prof)} wallets, "
           f"{n} transferts.", flush=True)
 
@@ -1214,7 +1282,7 @@ def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date,
     size_rows = _size_distribution(profiles, value_store, value_floor)
 
     return (ledger, prof, whale_blocks, corner, size_rows, profiles,
-            pulse_rows)
+            pulse_rows, reveils)
 
 
 def _size_distribution(profiles, value_store, value_floor):
@@ -1595,7 +1663,8 @@ def main() -> int:
 
     sh = _client().open_by_key(sheet_id)
     (ledger, prof, whale_blocks, corner, size_rows, profiles,
-     pulse_rows) = build_all(folder, snap_folder, sh, top, today, imx_folder)
+     pulse_rows, reveils) = build_all(folder, snap_folder, sh, top, today,
+                                      imx_folder)
 
     _save_ledger(ledger, os.environ.get("LEDGER_OUT", "data/ledger.csv.gz"))
     _save_profiles(profiles,
@@ -1612,6 +1681,7 @@ def main() -> int:
     if do("pulse"):
         try:
             _write_pulse(sh, pulse_rows)                   # 📅 pulse (cache)
+            _write_reveils(sh, reveils)                    # 👴 anciens / jour
         except Exception as e:
             print(f"pulse warning: {e}", flush=True)
 

@@ -763,6 +763,21 @@ def read_omi_burns(sh):
 # ---------------------------------------------------------------------------
 
 REVENANT_GAP_DAYS = int(os.environ.get("STATS_REVENANT_GAP", "180"))
+# 👴 ANCIENS : plus deduits des REGISTRES (leur last_active est contamine par la
+# fenetre — le scan deep a demarre DEDANS, l'ecart tombait a quelques jours et
+# `week_anciens` restait a 0). Le LEDGER les calcule desormais sur l'archive
+# complete (IMX + CC) et les depose dans cet onglet cache.
+REVEIL_TAB = "_Reveils"
+
+
+def read_reveils(sh) -> Dict[str, int]:
+    """{date_pt -> nb de wallets revenus apres >180 j d'absence}."""
+    out: Dict[str, int] = {}
+    for r in _records(sh, REVEIL_TAB):
+        d = str(r.get("date_pt", "")).strip()
+        if d:
+            out[d] = _n(r.get("anciens"))
+    return out
 
 
 def _days_between(d1: str, d2: str):
@@ -774,19 +789,19 @@ def _days_between(d1: str, d2: str):
 
 
 def compute_daily(activity: List[Dict[str, Any]],
-                  registry: Dict[str, tuple] = None) -> List[Dict[str, Any]]:
+                  registry: Dict[str, tuple] = None,
+                  reveils: Dict[str, int] = None) -> List[Dict[str, Any]]:
     """ChainActivity (date, account, compteurs) -> 1 dict par date, tri DESC.
 
-    registry : {wallet -> (first_seen, prev_last_active)} — prev_last_active
-    vient des registres deep/IMX (activite PRE-fenetre uniquement).
-    La 1re apparition d'un wallet DANS LA FENETRE est classee :
-      * ANCIEN = un Désinscrit/Fantôme reveille : sa transaction precedente
-        (prev_last_active) remonte a PLUS de REVENANT_GAP_DAYS (180 j) ;
-      * NOUVEAU = wallet inconnu de tous les registres ;
-      * ni l'un ni l'autre = wallet connu revenu apres un trou <= 180 j
-        (somnolant/inactif qui se reveille — pas compte).
+    NOUVEAUX : deduits des registres (wallet inconnu de tous).
+    ANCIENS  : NE SONT PLUS deduits des registres. Leur `last_active` est
+    CONTAMINE par la fenetre (le scan deep a demarre dedans) -> l'ecart tombait
+    a quelques jours et `week_anciens` restait desesperement a 0. Ils viennent
+    desormais de l'onglet _Reveils, calcule par le LEDGER sur l'archive
+    COMPLETE (IMX + CC) : la seule source qui connaisse l'AVANT.
     """
     registry = registry or {}
+    reveils = reveils or {}
     per: Dict[str, Dict[str, Any]] = {}
     first_in_window: Dict[str, str] = {}
     for r in activity:
@@ -803,7 +818,6 @@ def compute_daily(activity: List[Dict[str, Any]],
         if a not in first_in_window or d < first_in_window[a]:
             first_in_window[a] = d
     new_by_day: Counter = Counter()
-    old_by_day: Counter = Counter()
     for a, d in first_in_window.items():
         fs, prev = registry.get(a, ("", ""))
         # NOUVEAU = inconnu de tous les registres, OU ne CE jour-la (le
@@ -812,9 +826,8 @@ def compute_daily(activity: List[Dict[str, Any]],
         if (not fs and not prev) or (fs and fs[:10] >= d):
             new_by_day[d] += 1
             continue
-        gap = _days_between(prev, d) if prev else None
-        if gap is not None and gap > REVENANT_GAP_DAYS:
-            old_by_day[d] += 1              # Désinscrit/Fantôme reveille
+        # (l'ancienne heuristique par registres est REMPLACEE par _Reveils,
+        #  ecrit par le ledger ; on ne garde ici que la detection des NOUVEAUX)
     out = []
     for d in sorted(per, reverse=True):
         p = per[d]
@@ -824,7 +837,7 @@ def compute_daily(activity: List[Dict[str, Any]],
                     "uniques": len(p["accounts"]),
                     "accounts": p["accounts"],
                     "new": new_by_day.get(d, 0),
-                    "old": old_by_day.get(d, 0)})
+                    "old": _n(reveils.get(d, 0))})
     return out
 
 
@@ -1281,7 +1294,7 @@ def write_stats(sh) -> Dict[str, Any]:
     active = {str(r.get("account", "")).strip().lower()
               for r in activity if str(r.get("account", "")).strip()}
     known = load_known_first_seen(active) if active else {}
-    daily = compute_daily(activity, known)
+    daily = compute_daily(activity, known, read_reveils(sh))
     if not daily:
         raise RuntimeError("ChainActivity vide — page 📊 STATS non touchee.")
     revenue = compute_revenue(items, prices)
