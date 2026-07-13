@@ -52,7 +52,12 @@ USER_AGENT = "veve-catalogue-sync/1.0 (personal catalogue export)"
 # VeVe front-end URL patterns, by category, using the VeVe UUID (externalReference).
 VEVE_URL_BY_CATEGORY = {
     "collectible": "https://www.veve.me/collectibles/en/collectibles/{uuid}",
-    "comic": "https://www.veve.me/collectibles/en/collection/comic/{uuid}",
+    # 2026-07-13 : l'URL comic etait FAUSSE (/collection/comic/<id>, 404). La bonne
+    # forme, verifiee par Preda sur Captain America Comics #7 :
+    #   https://www.veve.me/collectibles/en/comics/f2efc6e3-ada5-43a0-8e7d-6fae8b230450
+    # L'id reste bien le series_uuid. Les 16 000 URL du catalogue sont reconstruites
+    # a chaque sync (build_veve_url dans _normalise) -> le prochain daily les repare.
+    "comic": "https://www.veve.me/collectibles/en/comics/{uuid}",
     "artwork": "https://www.veve.me/collectibles/en/artworks/{uuid}",
 }
 
