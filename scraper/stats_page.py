@@ -90,6 +90,15 @@ WHALES_TOP = int(os.environ.get("STATS_WHALES_TOP", "20"))
 WHALE_COLS = ["Rang", "Wallet", "Pseudo", "Critère", "Exemplaires",
               "Collectibles", "Valeur store $", "Valeur floor $", "Score",
               "Activité"]
+# LES EN-TETES SONT LA SEULE VERITE : l'habillage (stats_format) en deduit les
+# formats. Ajouter une colonne ne peut plus decaler un format.
+COLS_TABLE = ["Date", "Drop", "Global", "Mint", "Airdrop", "Market", "Burn",
+              "Unique", "Nouveaux", "Anciens", "Quantité", "Comptes",
+              "Total", "Drop", "Market", "Global $", "OMI→NFT", "OMI→GEM",
+              "💎 Gems $"]
+COLS_VVF = ["Mois", "Acheteurs uniques", "Vendeurs uniques",
+            "Minters uniques", "Drops", "Acc. nette moy", "Net+", "Net−",
+            "Rétention %", "Churn %", "OG 21-22", "OG %"]
 UNIVERS_DAYS = int(os.environ.get("STATS_UNIVERS_DAYS", "15"))  # 2 semaines
 # Offre OMI EN CIRCULATION (CoinGecko / ECOMI, juillet 2026 : 270 951 644 947 ;
 # offre TOTALE 750 Md). Env OMI_CIRCULATING pour la reactualiser.
@@ -1405,6 +1414,23 @@ def write_stats(sh) -> Dict[str, Any]:
         ws.format(f"A{NOTES_ROW}:S{NOTES_ROW}", VIOLET)
     except Exception:
         pass
+
+    # ── HABILLAGE (13/07) : en Python, PAR NOM DE COLONNE.
+    # L'Apps Script stats_format.gs formatait par POSITION ('A10:R46', pulse en
+    # T:AC...). En inserant 💎 Gems en S et les 2 colonnes OG dans le pulse,
+    # tout avait glisse : Gems $ s'affichait "15636,0%" et le NOMBRE d'OG
+    # "2898,0%". -> SUPPRIMER l'Apps Script, il est devenu nuisible.
+    try:
+        from scraper import stats_format as _sf
+        n_req = _sf.habiller(
+            sh, ws, COLS_TABLE, len(daily), COLS_TABLE,
+            max(0, len(monthly_g) - 3), max(0, len(annual_g) - 3), COLS_VVF,
+            WHALE_COLS, max(0, len(whales_g) - 3), NOTES_ROW, len(notes),
+            {"mois": PULSE_ROW, "annee": YEAR_ROW, "whales": WHALES_ROW})
+        print(f"Habillage : {n_req} requetes (formats deduits des EN-TETES).",
+              flush=True)
+    except Exception as e:
+        print(f"habillage warning: {e}", flush=True)
 
     # placer 📊 STATS en 1er onglet + supprimer l'ancien 🏠ACCUEIL (choix Preda)
     try:

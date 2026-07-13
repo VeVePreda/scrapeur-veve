@@ -169,11 +169,22 @@ def _num(x):
         return None
 
 
+# ⚠️ FLOOR ABERRANT (13/07) : le classement 🐋 par "valeur floor" affichait des
+# portefeuilles a 1E+15 et 1,9E+16. Ce ne sont pas des milliardaires : c'est UN
+# item au floor delirant (quelqu'un liste a un prix absurde, comme le Golden MYO
+# a 111 milliards de $ du flux VeVe) qui contamine toute la valorisation d'un
+# wallet. Un floor est un prix DEMANDE : n'importe qui peut demander n'importe
+# quoi. Au-dela du seuil, on IGNORE le floor et on retombe sur le prix store —
+# et on DIT combien on en a ecarte (jamais en silence).
+PRIX_MAX = float(os.environ.get("PRIX_MAX", "1000000"))
+
+
 def _read_prices(sh):
     """{uuid -> (store_price, floor_price)} depuis l'onglet cache _DynState.
     Lecture NON FORMATEE : en locale FR, "6,99" relu via numericise devenait
     699 (virgule avalee) — UNFORMATTED_VALUE renvoie les vrais nombres."""
     store, floor = {}, {}
+    aberrants: List[Tuple[str, float]] = []
     try:
         ws = sh.worksheet("_DynState")
     except Exception:
@@ -190,10 +201,19 @@ def _read_prices(sh):
             continue
         sp = _num(r.get("veve_store_price"))
         fp = _num(r.get("market_lowestOffer"))
-        if sp is not None:
+        if sp is not None and 0 < sp <= PRIX_MAX:
             store[u] = sp
         if fp is not None:
-            floor[u] = fp
+            if 0 < fp <= PRIX_MAX:
+                floor[u] = fp
+            elif fp > PRIX_MAX:
+                aberrants.append((u, fp))
+    if aberrants:
+        aberrants.sort(key=lambda x: -x[1])
+        print(f"    ⚠️ {len(aberrants)} floor(s) aberrant(s) ignore(s) "
+              f"(> {PRIX_MAX:,.0f}) — le prix store prend le relais. "
+              f"Le pire : {aberrants[0][0][:8]}… a {aberrants[0][1]:,.0f}."
+              .replace(",", " "), flush=True)
     return store, floor
 
 SCORES = ["Diamond-Hands", "Serious Collector", "Collector", "Trader",
