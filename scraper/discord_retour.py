@@ -202,22 +202,30 @@ PALIERS = [("~24 h", 2), ("~48 h", 3), ("~72 h", 4)]
 
 
 def paliers(sh, jour: str, uuids: List[str]):
-    """[(label, vendus, delta_pct)] — seulement les paliers dont la journee PT
-    est CLOSE (presente dans ChainItems). On n'invente pas un palier qui n'a pas
-    encore de donnee."""
+    """[(label, valeur, croissance_pct)] pour les paliers dont la journee PT est
+    CLOSE.
+
+    ⚠️ **LE 1er PALIER EST UN CUMUL, LES SUIVANTS SONT DES TRANCHES** (demande de
+    Preda, et il a raison) : « ~24 h : 263 » puis « ~48 h : 23 » = ce qui s'est
+    vendu PENDANT la 2e journee, pas le total. Repeter le cumul a chaque ligne
+    noie l'information : ce qu'on veut voir, c'est si la vague retombe. Le
+    pourcentage, lui, reste la CROISSANCE (+8.7 %) — il repond a « de combien le
+    total a-t-il monte », l'autre chiffre a « combien de plus se sont vendus »."""
     connus = {str(r.get("date") or "")[:10]
               for r in _records(sh, ITEMS_TAB) if r.get("date")}
-    out, precedent = [], None
+    out, cumul = [], None
     for label, n in PALIERS:
         jours = _jours_pt(jour, n)
         if jours[-1] not in connus:
             break                          # la journee n'est pas close : STOP
         ch = chaine_par_uuid(sh, jours)
-        vendus = sum(ch.get(u, {}).get("mints", 0) for u in uuids)
-        delta = (100.0 * (vendus - precedent) / precedent
-                 if precedent else None)
-        out.append((label, vendus, delta))
-        precedent = vendus
+        total = sum(ch.get(u, {}).get("mints", 0) for u in uuids)
+        if cumul is None:
+            out.append((label, total, None))          # le 1er : un cumul
+        else:
+            croissance = 100.0 * (total - cumul) / cumul if cumul else None
+            out.append((label, total - cumul, croissance))   # les suivants
+        cumul = total
     return out
 
 
@@ -319,65 +327,87 @@ def comic_day_recent(sh):
     return jour, list(par_jour[jour].values())
 
 
-MAX_LIGNES = int(os.environ.get("DISCORD_RETOUR_COMIC_LIGNES", "30"))
+# 10 series par message : au-dela, le message devient un mur. Le suivi d'un
+# comic day tient donc sur PLUSIEURS messages, tous reecrits a chaque passage.
+MAX_LIGNES = int(os.environ.get("DISCORD_RETOUR_COMIC_LIGNES", "10"))
+# En dessous de ce nombre de ventes, une serie n'a pas droit a son detail : elle
+# rejoint la liste des « faibles ventes », en colonne, sans chiffres. Un comic a
+# 3 ventes n'a pas d'histoire a raconter — mais il ne doit pas disparaitre non
+# plus (l'absence d'une serie serait, elle, une information fausse).
+SEUIL_DETAIL = int(os.environ.get("DISCORD_RETOUR_SEUIL_DETAIL", "15"))
 
 
-def message_comic_day(jour: str, series: List[Dict],
-                      chaine: Dict[str, Dict[str, int]],
-                      suivi=None) -> Dict:
-    """UN message pour tout le Comic Book Day, trie par taux d'ecoulement :
-    la pepite remonte d'elle-meme.
+def _classer(series: List[Dict], chaine) -> tuple:
+    """(detaillees, faibles, muettes) — tout le monde est quelque part.
 
-    ⚠️ **UNE SERIE A 0 VENDU N'EST PAS AFFICHEE.** Preda est formel : un comic ne
-    fait JAMAIS zero vente. Un zero n'est donc pas une information, c'est un TROU
-    dans la collecte (uuid pas encore vu par la chaine). L'afficher serait
-    publier un bug avec l'autorite d'un chiffre — la ligne repassera au prochain
-    run, quand la donnee sera la."""
-    tot_supply = 0
-    for s in series:
-        s["vendus"] = sum(chaine.get(u, {}).get("mints", 0) for u in s["uuids"])
-        s["pct"] = _pct(s["vendus"], s["total"])
-        tot_supply += s["total"]
+    ⚠️ **ZERO VENDU = UN TROU, PAS UN RESULTAT** (Preda est formel : un comic ne
+    fait jamais zero vente). On ne les affiche pas, mais on DIT combien il y en
+    a — sinon leur absence passerait pour un fait."""
+    for s_ in series:
+        s_["vendus"] = sum(chaine.get(u, {}).get("mints", 0)
+                           for u in s_["uuids"])
+        s_["pct"] = _pct(s_["vendus"], s_["total"])
+    detail = sorted([s_ for s_ in series if s_["vendus"] >= SEUIL_DETAIL],
+                    key=lambda s_: (-s_["pct"], -s_["vendus"]))
+    faibles = sorted([s_ for s_ in series
+                      if 0 < s_["vendus"] < SEUIL_DETAIL],
+                     key=lambda s_: -s_["vendus"])
+    muettes = [s_ for s_ in series if s_["vendus"] == 0]
+    return detail, faibles, muettes
 
-    vus = [s for s in series if s["vendus"] > 0]
-    muets = len(series) - len(vus)
-    vus.sort(key=lambda s: (-s["pct"], -s["vendus"]))
-    tot_vendus = sum(s["vendus"] for s in vus)
 
-    # Le nom d'un comic prend souvent toute la ligne : les chiffres passent
-    # DESSOUS. Deux lignes lisibles valent mieux qu'une ligne qui s'enroule.
-    # (Le prix en gems est retire : sur un comic day, il est le meme partout et
-    # n'apprend rien.)
-    lignes = []
-    for s in vus[:MAX_LIGNES]:
-        lignes.append(f"**{s['nom']}**")
-        lignes.append(f"`{s['pct']:5.1f} %` · {s['total']:,} ex · "
-                      f"**{s['vendus']:,}** vendus".replace(",", " "))
-    reste = len(vus) - MAX_LIGNES
-    if reste > 0:
-        lignes.append(f"*… et {reste} autre(s) série(s).*")
-    if muets:
-        lignes.append(f"*({muets} série(s) sans donnée de vente pour l'instant "
-                      f"— elles reviendront.)*")
+def messages_comic_day(jour: str, series: List[Dict], chaine, suivi=None):
+    """La LISTE des messages du suivi : le detail par paquets de 10, puis les
+    faibles ventes en colonne. Tous sont REECRITS a chaque passage."""
+    detail, faibles, muettes = _classer(series, chaine)
+    tot_supply = sum(s_["total"] for s_ in series)
+    tot_vendus = sum(s_["vendus"] for s_ in series)
+    pct = _pct(tot_vendus, tot_supply)
 
     entete = [f"**{len(series)} séries** · {tot_supply:,} exemplaires"
               .replace(",", " "), ""]
-    for label, vendus, delta in (suivi or []):
-        d = f" · **{delta:+.1f} %**" if delta is not None else ""
-        entete.append(f"Ventes totales après **{label}** : "
-                      f"**{vendus:,}**{d}".replace(",", " "))
-    if not suivi:
-        entete.append(f"Ventes totales : **{tot_vendus:,}**".replace(",", " "))
+    for label, v, croissance in (suivi or []):
+        q = f" · **{croissance:+.1f} %**" if croissance is not None else ""
+        entete.append(f"Ventes totales après **{label}** : **{v:,}**"
+                      .replace(",", " ") + q)
 
-    pct = _pct(tot_vendus, tot_supply)
-    return {"content": "🔍 **Suivi du Comic Book Day**",
-            "embeds": [{
-                "title": f"📅 Comic Book Day du {jour}",
-                "color": couleur(pct),
-                "description": ("\n".join(entete) + "\n\n"
-                                + "\n".join(lignes))[:4000],
-            }],
-            "allowed_mentions": api.mentions()}
+    out = []
+    paquets = [detail[i:i + MAX_LIGNES]
+               for i in range(0, len(detail), MAX_LIGNES)] or [[]]
+    for i, paquet in enumerate(paquets):
+        lignes = []
+        for s_ in paquet:
+            lignes.append(f"**{s_['nom']}**")
+            lignes.append(f"`{s_['pct']:5.1f} %` · {s_['total']:,} ex · "
+                          f"**{s_['vendus']:,}** vendus".replace(",", " "))
+            lignes.append("")                     # de l'air entre chaque comic
+        corps = ("\n".join(entete) + "\n\n" if i == 0 else "") \
+            + "\n".join(lignes).rstrip()
+        titre = (f"📅 Comic Book Day du {jour}" if i == 0
+                 else f"📅 Comic Book Day du {jour} — suite {i + 1}")
+        out.append({"content": ("🔍 **Suivi du Comic Book Day**" if i == 0
+                                else ""),
+                    "embeds": [{"title": titre, "color": couleur(pct),
+                                "description": corps[:4000] or "—"}],
+                    "allowed_mentions": api.mentions()})
+
+    if faibles:
+        noms = "\n".join(f"• {s_['nom']}" for s_ in faibles)
+        note = (f"*Ces séries ont fait moins de {SEUIL_DETAIL} ventes sur la "
+                f"période : trop peu pour qu'un taux d'écoulement veuille dire "
+                f"quelque chose. Elles sont listées pour mémoire, sans "
+                f"chiffres.*")
+        if muettes:
+            note += (f"\n*({len(muettes)} autre(s) série(s) sans aucune donnée "
+                     f"de vente — c'est une lacune de collecte, pas un zéro : "
+                     f"elles reviendront.)*")
+        out.append({"content": "",
+                    "embeds": [{"title": f"🌱 Faibles ventes — {len(faibles)} "
+                                         f"série(s)",
+                                "color": 0x95A5A6,
+                                "description": (noms + "\n\n" + note)[:4000]}],
+                    "allowed_mentions": api.mentions()})
+    return out
 
 
 def toutes_les_cles(sh) -> List[str]:
@@ -435,16 +465,14 @@ def carte(d: Dict, chaine: Dict[str, Dict[str, int]], note: str,
     lignes.append(f"📦 **Mint total** : {d['total']:,}".replace(",", " "))
     lignes.append(f"🛒 **Vendus** : {vendus:,}".replace(",", " ")
                   + f"  ·  **{pct:.1f} %** du tirage")
-    if market:
-        lignes.append(f"🔁 **Revendus dès le 1er jour** : {market:,}"
-                      .replace(",", " "))
 
     # LES PALIERS. La carte est REECRITE a 48 h puis 72 h pour les completer :
     # un retour fige a J+1 ne dit pas si la vague retombe ou si elle continue.
+    # Le 1er palier est un CUMUL, les suivants des TRANCHES (cf. paliers()).
     if suivi:
         lignes.append("")
-        for label, v, delta in suivi:
-            queue = (f" · **{delta:+.1f} %**" if delta is not None
+        for label, v, croissance in suivi:
+            queue = (f" · **{croissance:+.1f} %**" if croissance is not None
                      else f" · **{_pct(v, d['total']):.1f} %** du tirage")
             lignes.append(f"Ventes après **{label}** : **{v:,}**"
                           .replace(",", " ") + queue)
@@ -650,39 +678,49 @@ def run() -> int:
 
 
 def suivre_comic_day(sh, state: Dict, wh: str) -> str:
-    """Poste (ou reecrit) le message de suivi du dernier Comic Book Day.
-    Un message par jour de comic day : tant qu'il est dans la fenetre on
-    l'EDITE ; le mercredi suivant en ouvre un nouveau."""
+    """Poste (ou reecrit) LES messages de suivi du dernier Comic Book Day.
+    Un jeu de messages par comic day : tant que la journee est dans la fenetre
+    ils sont EDITES ; le mercredi suivant en ouvre de nouveaux."""
     jour, series = comic_day_recent(sh)
     if not jour or not series:
         return "aucun"
-    chaine = chaine_par_uuid(sh, _jours_pt(jour))
+    chaine = chaine_par_uuid(sh, _jours_pt(jour, 4))
     if not chaine:
         print("Comic Book Day : aucune donnee on-chain encore — on attend "
               "(un « 0 vendu » faux serait pire qu'un silence).", flush=True)
         return "sans donnee"
 
-    uuids = [u for s in series for u in s["uuids"]]
-    payload = message_comic_day(jour, series, chaine,
-                                suivi=paliers(sh, jour, uuids))
+    uuids = [u for s_ in series for u in s_["uuids"]]
+    payloads = messages_comic_day(jour, series, chaine,
+                                  suivi=paliers(sh, jour, uuids))
+
     ids = state.setdefault("comic_day", {})
+    anciens = ids.get(jour) or []
+    if isinstance(anciens, str):          # etat des versions precedentes
+        anciens = [anciens]
+
     if not wh:
-        print(f"\n[SIMULATION]\n{payload['embeds'][0]['description']}\n",
-              flush=True)
-        return f"{jour} (simulation)"
-    mid = ids.get(jour)
-    neuf = (api.editer(wh, THREAD, mid, payload) if mid
-            else api.poster(wh, THREAD, payload))
-    if not neuf:
-        return "echec"
-    ids[jour] = neuf
-    # menage : on ne garde que les 8 derniers comic days dans l'etat
+        for p in payloads:
+            print(f"\n[SIMULATION]\n{p['embeds'][0]['description']}\n",
+                  flush=True)
+        return f"{jour} (simulation, {len(payloads)} messages)"
+
+    neufs = []
+    for i, p in enumerate(payloads):
+        mid = anciens[i] if i < len(anciens) else None
+        r = (api.editer(wh, THREAD, mid, p) if mid
+             else api.poster(wh, THREAD, p))
+        if not r:
+            break                     # plafond atteint : le reste au prochain
+        neufs.append(r)
+        api.souffler()
+    if neufs:
+        ids[jour] = neufs + anciens[len(neufs):]
     for vieux in sorted(ids)[:-8]:
         ids.pop(vieux, None)
-    print(f"Comic Book Day {jour} : {len(series)} series, message "
-          f"{'reecrit' if mid == neuf else 'poste'} ({neuf}).", flush=True)
-    api.souffler()
-    return f"{jour} ({len(series)} series)"
+    print(f"Comic Book Day {jour} : {len(series)} series, "
+          f"{len(neufs)}/{len(payloads)} message(s) ecrits.", flush=True)
+    return f"{jour} ({len(series)} series, {len(neufs)} msg)"
 
 
 def _log(sheet_id: str, statut: str, resume: Dict) -> None:
@@ -696,5 +734,5 @@ def _log(sheet_id: str, statut: str, resume: Dict) -> None:
 if __name__ == "__main__":
     sys.exit(run())
 
-# FIN discord_retour.py v8 — les ventes viennent de la CHAINE, le ratio dit ce
+# FIN discord_retour.py v9 — les ventes viennent de la CHAINE, le ratio dit ce
 # que le chiffre brut cache, et le sondage est confronte a la realite.
