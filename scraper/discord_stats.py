@@ -95,13 +95,20 @@ COULEURS = {"annees": 0xF1C40F, "mois": 0x7B2CBF, "jours": 0x3498DB}
 
 ENTETE_PERIODE = {"annees": "Année", "mois": "Mois", "jours": "Jour"}
 
-# LES COLONNES VOULUES PAR PREDA (v3 : burn OMI et gems retires).
-COLONNES = [("tx", "Tx"),             # TRANSACTION / Global
-            ("actifs", "Actifs"),     # ACTIF / Unique
-            ("revenue", "Revenue")]   # REVENUE / Total
+# LES COLONNES VOULUES PAR PREDA (v5). Le separateur porte du SENS : la ligne
+# se lit « Actifs = Nouveaux + Anciens » — le tableau devient une equation, et
+# l'oeil verifie tout seul que les comptes tombent juste.
+COLONNES = [("tx", "Tx", " | "),          # TRANSACTION / Global
+            ("actifs", "Actifs", " | "),  # ACTIF / Unique
+            ("nouveaux", "Nouv", " = "),  # ACTIF / Nouveaux
+            ("anciens", "Anc", " + "),    # ACTIF / Anciens
+            ("revenue", "Rev", " | ")]    # REVENUE / Total
 
-SEP = " | "                            # les barres aident vraiment l'oeil
-DROP = os.environ.get("DISCORD_STATS_DROP", "🎉")   # le symbole des jours de drop
+SEP0 = " | "                           # entre la periode et la 1re colonne
+# Un symbole DISCRET (pas un emoji : un emoji n'a pas la largeur d'un caractere
+# monospace, il ne peut donc jamais entrer dans le tableau) — et SEULEMENT sur
+# le module des jours, ou « jour de drop » veut dire quelque chose.
+DROP = os.environ.get("DISCORD_STATS_DROP", "•")
 
 # STYLE : "code" (tableau monospace aligne) ou "markdown" (une ligne par
 # periode, en gras/code inline). Le markdown est plus joli mais N'ALIGNE RIEN :
@@ -109,7 +116,7 @@ DROP = os.environ.get("DISCORD_STATS_DROP", "🎉")   # le symbole des jours de 
 # dansent. Preda tranche apres avoir vu les deux.
 STYLE = os.environ.get("DISCORD_STATS_STYLE", "code").strip().lower()
 
-LEGENDE = "*Tx = transactions · Actifs = wallets uniques · Revenue en $.*"
+LEGENDE = ("*Tx = transactions · Actifs = wallets uniques (Nouveaux + Anciens) · Rev = revenue en $ · • = jour de drop.*")
 
 AVERTISSEMENT = ("*Chiffres indicatifs, issus de sources publiques — ce n'est "
                  "PAS un conseil financier et des erreurs sont possibles.*")
@@ -121,11 +128,15 @@ LARGEUR_MAX = int(os.environ.get("DISCORD_STATS_LARGEUR", "46"))
 # Mise en forme
 # ---------------------------------------------------------------------------
 
-def _fr(x) -> str:
-    """COMPACT : un nombre complet (« 899 721 216 801 ») fait enrouler la ligne."""
+def _fr(x, court: bool = False) -> str:
+    """COMPACT : un nombre complet (« 899 721 216 801 ») fait enrouler la ligne.
+    `court` = 2e cran de compaction (« 900 k »), utilise SEULEMENT si le tableau
+    depasse la largeur lisible — mieux vaut arrondir que d'enrouler."""
     n = stats_read.nombre(x)
     if not n:
         return "—"
+    if court and abs(n) >= 100_000 and abs(n) < 1_000_000:
+        return f"{n / 1000:.0f} k"                           # 900 k
     if abs(n) < 1_000_000:
         return f"{n:,}".replace(",", " ")                    # 41 450
     if abs(n) < 1_000_000_000:
@@ -148,11 +159,14 @@ def _periode(cle: str, brut) -> str:
     return d.strftime("%d/%m") if d else str(brut or "").strip()
 
 
-def _drop(r) -> bool:
-    return bool(str(r.get("drop") or "").strip())
+def _drop(cle: str, r) -> bool:
+    """Le marqueur de drop n'a de sens QUE sur les jours (sur un mois ou une
+    année, il y a forcement eu des drops)."""
+    return cle == "jours" and bool(str(r.get("drop") or "").strip())
 
 
-def _lignes(cle: str, lignes: List[Dict]) -> List[Optional[tuple]]:
+def _lignes(cle: str, lignes: List[Dict],
+            court: bool = False) -> List[Optional[tuple]]:
     """(cellules, jour_de_drop) — avec une LIGNE VIDE entre chaque semaine
     (demande de Preda). La coupe se fait sur la semaine ISO, pas tous les
     7 jours : un jour manquant (journee PT pas encore close) ne decale rien."""
@@ -160,49 +174,80 @@ def _lignes(cle: str, lignes: List[Dict]) -> List[Optional[tuple]]:
     prec = None
     for r in lignes:
         cells = [_periode(cle, r.get("periode"))] + \
-                [_fr(r.get(c)) for c, _n in COLONNES]
+                [_fr(r.get(c), court) for c, _n, _s in COLONNES]
         if cle == "jours":
             d = _date(r.get("periode"))
             sem = d.isocalendar()[:2] if d else None
             if prec is not None and sem != prec:
                 out.append(None)                 # respiration entre 2 semaines
             prec = sem
-        out.append((cells, _drop(r)))
+        out.append((cells, _drop(cle, r)))
     return out
 
 
-def tableau(cle: str, lignes: List[Dict[str, Any]]) -> str:
-    """Un tableau ALIGNE dans un bloc de code — la seule facon d'avoir des
-    colonnes droites sur Discord (les embeds n'alignent rien). Le symbole de
-    drop est pose APRES la derniere colonne : un emoji n'a pas la largeur d'un
-    caractere monospace, il ne doit donc jamais tomber au milieu du tableau."""
-    entetes = [ENTETE_PERIODE[cle]] + [nom for _c, nom in COLONNES]
-    corps = _lignes(cle, lignes)
+SEPS_LARGES = [SEP0] + [sep for _c, _n, sep in COLONNES][1:]
+# Repli : les MEMES symboles, mais colles. Sur les années et les mois, les
+# 5 colonnes de chiffres ne tiennent pas avec des separateurs de 3 caracteres
+# (15 caracteres rien qu'en separateurs !) — plutot que d'arrondir les chiffres
+# ou d'enrouler les lignes, on serre les barres.
+SEPS_SERRES = [s.strip() for s in SEPS_LARGES]
+
+
+def _grille(cle: str, lignes: List[Dict], seps: List[str],
+            court: bool) -> List[str]:
+    entetes = [ENTETE_PERIODE[cle]] + [nom for _c, nom, _s in COLONNES]
+    corps = _lignes(cle, lignes, court)
     remplies = [it[0] for it in corps if it]
-    larg = [max([len(entetes[i])] + [l[i] and len(l[i]) or 0
-                                     for l in remplies])
+    larg = [max([len(entetes[i])] + [len(l[i]) for l in remplies])
             for i in range(len(entetes))]
 
     def _l(cells: List[str]) -> str:
-        return (cells[0].ljust(larg[0]) + SEP +
-                SEP.join(cells[i].rjust(larg[i])
-                         for i in range(1, len(cells))))
+        out = cells[0].ljust(larg[0])
+        for i in range(1, len(cells)):
+            out += seps[i - 1] + cells[i].rjust(larg[i])
+        return out
 
-    lines = [_l(entetes), "-+-".join("-" * w for w in larg)]
+    regle = ""
+    for i, w in enumerate(larg):
+        regle += ("-" * len(seps[i - 1]) if i else "") + "-" * w
+    lines = [_l(entetes), regle]
     for item in corps:
         if not item:
             lines.append("")
             continue
         cells, drop = item
         lines.append(_l(cells) + (f" {DROP}" if drop else ""))
-    return "```\n" + "\n".join(lines) + "\n```"
+    return lines
+
+
+def _largeur(g: List[str]) -> int:
+    return max((len(l) for l in g), default=0)
+
+
+def tableau(cle: str, lignes: List[Dict[str, Any]]) -> str:
+    """Un tableau ALIGNE dans un bloc de code — la seule facon d'avoir des
+    colonnes droites sur Discord (les embeds n'alignent rien).
+
+    TROIS CRANS, dans cet ordre (on ne sacrifie que ce qu'il faut) :
+      1. barres larges (« | », « = », « + ») et chiffres complets ;
+      2. si ca depasse : barres SERREES — la mise en forme cede avant les
+         chiffres ;
+      3. si ca depasse encore : chiffres arrondis (900 k) — arrondir vaut
+         mieux qu'enrouler, un bloc de code Discord ne coupe pas, il enroule.
+    Le marqueur de drop (« • ») est pose APRES la derniere colonne."""
+    for seps, court in ((SEPS_LARGES, False), (SEPS_SERRES, False),
+                        (SEPS_SERRES, True)):
+        g = _grille(cle, lignes, seps, court)
+        if _largeur(g) <= LARGEUR_MAX:
+            break
+    return "```\n" + "\n".join(g) + "\n```"
 
 
 def markdown(cle: str, lignes: List[Dict[str, Any]]) -> str:
     """La variante MARKDOWN (proposition a Preda) : plus jolie, mais Discord la
     rend en police PROPORTIONNELLE — donc rien ne s'aligne. On compense en
     mettant chaque chiffre dans du code inline et en nommant les colonnes."""
-    noms = [nom for _c, nom in COLONNES]
+    noms = [nom for _c, nom, _s in COLONNES]
     out: List[str] = []
     for item in _lignes(cle, lignes):
         if not item:
@@ -393,8 +438,8 @@ def main() -> int:
             larg = max(len(l) for l in tableau(cle, lignes).splitlines())
             if larg > LARGEUR_MAX:
                 print(f"⚠️ {CODES[cle]} : tableau large de {larg} caracteres "
-                      f"(> {LARGEUR_MAX}) — Discord va enrouler les lignes.",
-                      flush=True)
+                      f"(> {LARGEUR_MAX}) meme apres compaction — Discord va "
+                      f"enrouler les lignes.", flush=True)
         if publier(cle, message(cle, lignes), state):
             faits.append(cle)
         else:
@@ -417,6 +462,6 @@ def main() -> int:
 if __name__ == "__main__":
     sys.exit(main())
 
-# FIN discord_stats.py v4 — 🎉 sur les jours de drop, plus de total, [MAJ ..],
+# FIN discord_stats.py v5 — 🎉 sur les jours de drop, plus de total, [MAJ ..],
 # pied de carte supprime, avertissement en italique, et un STYLE markdown en
 # option (DISCORD_STATS_STYLE=markdown) pour comparer.
