@@ -61,19 +61,17 @@ Env :
 from __future__ import annotations
 
 import datetime as _dt
-import hashlib
-import json
 import os
 import sys
 import time
 from typing import Any, Dict, List, Optional
 
-import requests
-
+from scraper import discord_api as api
 from scraper import stats_read
 from scraper.sheets import _client, append_log
 
-WEBHOOK = os.environ.get("DISCORD_STATS_WEBHOOK", "").strip()
+MODULE = "stats"
+WEBHOOK = api.webhook(MODULE)
 THREAD = os.environ.get("DISCORD_STATS_THREAD", "1526491450538196992").strip()
 STATE_PATH = os.environ.get("DISCORD_STATS_STATE",
                             "data/discord_stats_state.json")
@@ -285,149 +283,56 @@ def carte(cle: str, lignes: List[Dict]) -> Dict:
 def message(cle: str, lignes: List[Dict]) -> Dict:
     return {"content": f"{TITRES[cle]}  ·  {_maj()}",
             "embeds": [carte(cle, lignes)],
-            "allowed_mentions": {"parse": []}}
+            # Un tableau de stats ne doit JAMAIS pouvoir ping qui que ce soit.
+            "allowed_mentions": api.mentions()}
 
 
 # ---------------------------------------------------------------------------
-# Discord : poster une fois, editer pour toujours
+# Discord : poster une fois, editer pour toujours (la couche reseau et TOUS les
+# garde-fous vivent dans scraper/discord_api.py — une seule copie, pour tous)
 # ---------------------------------------------------------------------------
-
-def _q(base: str, **params) -> str:
-    from urllib.parse import urlencode
-    return base + ("&" if "?" in base else "?") + urlencode(params)
-
-
-def _attendre_429(r) -> bool:
-    if r.status_code != 429:
-        return False
-    attente = 5.0
-    try:
-        attente = float(r.json().get("retry_after", 5)) + 1
-    except Exception:                                       # noqa: BLE001
-        pass
-    print(f"Discord : rate limit — on patiente {attente:.0f} s (s'obstiner "
-          f"sur un 429 est ce qui fait bannir un webhook).", flush=True)
-    time.sleep(min(attente, 60))
-    return True
-
-
-def poster(payload: Dict) -> Optional[str]:
-    """POST dans le THREAD -> renvoie l'id du message cree (`wait=true`)."""
-    url = _q(WEBHOOK, thread_id=THREAD, wait="true")
-    for _ in range(3):
-        r = requests.post(url, json=payload, timeout=20)
-        if _attendre_429(r):
-            continue
-        if r.status_code >= 400:
-            print(f"Discord POST {r.status_code} : {r.text[:300]}",
-                  file=sys.stderr)
-            return None
-        return str(r.json().get("id") or "")
-    return None
-
-
-def editer(mid: str, payload: Dict) -> Optional[str]:
-    """PATCH du message existant. 404 = message supprime a la main -> on le
-    RECREE (et on renvoie le nouvel id)."""
-    url = _q(f"{WEBHOOK}/messages/{mid}", thread_id=THREAD)
-    for _ in range(3):
-        r = requests.patch(url, json=payload, timeout=20)
-        if _attendre_429(r):
-            continue
-        if r.status_code == 404:
-            print(f"message {mid} introuvable (supprime ?) — on le recree.",
-                  flush=True)
-            return poster(payload)
-        if r.status_code >= 400:
-            print(f"Discord PATCH {r.status_code} : {r.text[:300]}",
-                  file=sys.stderr)
-            return None
-        return mid
-    return None
-
-
-def supprimer(mid: str) -> bool:
-    url = _q(f"{WEBHOOK}/messages/{mid}", thread_id=THREAD)
-    for _ in range(3):
-        r = requests.delete(url, timeout=20)
-        if _attendre_429(r):
-            continue
-        return r.status_code in (204, 404)      # 404 = deja parti, c'est bon
-    return False
-
 
 def reordonner(state: Dict) -> None:
     """Discord n'a AUCUN moyen de deplacer un message : l'ordre d'un fil est
     l'ordre de CREATION. Or le condense doit apparaitre AU-DESSUS du detail, et
-    le detail existe deja (poste ce matin). Seule sortie : SUPPRIMER le detail
-    et le laisser se recreer APRES le condense. On ne le fait qu'une fois — la
-    fois ou le condense n'a pas encore d'id."""
+    le detail existe deja. Seule sortie : SUPPRIMER le detail et le laisser se
+    recreer APRES le condense. On ne le fait qu'une fois — la fois ou le
+    condense n'a pas encore d'id."""
     ids = state.get("messages", {})
     if not WEBHOOK or ids.get("jours_court") or not ids.get("jours"):
         return
     print("Le message condense doit passer AU-DESSUS du detail : on supprime "
           "le detail (un fil Discord se range par ordre de creation, rien ne "
           "se deplace) — il sera recree juste apres.", flush=True)
-    if supprimer(ids["jours"]):
+    if api.supprimer(WEBHOOK, THREAD, ids["jours"]):
         ids.pop("jours", None)
-    time.sleep(1.5)
+    api.souffler()
 
 
 def publier(cle: str, payload: Dict, state: Dict) -> bool:
     if not WEBHOOK:
-        print(f"\n[SIMULATION — pas de DISCORD_STATS_WEBHOOK] {CODES[cle]}",
-              flush=True)
+        print(f"\n[SIMULATION — pas de webhook] {CODES[cle]}", flush=True)
         print(payload["content"], flush=True)
         print(payload["embeds"][0]["description"], flush=True)
         return True
     ids = state.setdefault("messages", {})
     mid = str(ids.get(cle) or "")
-    neuf = editer(mid, payload) if mid else poster(payload)
+    neuf = (api.editer(WEBHOOK, THREAD, mid, payload) if mid
+            else api.poster(WEBHOOK, THREAD, payload))
     if not neuf:
         return False
     ids[cle] = neuf
     print(f"{CODES[cle]} : {'edite' if mid == neuf else 'poste'} ({neuf})",
           flush=True)
-    time.sleep(1.5)                     # on ne bouscule pas Discord
+    api.souffler()
     return True
-
-
-# ---------------------------------------------------------------------------
-# Etat
-# ---------------------------------------------------------------------------
-
-def empreinte() -> str:
-    """Empreinte du couple webhook+post — SANS jamais ecrire le webhook nulle
-    part. S'il change, les ids memorises ne valent plus rien."""
-    return hashlib.sha1(f"{WEBHOOK}|{THREAD}".encode()).hexdigest()[:12]
-
-
-def load_state() -> Dict:
-    try:
-        with open(STATE_PATH, encoding="utf-8") as f:
-            st = json.load(f)
-    except Exception:                                       # noqa: BLE001
-        st = {}
-    if WEBHOOK and st.get("empreinte") not in (None, empreinte()):
-        print("Le webhook ou le post a change : les ids memorises sont "
-              "caducs, on repart de zero (3 nouveaux messages).", flush=True)
-        st = {}
-    return st
-
-
-def save_state(st: Dict) -> None:
-    st["empreinte"] = empreinte()
-    st["maj"] = _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")
-    os.makedirs(os.path.dirname(STATE_PATH) or ".", exist_ok=True)
-    with open(STATE_PATH, "w", encoding="utf-8") as f:
-        json.dump(st, f, indent=1, ensure_ascii=False)
 
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
-def main() -> int:
+def run() -> int:
     t0 = time.time()
     sheet_id = os.environ.get("SHEET_ID", "").strip()
     if not sheet_id:
@@ -445,7 +350,7 @@ def main() -> int:
               "qu'un tableau faux).", file=sys.stderr)
         return 1
 
-    state = load_state()
+    state = api.load_state(STATE_PATH, WEBHOOK, THREAD)
     contenus = {cle: page[SOURCE[cle]][:N[cle]] for cle in ORDRE}
     reordonner(state)
 
@@ -466,7 +371,7 @@ def main() -> int:
         else:
             ok = False
 
-    save_state(state)
+    api.save_state(STATE_PATH, state, WEBHOOK, THREAD)
     resume = {"jours": len(contenus["jours"]), "mois": len(contenus["mois"]),
               "annees": len(contenus["annees"]),
               "publies": ",".join(faits) or "aucun",
@@ -481,7 +386,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run())
 
 # FIN discord_stats.py v10 — 4 messages : condense partout, detail en cinq
 # parties sur les seuls jours, et le condense JUSTE AU-DESSUS du detail.
