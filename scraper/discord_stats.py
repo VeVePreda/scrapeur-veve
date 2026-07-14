@@ -121,10 +121,21 @@ COULEURS = {"annees": 0xF1C40F, "mois": 0x7B2CBF,
 DROP_OUI = os.environ.get("DISCORD_STATS_DROP_OUI", "☑")
 DROP_NON = os.environ.get("DISCORD_STATS_DROP_NON", "☐")
 
-# LA VERSION CONDENSEE (années, mois, et le 1er message des jours) : une ligne
-# par periode, l'essentiel et rien d'autre. v8 : Nouveaux et Anciens sortent
-# d'ici — ils ne vivent plus que dans le DETAIL des jours (demande de Preda).
-CONDENSE = [("tx", "Tx"), ("actifs", "Actifs"), ("revenue", "Rev")]
+# LA VERSION CONDENSEE : une ligne par periode, l'essentiel et rien d'autre.
+# v8 : Nouveaux et Anciens sortent d'ici — ils ne vivent plus que dans le DETAIL
+# des jours.
+# v10 : sur les MOIS et les ANNEES, on montre le revenue **DROP** et pas le
+# TOTAL — et on l'ECRIT (« Rev Drop »), pour que personne ne croie lire un total.
+# C'est le chiffre solide a cette maille : le Total y ajoute le revenue MARKET,
+# qui est approximatif ou incomplet (et carrement absent avant 2026-01, ou
+# l'archive IMX ne porte pas l'uuid des items, donc aucun prix rattachable).
+# Mieux vaut un chiffre vrai et nomme qu'un total qui melange du solide et du
+# creux.
+CONDENSE = {
+    "jours_court": [("tx", "Tx"), ("actifs", "Actifs"), ("revenue", "Rev")],
+    "mois": [("tx", "Tx"), ("actifs", "Actifs"), ("rev_drop", "Rev Drop")],
+    "annees": [("tx", "Tx"), ("actifs", "Actifs"), ("rev_drop", "Rev Drop")],
+}
 
 # LES CINQ PARTIES — SEULEMENT pour le detail des JOURS : a la maille du mois ou
 # de l'année, ce niveau de detail n'apprend rien. Ce sont exactement les groupes
@@ -242,7 +253,7 @@ def corps(cle: str, lignes: List[Dict[str, Any]]) -> str:
     Chaque nombre porte son etiquette : en markdown rien n'est aligne, donc rien
     ne doit dependre de la position."""
     if cle != "jours":
-        txt = "\n".join(_ligne(cle, r, CONDENSE) for r in lignes)
+        txt = "\n".join(_ligne(cle, r, CONDENSE[cle]) for r in lignes)
         return txt + LEGENDE_DROP if _jour_like(cle) else txt
     blocs = []
     for emoji, titre, note, colonnes in SECTIONS:
@@ -472,5 +483,5 @@ def main() -> int:
 if __name__ == "__main__":
     sys.exit(main())
 
-# FIN discord_stats.py v9 — 4 messages : condense partout, detail en cinq
+# FIN discord_stats.py v10 — 4 messages : condense partout, detail en cinq
 # parties sur les seuls jours, et le condense JUSTE AU-DESSUS du detail.
