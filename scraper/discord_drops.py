@@ -105,6 +105,15 @@ SANS_COMIC_DAY = os.environ.get(
 JOUR_COMIC_DAY = int(os.environ.get("DISCORD_COMIC_DAY", "2"))   # 2 = mercredi
 
 
+# L'illustration du message groupe (la banniere « VeVe Comics »). Discord ne
+# sert pas de fichiers : il faut une URL. Le plus simple : deposer l'image dans
+# un salon Discord, copier son lien, le poser en variable de repo.
+IMAGE_COMIC_DAY = os.environ.get("DISCORD_DROPS_IMAGE_COMIC_DAY", "").strip()
+LIEN_COMICS = os.environ.get("DISCORD_DROPS_LIEN_COMICS",
+                             "https://www.veve.me/comics/en")
+MAX_LIGNES_CD = int(os.environ.get("DISCORD_DROPS_COMIC_LIGNES", "30"))
+
+
 def est_comic_du_mercredi(genre: str, jour: str) -> bool:
     """Un COMIC dont la date de sortie tombe le jour du Comic Book Day."""
     if not SANS_COMIC_DAY or genre != "comic" or not jour:
@@ -326,6 +335,81 @@ def cles_a_venir(sh) -> List[str]:
 # La carte
 # ---------------------------------------------------------------------------
 
+def comic_day_a_venir(sh):
+    """Le prochain VeVe Comic Book Day de la fenetre, et ses series.
+
+    Meme logique que les drops, mais A LA MAILLE DU JOUR : trente comics le
+    meme mercredi, c'est UN evenement, pas trente annonces."""
+    aujourdhui, horizon = _fenetre()
+    par_jour: Dict[str, Dict[str, Dict]] = {}
+    tab, _genre = TABS[0]                         # les comics, et eux seuls
+    for r in _records(sh, tab):
+        jour, ts, _h = _quand(r.get("releaseDate"))
+        if not jour or not (aujourdhui <= jour <= horizon):
+            continue
+        if not est_comic_du_mercredi("comic", jour):
+            continue
+        cle = (str(r.get("series_uuid") or "").strip()
+               or str(r.get("veve_uuid") or "").strip())
+        if not cle:
+            continue
+        d = par_jour.setdefault(jour, {}).setdefault(cle, {
+            "cle": cle, "jour": jour, "ts": ts,
+            "nom": str(r.get("veve_series_name") or r.get("name") or ""),
+            "prix": r.get("store_price_gems"), "total": 0,
+        })
+        d["total"] += _n(r.get("supply"))
+        if not d["prix"] and r.get("store_price_gems"):
+            d["prix"] = r["store_price_gems"]
+
+    if not par_jour:
+        return None, []
+    jour = min(par_jour)                          # le comic day le plus proche
+    return jour, list(par_jour[jour].values())
+
+
+def message_comic_day(jour: str, series: List[Dict], ping: bool) -> Dict:
+    """UN message pour tout le Comic Book Day. **Trie par TIRAGE CROISSANT** :
+    avant le drop il n'y a pas encore de ventes, donc le seul signal est la
+    RARETE — les petits tirages en haut, c'est la seule chose qui distingue une
+    pepite d'un remplissage."""
+    series = sorted(series, key=lambda s: (s["total"] or 10 ** 9))
+    ts = next((s["ts"] for s in series if s.get("ts")), 0)
+    total = sum(s["total"] for s in series)
+
+    lignes = []
+    for s in series[:MAX_LIGNES_CD]:
+        prix = _prix(s.get("prix"), "comic")
+        prix = f" · {prix} 💎" if prix else ""
+        lignes.append(f"`{s['total']:>6,} ex` **{s['nom']}**{prix}"
+                      .replace(",", " "))
+    reste = len(series) - MAX_LIGNES_CD
+    if reste > 0:
+        lignes.append(f"*… et {reste} autre(s) série(s).*")
+
+    tete = f"{EMOJI_VEVE} "
+    if ping and ROLE:
+        tete += f"<@&{ROLE}> "
+    contenu = f"{tete}📚 **VeVe Comic Book Day**".rstrip()
+
+    entete = (f"🕗 Drop : **<t:{ts}:F>**\n"
+              f"**{len(series)} séries** · {total:,} exemplaires au total"
+              .replace(",", " "))
+    desc = (entete + "\n\n" + "\n".join(lignes)
+            + f"\n\n__**Liens**__\n[Tous les comics VeVe](<{LIEN_COMICS}>)")
+
+    e = {"title": f"📚 VeVe Comic Book Day — {jour}", "color": 0x2ECC71,
+         "description": desc[:4000],
+         "footer": {"text": "ⓘ Trié par tirage croissant : les petites séries "
+                            "en haut. Avant le drop, la rareté est le seul "
+                            "signal — le suivi des ventes arrive dans "
+                            "🔍 RETOUR DROP."}}
+    if IMAGE_COMIC_DAY:
+        e["image"] = {"url": IMAGE_COMIC_DAY}
+    return {"content": contenu, "embeds": [e],
+            "allowed_mentions": api.mentions([ROLE] if (ping and ROLE) else [])}
+
+
 def _complet(d: Dict) -> str:
     """Ce qui manque pour publier. Une carte a trous ne part pas — mais une
     heure manquante n'est PAS un trou : on affiche alors la DATE seule
@@ -340,16 +424,22 @@ def _complet(d: Dict) -> str:
     return ""
 
 
-def _prix(x) -> str:
-    """Le prix d'entree, en gems. ⚠️ `storePrice` des COMICS melange deux
-    echelles (vieux comics en gems : 10, 15 ; recents en CENTIMES : 699 = 6,99) —
-    `store_price_gems` est deja normalise par le chantier classement, on ne
-    retouche RIEN ici."""
+def _prix(x, genre: str = "") -> str:
+    """Le prix d'entree, en gems.
+
+    ⚠️ LE PIEGE, PAYE DEUX FOIS (chantier classement, puis ici : « 798 gems »
+    sur la carte du Comic Book Day). **Le `storePrice` des COMICS melange DEUX
+    ECHELLES** : les vieux comics sont en GEMS (10, 15, 20), les recents en
+    CENTIMES (798 = 7,98). Regle : **>= 100 -> diviser par 100, POUR LES COMICS
+    SEULEMENT** — un collectible a 1 500 gems existe vraiment, lui.
+    Idempotent : 7.98 reste 7.98."""
     try:
         v = float(str(x).replace(",", "."))
     except (TypeError, ValueError):
         return ""
-    return f"{v:.2f}".rstrip("0").rstrip(".").replace(".", ".")
+    if genre == "comic" and v >= 100:
+        v = v / 100.0
+    return f"{v:.2f}".rstrip("0").rstrip(".")
 
 
 def _titre(d: Dict) -> str:
@@ -413,7 +503,7 @@ def texte(d: Dict, ping: bool) -> str:
     format_ = []
     if d.get("methode"):
         format_.append(f"Format **{d['methode']}**")
-    p = _prix(d.get("prix"))
+    p = _prix(d.get("prix"), d["genre"])
     if p:
         format_.append(f"Enter **{p}** 💎")
     format_.append(f"Min. MCP Priority Bid **{MCP_BID}**")
@@ -494,9 +584,15 @@ def run() -> int:
         neufs = []
 
     if not neufs:
+        # ⚠️ Le Comic Book Day doit etre annonce MEME s'il n'y a aucun autre
+        # drop : c'est un evenement a part entiere. (Sortie prematuree = un
+        # message qui ne part jamais.)
+        cd = annoncer_comic_day(sh, state, wh, ping=True)
         api.save_state(STATE_PATH, state, wh, THREAD)
-        print("Drops : aucun nouveau drop a venir a annoncer.", flush=True)
-        _log(sheet_id, "OK", {"neufs": 0, "duree": f"{time.time() - t0:.0f}s"})
+        print(f"Drops : aucun drop individuel a annoncer (comic day : {cd}).",
+              flush=True)
+        _log(sheet_id, "OK", {"neufs": 0, "comic_day": cd,
+                              "duree": f"{time.time() - t0:.0f}s"})
         return 0
 
     ok, postes, sautes = True, [], []
@@ -538,15 +634,48 @@ def run() -> int:
               f"repasseront quand le catalogue les aura enrichis : "
               f"{'; '.join(sautes[:5])}", flush=True)
 
+    # ═══ LE COMIC BOOK DAY : UN message pour tout le mercredi ═══
+    cd = annoncer_comic_day(sh, state, wh, ping=premier_ping)
+
     state["cles"] = list(dict.fromkeys(state.get("cles", [])))
     api.save_state(STATE_PATH, state, wh, THREAD)
 
     resume = {"neufs": len(neufs), "postes": len(postes),
-              "sautes": len(sautes), "titres": " | ".join(postes[:3]),
+              "sautes": len(sautes), "comic_day": cd,
+              "titres": " | ".join(postes[:3]),
               "duree": f"{time.time() - t0:.0f}s"}
     _log(sheet_id, "OK" if ok else "ECHEC", resume)
     print(f"Drops Discord : {resume}", flush=True)
     return 0 if ok else 1
+
+
+def annoncer_comic_day(sh, state: Dict, wh: str, ping: bool) -> str:
+    """Poste (ou reecrit) LE message du prochain Comic Book Day.
+    Un message par mercredi : tant que la date approche, il est EDITE (VeVe
+    ajoute parfois des series apres coup) ; le mercredi suivant en ouvre un
+    nouveau. Le role n'est pinge qu'a la CREATION — un message reecrit ne doit
+    pas re-sonner."""
+    jour, series = comic_day_a_venir(sh)
+    if not jour or not series:
+        return "aucun"
+    ids = state.setdefault("comic_day", {})
+    mid = ids.get(jour)
+    payload = message_comic_day(jour, series, ping=(ping and not mid))
+    if not wh:
+        print(f"\n[SIMULATION]\n{payload['content']}\n"
+              f"{payload['embeds'][0]['description']}\n", flush=True)
+        return f"{jour} (simulation, {len(series)} series)"
+    neuf = (api.editer(wh, THREAD, mid, payload) if mid
+            else api.poster(wh, THREAD, payload))
+    if not neuf:
+        return "echec"
+    ids[jour] = neuf
+    for vieux in sorted(ids)[:-8]:                # l'etat reste minuscule
+        ids.pop(vieux, None)
+    print(f"Comic Book Day {jour} : {len(series)} series, message "
+          f"{'reecrit' if mid == neuf else 'poste'} ({neuf}).", flush=True)
+    api.souffler()
+    return f"{jour} ({len(series)} series)"
 
 
 def _log(sheet_id: str, statut: str, resume: Dict) -> None:
@@ -560,5 +689,5 @@ def _log(sheet_id: str, statut: str, resume: Dict) -> None:
 if __name__ == "__main__":
     sys.exit(run())
 
-# FIN discord_drops.py v7 — une serie = une carte, une vague = un ping, et les
+# FIN discord_drops.py v8 — une serie = une carte, une vague = un ping, et les
 # reactions posees par le bot (un webhook ne sait pas reagir).

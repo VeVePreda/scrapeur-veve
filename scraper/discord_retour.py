@@ -137,13 +137,29 @@ def chaine_par_uuid(sh, jours: List[str]) -> Dict[str, Dict[str, int]]:
 
 def notes_de_classement(sh) -> Dict[str, str]:
     """{cle: note}. Lue par NOM de colonne (jamais par position — une page
-    reordonnee ferait glisser toutes les valeurs d'un cran). Si l'onglet ou la
-    colonne n'existe pas, on renvoie {} : la ligne disparait de la carte, elle
-    ne fait echouer personne."""
-    lignes = _records(sh, CLASSEMENT_TAB)
-    if not lignes:
+    reordonnee ferait glisser toutes les valeurs d'un cran).
+
+    ⚠️ CORRIGE (run reel) : `get_all_records()` EXPLOSE si deux colonnes portent
+    le meme nom (« the header row is not unique ») — et 🏆A-CLASSEMENT en a. On
+    lit donc les VALEURS BRUTES et on fabrique l'index nous-memes : la 1re
+    occurrence d'un nom gagne. Une page mal fichue ne doit pas faire taire tout
+    le module."""
+    try:
+        vals = sh.worksheet(CLASSEMENT_TAB).get_all_values()
+    except Exception as e:                                  # noqa: BLE001
+        print(f"lecture de {CLASSEMENT_TAB} impossible : {e}", file=sys.stderr)
         return {}
-    entetes = list(lignes[0].keys())
+    if len(vals) < 2:
+        return {}
+    entetes = [str(c).strip() for c in vals[0]]
+    lignes = []
+    for r in vals[1:]:
+        d = {}
+        for i, nom in enumerate(entetes):
+            if nom and nom not in d:          # 1re occurrence : elle gagne
+                d[nom] = r[i] if i < len(r) else ""
+        lignes.append(d)
+    entetes = list(dict.fromkeys(e for e in entetes if e))
     col_note = next((c for c in entetes if c.strip().lower() == "note"), "")
     col_cle = next((c for c in ("series_uuid", "veve_uuid", "uuid")
                     if c in entetes), "")
@@ -161,9 +177,38 @@ def notes_de_classement(sh) -> Dict[str, str]:
 # Les drops a debriefer
 # ---------------------------------------------------------------------------
 
-def _jours_pt(jour_drop: str) -> List[str]:
+def _jours_pt(jour_drop: str, n: int = None) -> List[str]:
     d = _dt.date.fromisoformat(jour_drop)
-    return [(d + _dt.timedelta(days=i)).isoformat() for i in range(JOURS)]
+    return [(d + _dt.timedelta(days=i)).isoformat()
+            for i in range(JOURS if n is None else n)]
+
+
+# Les paliers de suivi. ⚠️ LE « ~ » N'EST PAS UNE COQUETTERIE : la journee de
+# ChainItems est une journee PT, qui ne se ferme qu'a 09:00 Paris. Un drop de
+# 17 h deborde donc sur le lendemain. « ~24 h » = les 2 premieres journees PT,
+# « ~48 h » = 3, « ~72 h » = 4. On ecrit le tilde plutot que de faire semblant
+# d'avoir l'heure exacte.
+PALIERS = [("~24 h", 2), ("~48 h", 3), ("~72 h", 4)]
+
+
+def paliers(sh, jour: str, uuids: List[str]):
+    """[(label, vendus, delta_pct)] — seulement les paliers dont la journee PT
+    est CLOSE (presente dans ChainItems). On n'invente pas un palier qui n'a pas
+    encore de donnee."""
+    connus = {str(r.get("date") or "")[:10]
+              for r in _records(sh, ITEMS_TAB) if r.get("date")}
+    out, precedent = [], None
+    for label, n in PALIERS:
+        jours = _jours_pt(jour, n)
+        if jours[-1] not in connus:
+            break                          # la journee n'est pas close : STOP
+        ch = chaine_par_uuid(sh, jours)
+        vendus = sum(ch.get(u, {}).get("mints", 0) for u in uuids)
+        delta = (100.0 * (vendus - precedent) / precedent
+                 if precedent else None)
+        out.append((label, vendus, delta))
+        precedent = vendus
+    return out
 
 
 def a_debriefer(sh, connus: List[str]) -> List[Dict]:
@@ -268,42 +313,57 @@ MAX_LIGNES = int(os.environ.get("DISCORD_RETOUR_COMIC_LIGNES", "30"))
 
 
 def message_comic_day(jour: str, series: List[Dict],
-                      chaine: Dict[str, Dict[str, int]]) -> Dict:
+                      chaine: Dict[str, Dict[str, int]],
+                      suivi=None) -> Dict:
     """UN message pour tout le Comic Book Day, trie par taux d'ecoulement :
-    la pepite remonte d'elle-meme."""
-    lignes = []
-    tot_supply = tot_vendus = 0
-    for s in series:
-        vendus = sum(chaine.get(u, {}).get("mints", 0) for u in s["uuids"])
-        s["vendus"] = vendus
-        s["pct"] = _pct(vendus, s["total"])
-        tot_supply += s["total"]
-        tot_vendus += vendus
-    series.sort(key=lambda s: (-s["pct"], -s["vendus"]))
+    la pepite remonte d'elle-meme.
 
-    for s in series[:MAX_LIGNES]:
-        prix = dd._prix(s.get("prix"))
+    ⚠️ **UNE SERIE A 0 VENDU N'EST PAS AFFICHEE.** Preda est formel : un comic ne
+    fait JAMAIS zero vente. Un zero n'est donc pas une information, c'est un TROU
+    dans la collecte (uuid pas encore vu par la chaine). L'afficher serait
+    publier un bug avec l'autorite d'un chiffre — la ligne repassera au prochain
+    run, quand la donnee sera la."""
+    tot_supply = 0
+    for s in series:
+        s["vendus"] = sum(chaine.get(u, {}).get("mints", 0) for u in s["uuids"])
+        s["pct"] = _pct(s["vendus"], s["total"])
+        tot_supply += s["total"]
+
+    vus = [s for s in series if s["vendus"] > 0]
+    muets = len(series) - len(vus)
+    vus.sort(key=lambda s: (-s["pct"], -s["vendus"]))
+    tot_vendus = sum(s["vendus"] for s in vus)
+
+    lignes = []
+    for s in vus[:MAX_LIGNES]:
+        prix = dd._prix(s.get("prix"), "comic")
         prix = f" · {prix} 💎" if prix else ""
         lignes.append(
             f"`{s['pct']:5.1f} %` **{s['nom']}** — {s['total']:,} ex{prix} · "
             f"**{s['vendus']:,}** vendus".replace(",", " "))
-    reste = len(series) - MAX_LIGNES
+    reste = len(vus) - MAX_LIGNES
     if reste > 0:
         lignes.append(f"*… et {reste} autre(s) série(s).*")
+    if muets:
+        lignes.append(f"*({muets} série(s) sans donnée de vente pour l'instant "
+                      f"— elles reviendront.)*")
+
+    entete = [f"**{len(series)} séries** · {tot_supply:,} exemplaires"
+              .replace(",", " "), ""]
+    for label, vendus, delta in (suivi or []):
+        d = f" · **{delta:+.1f} %**" if delta is not None else ""
+        entete.append(f"Ventes totales après **{label}** : "
+                      f"**{vendus:,}**{d}".replace(",", " "))
+    if not suivi:
+        entete.append(f"Ventes totales : **{tot_vendus:,}**".replace(",", " "))
 
     pct = _pct(tot_vendus, tot_supply)
-    entete = (f"📅 **VeVe Comic Book Day — {jour}**\n"
-              f"{len(series)} séries · {tot_supply:,} exemplaires · "
-              f"**{tot_vendus:,} vendus** ({pct:.1f} %)".replace(",", " "))
-
     return {"content": "🔍 **Suivi du Comic Book Day**",
             "embeds": [{
                 "title": f"📅 Comic Book Day du {jour}",
                 "color": couleur(pct),
-                "description": (entete + "\n\n" + "\n".join(lignes))[:4000],
-                "footer": {"text": "ⓘ Vendus = mints on-chain. Trié par taux "
-                                   "d'écoulement : la pépite remonte toute "
-                                   "seule. Message réécrit à chaque passage."},
+                "description": ("\n".join(entete) + "\n\n"
+                                + "\n".join(lignes))[:4000],
             }],
             "allowed_mentions": api.mentions()}
 
@@ -493,6 +553,13 @@ def run() -> int:
             sautes.append(f"{d['nom']} (aucune donnee on-chain — la journee "
                           f"n'est peut-etre pas encore close)")
             continue
+        if vendus == 0:
+            # Un drop ne fait JAMAIS zero vente (Preda). Un zero est un trou de
+            # collecte, pas un fait : on ne le publie pas, et on ne memorise pas
+            # -> la carte repassera quand la donnee sera la.
+            sautes.append(f"{d['nom']} (0 vendu = donnee manquante, pas un "
+                          f"resultat)")
+            continue
 
         sondage = {}
         mid = annonces.get(d["cle"])
@@ -548,7 +615,9 @@ def suivre_comic_day(sh, state: Dict, wh: str) -> str:
               "(un « 0 vendu » faux serait pire qu'un silence).", flush=True)
         return "sans donnee"
 
-    payload = message_comic_day(jour, series, chaine)
+    uuids = [u for s in series for u in s["uuids"]]
+    payload = message_comic_day(jour, series, chaine,
+                                suivi=paliers(sh, jour, uuids))
     ids = state.setdefault("comic_day", {})
     if not wh:
         print(f"\n[SIMULATION]\n{payload['embeds'][0]['description']}\n",
@@ -580,5 +649,5 @@ def _log(sheet_id: str, statut: str, resume: Dict) -> None:
 if __name__ == "__main__":
     sys.exit(run())
 
-# FIN discord_retour.py v5 — les ventes viennent de la CHAINE, le ratio dit ce
+# FIN discord_retour.py v6 — les ventes viennent de la CHAINE, le ratio dit ce
 # que le chiffre brut cache, et le sondage est confronte a la realite.

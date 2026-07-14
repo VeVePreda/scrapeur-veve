@@ -37,6 +37,35 @@ import requests
 TIMEOUT = 20
 ESSAIS = 3
 
+# ═══ LE PLAFOND, ET L'ESPACEMENT ═══
+# Deux garde-fous anti-bannissement, valables pour TOUS les modules a la fois
+# (c'est tout l'interet d'avoir une seule couche reseau) :
+#  * `PLAFOND` : nombre TOTAL de messages envoyes par run, tous modules
+#    confondus. Au-dela, on refuse d'envoyer et on le DIT. Un bot qui deverse
+#    trente messages d'affilee est un bot qu'on bannit.
+#  * `PAUSE` : quelques secondes entre deux envois. Discord ne se plaint pas
+#    d'une seconde de trop ; il se plaint d'une rafale.
+PLAFOND = int(os.environ.get("DISCORD_MAX_MESSAGES", "15"))
+PAUSE = float(os.environ.get("DISCORD_PAUSE_S", "3"))
+_envoyes = 0
+
+
+def envois() -> int:
+    return _envoyes
+
+
+def _quota_ok(quoi: str) -> bool:
+    """Le compteur est GLOBAL au run : les stats, le blog, les drops et le
+    retour puisent dans le meme budget."""
+    global _envoyes
+    if _envoyes >= PLAFOND:
+        print(f"⛔ PLAFOND ATTEINT ({PLAFOND} messages sur ce run) — {quoi} "
+              f"n'est PAS envoye. Le reste passera au prochain tour. (Regler "
+              f"avec DISCORD_MAX_MESSAGES.)", flush=True)
+        return False
+    _envoyes += 1
+    return True
+
 
 # ---------------------------------------------------------------------------
 # Le webhook : un seul secret pour tout le hub, avec des surcharges par module
@@ -118,6 +147,8 @@ def _429(r) -> bool:
 
 def poster(wh: str, thread: str, payload: Dict) -> Optional[str]:
     """POST dans le THREAD -> l'id du message cree (`wait=true`)."""
+    if not _quota_ok("un nouveau message"):
+        return None
     url = _q(wh, thread_id=thread, wait="true")
     for _ in range(ESSAIS):
         r = requests.post(url, json=payload, timeout=TIMEOUT)
@@ -133,6 +164,8 @@ def poster(wh: str, thread: str, payload: Dict) -> Optional[str]:
 
 def editer(wh: str, thread: str, mid: str, payload: Dict) -> Optional[str]:
     """PATCH. 404 = message supprime a la main -> on le RECREE."""
+    if not _quota_ok(f"la reecriture du message {mid}"):
+        return mid                # on garde l'id : rien n'est perdu
     url = _q(f"{wh}/messages/{mid}", thread_id=thread)
     for _ in range(ESSAIS):
         r = requests.patch(url, json=payload, timeout=TIMEOUT)
@@ -160,9 +193,10 @@ def supprimer(wh: str, thread: str, mid: str) -> bool:
     return False
 
 
-def souffler(secondes: float = 1.5) -> None:
-    """Entre deux messages : on ne bouscule pas Discord."""
-    time.sleep(secondes)
+def souffler(secondes: float = None) -> None:
+    """Entre deux messages : on ne bouscule pas Discord. Une rafale de trente
+    messages est exactement ce qui fait bannir un webhook."""
+    time.sleep(PAUSE if secondes is None else secondes)
 
 
 # ---------------------------------------------------------------------------
