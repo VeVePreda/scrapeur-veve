@@ -8,9 +8,10 @@ name: Archive de la veille
 # gros fichier, et il depose un artifact. Le mettre dans le hub Discord (qui doit
 # rester rapide et publier 2x/jour) le rendrait fragile pour rien.
 #
-# LA RECOLTE EST SACREE : le module ecrit en cours de route (flush toutes les
-# 5 pages) et garde un etat de reprise. Un job annule ne perd que les dernieres
-# pages — pas le corpus.
+# ⚠️ PREALABLE (bug du 14/07) : le bot DOIT avoir le MESSAGE CONTENT INTENT
+# (Developer Portal -> Bot -> Privileged Gateway Intents). Sans lui, Discord
+# repond 200 avec des messages VIDES, et l'archive ne contiendrait rien. Le
+# collecteur sonde desormais la 1re page et refuse d'ecrire si le salon est muet.
 
 on:
   workflow_dispatch:
@@ -29,6 +30,12 @@ on:
         description: "Nb max de médias à télécharger (0 = tout)"
         required: false
         default: "0"
+      purger:
+        description: "JETER l'archive et repartir de zéro (à faire UNE fois, après avoir activé le Message Content Intent : les lignes déjà écrites sont des coquilles vides, et la dédup-par-id les figerait pour toujours)"
+        required: false
+        default: "non"
+        type: choice
+        options: ["non", "oui"]
   schedule:
     # Le rattrapage quotidien : une fois la descente finie, il ne prend que les
     # messages NOUVEAUX. Quelques secondes.
@@ -60,11 +67,15 @@ jobs:
           ARCHIVE_MODES: ${{ github.event.inputs.modes || 'messages' }}
           ARCHIVE_MAX_PAGES: ${{ github.event.inputs.max_pages || '0' }}
           ARCHIVE_MAX_MEDIAS: ${{ github.event.inputs.max_medias || '0' }}
+          ARCHIVE_PURGER: ${{ github.event.inputs.purger == 'oui' && '1' || '' }}
         run: python -m scraper.archive_discord
 
       # Le JSONL et l'etat vont dans le repo (PRIVE) : c'est ce qui permet la
       # reprise et le rattrapage quotidien. Les MEDIAS, eux, n'y vont PAS —
       # des centaines de Mo dans git, c'est un repo qu'on ne clone plus.
+      # `if: always()` : meme si la collecte s'arrete, ce qui est recolte est
+      # commite. La recolte est sacree. (Et une PURGE est aussi commitee : le
+      # `git add` d'un fichier supprime enregistre sa suppression.)
       - name: Commit de l'archive
         if: always()
         run: |
