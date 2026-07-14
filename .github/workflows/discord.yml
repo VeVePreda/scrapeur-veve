@@ -4,6 +4,9 @@ name: Hub Discord
 # 50 workflows »). Les modules sont pilotes par DISCORD_MODULES :
 #   stats -> les 4 messages du post « 📊 STATS » (reecrits, jamais empiles)
 #   blog  -> les nouveaux articles dans le post « ✍️BLOG », avec ping du role
+#   drops -> les drops a venir dans le post « 📦DROP » : une carte par serie,
+#            un ping par vague, et 3 reactions (D / M / ❌) posees par le BOT
+#            (un webhook ne sait pas reagir — c'est la seule raison du token)
 # Ajouter un module demain = une ligne dans scraper/discord_hub.py. Rien ici.
 #
 # ⚠️ REMPLACE `stats-discord.yml` — SUPPRIME l'ancien fichier, sinon les stats
@@ -30,9 +33,9 @@ on:
       modules:
         description: "Modules a lancer"
         required: false
-        default: "stats,blog"
+        default: "stats,blog,drops"
         type: choice
-        options: ["stats,blog", "stats", "blog"]
+        options: ["stats,blog,drops", "stats", "blog", "drops", "blog,drops"]
       blocs:
         description: "Stats : quels messages (annees,mois,jours_court,jours)"
         required: false
@@ -68,11 +71,17 @@ jobs:
           DISCORD_HUB_WEBHOOK: ${{ secrets.DISCORD_HUB_WEBHOOK }}
           DISCORD_STATS_WEBHOOK: ${{ secrets.DISCORD_STATS_WEBHOOK }}
           DISCORD_BLOG_WEBHOOK: ${{ secrets.DISCORD_BLOG_WEBHOOK }}
-          DISCORD_MODULES: ${{ github.event.inputs.modules || 'stats,blog' }}
+          DISCORD_MODULES: ${{ github.event.inputs.modules || 'stats,blog,drops' }}
+          # Le token du BOT ne sert QU'AUX REACTIONS. S'il manque, les cartes
+          # partent quand meme — sans sondage, et le log le dit.
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           DISCORD_STATS_BLOCS: ${{ github.event.inputs.blocs || 'annees,mois,jours_court,jours' }}
           DISCORD_STATS_THREAD: ${{ vars.DISCORD_STATS_THREAD || '1526491450538196992' }}
           DISCORD_BLOG_THREAD: ${{ vars.DISCORD_BLOG_THREAD || '1526535133040087070' }}
           DISCORD_BLOG_ROLE: ${{ vars.DISCORD_BLOG_ROLE || '1526535593071345685' }}
+          DISCORD_DROPS_WEBHOOK: ${{ secrets.DISCORD_DROPS_WEBHOOK }}
+          DISCORD_DROPS_THREAD: ${{ vars.DISCORD_DROPS_THREAD || '1526540247469391952' }}
+          DISCORD_DROPS_ROLE: ${{ vars.DISCORD_DROPS_ROLE || '1104653344108191818' }}
         run: python -m scraper.discord_hub
 
       # L'etat porte les ids des messages (stats) et les slugs deja annonces
@@ -83,6 +92,6 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add data/discord_stats_state.json data/discord_blog_state.json 2>/dev/null || true
+          git add data/discord_stats_state.json data/discord_blog_state.json data/discord_drops_state.json 2>/dev/null || true
           git diff --cached --quiet || git commit -m "discord: etats (ids des messages, slugs annonces)"
           git push || true
