@@ -8,7 +8,7 @@ C'est ici que ca se joue : `DISCORD_MODULES` (l'input du workflow) dit QUI
 tourne. Ajouter un module demain = une ligne dans `MODULES`, zero workflow de
 plus.
 
-    DISCORD_MODULES=stats,blog,drops   (par defaut : tout)
+    DISCORD_MODULES=stats,blog,drops,retour  (par defaut : tout)
     DISCORD_MODULES=drops              (ne reveiller que les drops)
 
 DEUX PRINCIPES, et ils comptent autant que le code
@@ -29,13 +29,15 @@ import sys
 import traceback
 from typing import Callable, Dict
 
-from scraper import discord_blog, discord_drops, discord_stats
+from scraper import (discord_blog, discord_drops, discord_retour,
+                     discord_stats)
 
 # Le registre. Ajouter un module = ajouter une ligne ICI (et rien d'autre).
 MODULES: Dict[str, Callable[[], int]] = {
     "stats": discord_stats.run,
     "blog": discord_blog.run,
     "drops": discord_drops.run,
+    "retour": discord_retour.run,
 }
 
 DEMANDES = [m.strip() for m in

@@ -491,6 +491,9 @@ def run() -> int:
             continue
         premier_ping = False
         state.setdefault("cles", []).append(d["cle"])
+        # On garde l'id de la carte : le module RETOUR ira y relire le sondage
+        # (D / M / ❌) 24 h plus tard, et pourra la citer en lien.
+        state.setdefault("messages", {})[d["cle"]] = mid
         postes.append(d["nom"])
         if wh:
             n = api.reagir(THREAD, mid, REACTIONS)

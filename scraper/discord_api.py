@@ -183,6 +183,37 @@ BOT = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
 API = "https://discord.com/api/v10"
 
 
+def lire_reactions(channel: str, message_id: str) -> Dict[str, int]:
+    """Les compteurs de reactions d'un message : {emoji: nombre}.
+
+    Encore un truc qu'un webhook ne sait pas faire — il faut le BOT (un webhook
+    ne peut meme pas RELIRE ce qu'il a poste). Sert au « retour drop » : on
+    confronte le sondage a ce qui s'est reellement passe."""
+    if not BOT:
+        return {}
+    url = f"{API}/channels/{channel}/messages/{message_id}"
+    for _ in range(ESSAIS):
+        try:
+            r = requests.get(url, headers={"Authorization": f"Bot {BOT}"},
+                             timeout=TIMEOUT)
+        except Exception as e:                              # noqa: BLE001
+            print(f"lecture des reactions KO ({e})", file=sys.stderr)
+            return {}
+        if _429(r):
+            continue
+        if r.status_code >= 400:
+            print(f"lecture des reactions {r.status_code} : {r.text[:200]}",
+                  file=sys.stderr)
+            return {}
+        out = {}
+        for re_ in (r.json().get("reactions") or []):
+            nom = (re_.get("emoji") or {}).get("name") or ""
+            # le bot a pose la 1re reaction : elle ne compte pas comme un vote
+            out[nom] = max(0, int(re_.get("count", 0)) - 1)
+        return out
+    return {}
+
+
 def reagir(channel: str, message_id: str, emojis: List[str]) -> int:
     """Pose les reactions une par une. Renvoie le nombre de reussites."""
     if not BOT:
