@@ -27,9 +27,11 @@ pas du temps : il coute un corpus qui n'existe qu'une fois.)
      presque toujours transitoire.
   4. **DEGRADATION AVANT ABANDON** — la page passe de 100 a 50 a 25 messages au
      meme endroit avant qu'on renonce.
-  5. **LA DEDUPLICATION VIENT DE LA DONNEE, PAS DE L'ETAT** (regle 6) : l'id du
-     message est intrinseque. On relit les ids deja ecrits et on ne les reecrit
-     pas — meme avec un etat perdu, l'archive ne peut pas se dupliquer.
+  5. **LA DEDUPLICATION VIENT DE LA DONNEE, PAS DE L'ETAT** : l'id du message est
+     intrinseque. On relit les ids deja ecrits et on ne les reecrit pas — meme
+     avec un etat perdu, l'archive ne peut pas se dupliquer.
+  6. **LA SONDE DU SALON MUET** (v2, apres le bug du 14/07) — voir plus bas : le
+     seul echec qui ressemblait a une reussite.
 
 ═══ ON COLLECTE, ON NE TRANSFORME RIEN ═══
 Pas de classification, pas de nettoyage, pas de resume pendant la collecte. Le
@@ -46,6 +48,7 @@ Deux modes (`ARCHIVE_MODES`) :
 Env : DISCORD_BOT_TOKEN (SECRET) · ARCHIVE_CHANNEL · ARCHIVE_MODES
       ARCHIVE_JSONL · ARCHIVE_STATE · ARCHIVE_MEDIAS · ARCHIVE_FLUSH (5)
       ARCHIVE_MAX_PAGES (0 = illimite) · ARCHIVE_MAX_MEDIAS (0 = illimite)
+      ARCHIVE_PURGER (1 = jeter l'archive avant de recollecter)
 """
 
 from __future__ import annotations
@@ -73,6 +76,7 @@ MODES = [m.strip() for m in
 FLUSH = int(os.environ.get("ARCHIVE_FLUSH", "5"))          # pages
 MAX_PAGES = int(os.environ.get("ARCHIVE_MAX_PAGES", "0"))  # 0 = illimite
 MAX_MEDIAS = int(os.environ.get("ARCHIVE_MAX_MEDIAS", "0"))
+PURGER = os.environ.get("ARCHIVE_PURGER", "").lower() in ("1", "oui", "true")
 PAUSE = float(os.environ.get("ARCHIVE_PAUSE_S", "0.6"))
 ESSAIS = int(os.environ.get("ARCHIVE_ESSAIS", "6"))
 TIMEOUT = 30
@@ -180,8 +184,74 @@ def extraire(m: Dict) -> Dict:
 
 
 # ---------------------------------------------------------------------------
+# ⚠️⚠️ LE GARDE-FOU QUI COMPTE LE PLUS : LA SONDE DU SALON MUET
+# ---------------------------------------------------------------------------
+# Un bot qui n'a PAS le « Message Content Intent » (privilegie, a activer dans le
+# Developer Portal) recoit `content`, `embeds` et `attachments` **VIDES** — avec
+# un **HTTP 200**. Pas d'erreur, pas d'avertissement : des COQUILLES VIDES qui
+# ressemblent a une reussite. Seuls les messages qui MENTIONNENT le bot (ou qu'il
+# a ecrits) arrivent complets — c'est la signature qui a trahi le bug le 14/07 :
+# sur les 300 premiers messages collectes, le SEUL lisible etait celui qui
+# contenait une mention.
+#
+# Sans cette sonde, on descendait 9 000 messages de RIEN, on les commitait, et la
+# deduplication-par-id les aurait declares « deja collectes » A JAMAIS : le
+# garde-fou de l'archive aurait scelle sa propre ruine. Alors on SONDE la
+# premiere page, et si elle est muette on n'ecrit RIEN et on CRIE.
+#
+# (C'est la meme famille que le `cursor` de StackR ignore EN SILENCE : le pire
+# echec n'est pas celui qui plante, c'est celui qui a l'air de marcher.)
+
+MUET_SEUIL = float(os.environ.get("ARCHIVE_MUET_SEUIL", "0.9"))
+
+
+def _est_vide(m: Dict) -> bool:
+    return not (m.get("content") or m.get("embeds") or m.get("attachments")
+                or m.get("sticker_items"))
+
+
+def salon_muet(msgs: List[Dict]) -> bool:
+    """True si la page est faite de coquilles vides — donc si l'intent manque.
+    (Sur un vrai salon de veille, une page de 100 messages sans UN SEUL contenu,
+    sans UN SEUL embed et sans UNE SEULE piece jointe n'existe pas.)"""
+    if len(msgs) < 20:                 # trop peu pour conclure : on ne bloque pas
+        return False
+    vides = sum(1 for m in msgs if _est_vide(m))
+    return vides / len(msgs) >= MUET_SEUIL
+
+
+CRI_MUET = """
+⛔⛔ SALON MUET — L'ARCHIVE SERAIT VIDE. ON N'ÉCRIT RIEN.
+
+Discord a répondu 200, mais les messages arrivent SANS contenu, SANS embeds et
+SANS pièces jointes. Ce n'est pas un salon vide : c'est le bot qui n'a pas le
+droit de LIRE le contenu.
+
+  → Developer Portal → ton application → Bot → « Privileged Gateway Intents »
+    → MESSAGE CONTENT INTENT → ON → Save.
+    (Sous 100 serveurs, c'est un simple interrupteur, aucune vérification.)
+
+Ensuite, RELANCE avec « purger = oui » : les lignes déjà écrites sont des
+coquilles vides, et comme on déduplique par id, elles ne seraient JAMAIS
+réparées — il faut les jeter avant de recollecter.
+"""
+
+
+# ---------------------------------------------------------------------------
 # Etat + JSONL (append-only : on n'ecrase JAMAIS ce qui est deja sur disque)
 # ---------------------------------------------------------------------------
+
+def purger() -> None:
+    """La seule chose qui a le droit d'EFFACER l'archive, et seulement sur ordre
+    explicite : une recolte muette doit pouvoir etre jetee (sinon la dedup la
+    fige pour toujours). Un blocage collant doit avoir une porte de sortie."""
+    for p in (JSONL, STATE_PATH):
+        try:
+            os.remove(p)
+            print(f"🧹 purgé : {p}", flush=True)
+        except FileNotFoundError:
+            pass
+
 
 def charger_etat() -> Dict:
     try:
@@ -234,7 +304,7 @@ def collecter_messages() -> Dict:
     print(f"Archive : {len(vus)} message(s) déjà sur disque.", flush=True)
 
     fini = bool(st.get("descente_finie"))
-    total, pages, incomplet = 0, 0, False
+    total, pages, incomplet, muet = 0, 0, False, False
     tampon: List[Dict] = []
 
     def _vider():
@@ -284,6 +354,15 @@ def collecter_messages() -> Dict:
             print("Rien de neuf.", flush=True)
             break
 
+        # ⚠️ LA SONDE. Sur la PREMIERE page seulement : si le contenu est muet,
+        # l'intent manque, et tout ce qu'on collecterait serait des coquilles
+        # vides. On n'ecrit RIEN — ni le JSONL, ni l'etat.
+        if pages == 0 and salon_muet(msgs):
+            print(CRI_MUET, file=sys.stderr)
+            muet = True
+            tampon = []                  # ON NE GARDE PAS LES COQUILLES
+            break
+
         # Discord rend du plus recent au plus ancien (sauf avec `after`).
         msgs.sort(key=lambda m: int(m["id"]), reverse=True)
         neufs = [extraire(m) for m in msgs if m["id"] not in vus]
@@ -328,6 +407,13 @@ def collecter_messages() -> Dict:
 
         time.sleep(PAUSE)
 
+    if muet:
+        # On ne touche NI au JSONL NI a l'etat : rien de faux ne doit survivre a
+        # ce run. Le prochain, une fois l'intent active, repartira propre.
+        return {"pages": 0, "nouveaux": 0, "total": len(vus),
+                "descente_finie": bool(st.get("descente_finie")),
+                "statut": "MUET"}
+
     _vider()
     st["incomplet"] = incomplet
     ecrire_etat(st)
@@ -365,7 +451,7 @@ def medias_du_message(m: Dict) -> List[Dict]:
 def telecharger_medias() -> Dict:
     os.makedirs(MEDIAS, exist_ok=True)
     deja = set(os.listdir(MEDIAS))
-    faits, rates, vus = 0, 0, 0
+    faits, rates = 0, 0
     try:
         f = open(JSONL, encoding="utf-8")
     except FileNotFoundError:
@@ -386,7 +472,6 @@ def telecharger_medias() -> Dict:
                           f"fera le reste (les fichiers déjà là sont sautés).",
                           flush=True)
                     return {"faits": faits, "rates": rates, "reste": "oui"}
-                vus += 1
                 try:
                     r = requests.get(md["url"], timeout=TIMEOUT)
                     if r.status_code == 200 and r.content:
@@ -421,11 +506,19 @@ def main() -> int:
         print("ARCHIVE_CHANNEL manquant.", file=sys.stderr)
         return 2
 
+    if PURGER:
+        print("──────── PURGE (demandée explicitement) ────────", flush=True)
+        purger()
+
     resume = {}
     if "messages" in MODES:
         print("──────── MESSAGES ────────", flush=True)
         resume["messages"] = collecter_messages()
         print(f"Messages : {resume['messages']}", flush=True)
+        if resume["messages"]["statut"] == "MUET":
+            # On SORT EN ROUGE : un run muet ne doit pas passer inapercu, sinon
+            # on archiverait 9 000 fois rien en croyant que tout va bien.
+            return 3
     if "images" in MODES:
         print("──────── MÉDIAS ────────", flush=True)
         resume["medias"] = telecharger_medias()
@@ -441,5 +534,5 @@ def main() -> int:
 if __name__ == "__main__":
     sys.exit(main())
 
-# FIN archive_discord.py v1 — on collecte, on ne transforme rien ; la recolte
-# est sacree ; la deduplication vient de la donnee, pas de l'etat.
+# FIN archive_discord.py v2 — on collecte, on ne transforme rien ; la recolte est
+# sacree ; la dedup vient de la donnee ; et un salon MUET ne s'archive pas.
