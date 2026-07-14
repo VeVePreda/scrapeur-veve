@@ -1,0 +1,88 @@
+name: Hub Discord
+
+# UN SEUL workflow pour TOUT le Discord (demande de Preda : « il ne faut pas
+# 50 workflows »). Les modules sont pilotes par DISCORD_MODULES :
+#   stats -> les 4 messages du post « 📊 STATS » (reecrits, jamais empiles)
+#   blog  -> les nouveaux articles dans le post « ✍️BLOG », avec ping du role
+# Ajouter un module demain = une ligne dans scraper/discord_hub.py. Rien ici.
+#
+# ⚠️ REMPLACE `stats-discord.yml` — SUPPRIME l'ancien fichier, sinon les stats
+# seraient publiees DEUX FOIS (deux workflows, deux etats, deux commits qui se
+# marchent dessus).
+#
+# Il ne COLLECTE RIEN : il lit ce que le pipeline a deja ecrit dans le Sheet
+# (page 📊 STATS et onglet 📝C-BLOG). Aucune requete vers VeVe ou StackR.
+#
+# DEUX PASSAGES, et c'est voulu — les messages de stats sont EDITES, pas
+# empiles, donc un 2e passage ne coute rien :
+#   * 03:45 UTC (05:45 Paris) : apres le daily (04:15) et le blog (04:00) —
+#     tout est pret quand Preda se leve ;
+#   * 07:45 UTC (09:45 Paris) : apres chain-catchup, quand la journee PT est
+#     enfin CLOSE (elle ne se ferme qu'a 09:00 Paris) : le tableau gagne son
+#     dernier jour. Le blog, lui, n'aura rien de neuf a dire (son etat le sait).
+
+on:
+  schedule:
+    - cron: "45 3 * * *"
+    - cron: "45 7 * * *"
+  workflow_dispatch:
+    inputs:
+      modules:
+        description: "Modules a lancer"
+        required: false
+        default: "stats,blog"
+        type: choice
+        options: ["stats,blog", "stats", "blog"]
+      blocs:
+        description: "Stats : quels messages (annees,mois,jours_court,jours)"
+        required: false
+        default: "annees,mois,jours_court,jours"
+
+permissions:
+  contents: write
+
+# Deux runs du hub en meme temps reecriraient le meme etat : jamais.
+concurrency:
+  group: veve-discord-hub
+  cancel-in-progress: false
+
+jobs:
+  discord:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Hub Discord
+        env:
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          # Un seul webhook pour tout le forum : les posts d'un meme salon le
+          # partagent, seul le thread_id change. Un module dans un AUTRE salon
+          # aura son propre secret (DISCORD_BLOG_WEBHOOK, etc.).
+          DISCORD_HUB_WEBHOOK: ${{ secrets.DISCORD_HUB_WEBHOOK }}
+          DISCORD_STATS_WEBHOOK: ${{ secrets.DISCORD_STATS_WEBHOOK }}
+          DISCORD_BLOG_WEBHOOK: ${{ secrets.DISCORD_BLOG_WEBHOOK }}
+          DISCORD_MODULES: ${{ github.event.inputs.modules || 'stats,blog' }}
+          DISCORD_STATS_BLOCS: ${{ github.event.inputs.blocs || 'annees,mois,jours_court,jours' }}
+          DISCORD_STATS_THREAD: ${{ vars.DISCORD_STATS_THREAD || '1526491450538196992' }}
+          DISCORD_BLOG_THREAD: ${{ vars.DISCORD_BLOG_THREAD || '1526535133040087070' }}
+          DISCORD_BLOG_ROLE: ${{ vars.DISCORD_BLOG_ROLE || '1526535593071345685' }}
+        run: python -m scraper.discord_hub
+
+      # L'etat porte les ids des messages (stats) et les slugs deja annonces
+      # (blog). Sans lui : on ne peut plus EDITER, et le blog re-annoncerait —
+      # avec un ping — des articles deja publies.
+      - name: Commit des etats
+        if: always()
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add data/discord_stats_state.json data/discord_blog_state.json 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "discord: etats (ids des messages, slugs annonces)"
+          git push || true
