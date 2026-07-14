@@ -163,3 +163,51 @@ def supprimer(wh: str, thread: str, mid: str) -> bool:
 def souffler(secondes: float = 1.5) -> None:
     """Entre deux messages : on ne bouscule pas Discord."""
     time.sleep(secondes)
+
+
+# ---------------------------------------------------------------------------
+# LES REACTIONS — la seule chose qu'un webhook ne sait PAS faire
+# ---------------------------------------------------------------------------
+# L'API ne permet d'ajouter une reaction qu'avec un TOKEN DE BOT :
+#   PUT /channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me
+# (dans un post de forum, le `channel_id` EST l'id du post — un thread est un
+# salon a part entiere ; c'est le webhook, lui, qui a besoin de `?thread_id=`).
+# Le bot doit etre sur le serveur avec « Voir le salon », « Lire l'historique »
+# et « Ajouter des reactions ».
+#
+# ⚠️ PRINCIPE : une reaction qui echoue ne doit JAMAIS faire echouer l'annonce.
+# Un sondage sans boutons vaut mieux qu'un drop jamais publie — on le signale
+# dans les logs, et on continue.
+
+BOT = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
+API = "https://discord.com/api/v10"
+
+
+def reagir(channel: str, message_id: str, emojis: List[str]) -> int:
+    """Pose les reactions une par une. Renvoie le nombre de reussites."""
+    if not BOT:
+        print("Pas de DISCORD_BOT_TOKEN : aucune reaction posee (un webhook ne "
+              "peut PAS reagir). La carte, elle, est bien publiee.", flush=True)
+        return 0
+    from urllib.parse import quote
+    entetes = {"Authorization": f"Bot {BOT}"}
+    n = 0
+    for e in [x.strip() for x in emojis if x and x.strip()]:
+        url = (f"{API}/channels/{channel}/messages/{message_id}"
+               f"/reactions/{quote(e)}/@me")
+        for _ in range(ESSAIS):
+            try:
+                r = requests.put(url, headers=entetes, timeout=TIMEOUT)
+            except Exception as exc:                        # noqa: BLE001
+                print(f"reaction {e} KO ({exc})", file=sys.stderr)
+                break
+            if _429(r):
+                continue
+            if r.status_code in (200, 204):
+                n += 1
+            else:
+                print(f"reaction {e} refusee ({r.status_code}) : "
+                      f"{r.text[:200]}", file=sys.stderr)
+            break
+        time.sleep(0.35)          # 3 reactions = 3 appels : on y va doucement
+    return n
