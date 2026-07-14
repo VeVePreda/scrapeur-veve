@@ -94,6 +94,12 @@ jobs:
           # Un seul webhook pour tout le forum : les posts d'un meme salon le
           # partagent, seul le thread_id change. Un module dans un AUTRE salon
           # aura son propre secret (DISCORD_BLOG_WEBHOOK, etc.).
+          # ═══ GARDE-FOUS ANTI-BAN, valables pour TOUS les modules ═══
+          # PLAFOND : nb TOTAL de messages par run (au-dela, on refuse et on le
+          # dit). PAUSE : secondes entre deux envois. Une rafale est exactement
+          # ce qui fait bannir un webhook.
+          DISCORD_MAX_MESSAGES: ${{ vars.DISCORD_MAX_MESSAGES || '15' }}
+          DISCORD_PAUSE_S: ${{ vars.DISCORD_PAUSE_S || '3' }}
           DISCORD_HUB_WEBHOOK: ${{ secrets.DISCORD_HUB_WEBHOOK }}
           DISCORD_STATS_WEBHOOK: ${{ secrets.DISCORD_STATS_WEBHOOK }}
           DISCORD_BLOG_WEBHOOK: ${{ secrets.DISCORD_BLOG_WEBHOOK }}
@@ -109,6 +115,10 @@ jobs:
           DISCORD_DROPS_THREAD: ${{ vars.DISCORD_DROPS_THREAD || '1526540247469391952' }}
           DISCORD_DROPS_ROLE: ${{ vars.DISCORD_DROPS_ROLE || '1104653344108191818' }}
           DISCORD_DROPS_REJOUER: ${{ github.event.inputs.rejouer_drops || 'false' }}
+          # L'illustration du message groupe « VeVe Comic Book Day ». Discord ne
+          # sert pas de fichiers : depose la banniere dans un salon, copie son
+          # lien, et pose-le ici (variable de repo). Sans elle : pas d'image.
+          DISCORD_DROPS_IMAGE_COMIC_DAY: ${{ vars.DISCORD_DROPS_IMAGE_COMIC_DAY || '' }}
           DISCORD_RETOUR_WEBHOOK: ${{ secrets.DISCORD_RETOUR_WEBHOOK }}
           DISCORD_RETOUR_THREAD: ${{ vars.DISCORD_RETOUR_THREAD || '1526557575875924119' }}
           # Vide = le retour ne ping personne (choix par defaut : c'est une
