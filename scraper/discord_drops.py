@@ -87,6 +87,32 @@ MAX_CARTES = int(os.environ.get("DISCORD_DROPS_MAX_CARTES", "5"))
 # 1651 « drops a venir » ! Un chiffre pareil n'est jamais une actualite, c'est
 # un symptome.)
 HORIZON = int(os.environ.get("DISCORD_DROPS_HORIZON", "7"))
+
+# ═══ LE COMIC DU MERCREDI (VeVe Comic Book Day) ═══
+# Idee de Preda, et elle vaut mieux que mon garde-fou : elle traite la CAUSE.
+# Le mercredi, VeVe deverse des comics en masse — **3 055 series sur 4 195** dans
+# son classement, et il n'en a jamais note une seule. Ce n'est pas de
+# l'actualite, c'est du remplissage : ni annonce, ni retour.
+#
+# ⚠️ C'EST UNE HEURISTIQUE, PAS UN FAIT. Le vrai signal serait un drapeau
+# `is_from_veve_comics` (qui n'existe pas encore dans les donnees) ; le jour de
+# la semaine n'en est qu'un proxy. **Un comic majeur qui sortirait un mercredi
+# passerait a la trappe.** D'ou : debrayable (`DISCORD_SANS_COMIC_DAY=false`), et
+# le nombre d'ecartes est ECRIT dans les logs — un filtre silencieux est un
+# mensonge par omission.
+SANS_COMIC_DAY = os.environ.get(
+    "DISCORD_SANS_COMIC_DAY", "true").strip().lower() in ("1", "true", "oui")
+JOUR_COMIC_DAY = int(os.environ.get("DISCORD_COMIC_DAY", "2"))   # 2 = mercredi
+
+
+def est_comic_du_mercredi(genre: str, jour: str) -> bool:
+    """Un COMIC dont la date de sortie tombe le jour du Comic Book Day."""
+    if not SANS_COMIC_DAY or genre != "comic" or not jour:
+        return False
+    try:
+        return _dt.date.fromisoformat(jour).weekday() == JOUR_COMIC_DAY
+    except ValueError:
+        return False
 MCP_BID = os.environ.get("DISCORD_DROPS_MCP_BID", "5,000")
 
 # LES LIENS BOUTIQUE. Trois familles de pages VeVe, et c'est le TYPE DE DROP qui
@@ -205,7 +231,7 @@ def drops_a_venir(sh, connus: List[str], trace: bool = False) -> List[Dict]:
     vus = set(connus or [])
     aujourdhui, horizon = _fenetre()
     par_serie: Dict[str, Dict] = {}
-    illisibles, lointains, echantillon = 0, 0, []
+    illisibles, lointains, comic_day, echantillon = 0, 0, 0, []
 
     for tab, genre in TABS:
         for r in _records(sh, tab):
@@ -222,6 +248,9 @@ def drops_a_venir(sh, connus: List[str], trace: bool = False) -> List[Dict]:
             if jour > horizon:
                 lointains += 1
                 continue                       # trop loin : pas encore une news
+            if est_comic_du_mercredi(genre, jour):
+                comic_day += 1
+                continue                       # VeVe Comic Book Day : du volume
             cle = (str(r.get("series_uuid") or "").strip()
                    or str(r.get("veve_uuid") or "").strip())
             if not cle or cle in vus:
@@ -255,7 +284,8 @@ def drops_a_venir(sh, connus: List[str], trace: bool = False) -> List[Dict]:
     if trace:
         print(f"Fenetre : {aujourdhui} -> {horizon} ({HORIZON} j). "
               f"{len(par_serie)} serie(s) dedans · {lointains} au-dela de "
-              f"l'horizon · {illisibles} date(s) illisible(s)"
+              f"l'horizon · {comic_day} ligne(s) de comic du mercredi ecartee(s)"
+              f" · {illisibles} date(s) illisible(s)"
               + (f" (ex. {', '.join(echantillon)})" if echantillon else ""),
               flush=True)
 
@@ -530,5 +560,5 @@ def _log(sheet_id: str, statut: str, resume: Dict) -> None:
 if __name__ == "__main__":
     sys.exit(run())
 
-# FIN discord_drops.py v6 — une serie = une carte, une vague = un ping, et les
+# FIN discord_drops.py v7 — une serie = une carte, une vague = un ping, et les
 # reactions posees par le bot (un webhook ne sait pas reagir).

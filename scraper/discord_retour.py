@@ -23,6 +23,18 @@ CE QU'ON MESURE, ET AVEC QUOI
 * **Le sondage** : le bot relit les reactions de la carte d'annonce (le module
   `drops` a memorise son id). Le vote du bot lui-meme est deduit.
 
+LE COMIC DU MERCREDI : GROUPE, PAS JETE (idee de Preda, 14/07)
+--------------------------------------------------------------
+Le VeVe Comic Book Day deverse des dizaines de comics d'un coup. On ne les
+ANNONCE pas (ce serait 30 cartes et un ping), mais **on les SUIT** — et dans UN
+SEUL message, RECRIT a chaque run : une ligne par serie, triee par taux
+d'ecoulement. Un comic a 1 000 exemplaires ecoule a 60 % au milieu de trente
+series a 60 000 qui font 2 %, c'est exactement ce qu'un humain rate et qu'une
+machine voit.
+Un message par COMIC DAY (donc un par semaine) : tant que la journee est dans la
+fenetre, il est EDITE ; le mercredi suivant en ouvre un nouveau. Le suivi vit
+donc dans le temps au lieu d'etre fige a J+1.
+
 LES GARDE-FOUS
 --------------
 1. **1er run** : on memorise sans rien publier.
@@ -46,6 +58,8 @@ Env : DISCORD_RETOUR_THREAD · DISCORD_RETOUR_ROLE (vide = aucun ping)
       DISCORD_RETOUR_STATE · RETOUR_JOURS (2) · RETOUR_FENETRE (7)
       DISCORD_RETOUR_MAX_NEUFS (25) · DISCORD_RETOUR_MAX_CARTES (8)
       DISCORD_RETOUR_REJOUER (rattrapage : oublier la fenetre deja memorisee)
+      DISCORD_RETOUR_PURGER  (l'inverse : marquer la fenetre comme vue, sans
+                              rien publier — pour sortir d'un blocage sticky)
 """
 
 from __future__ import annotations
@@ -82,6 +96,12 @@ MAX_CARTES = int(os.environ.get("DISCORD_RETOUR_MAX_CARTES", "8"))
 # Rattrapage : oublier les drops de la fenetre deja memorises (le 1er run les a
 # enterres). Sert une fois.
 REJOUER = os.environ.get("DISCORD_RETOUR_REJOUER", "").strip().lower() in (
+    "1", "true", "oui", "yes")
+# L'AUTRE PORTE DE SORTIE. Un blocage anti-avalanche est STICKY : tant que le
+# backlog depasse le seuil, meme les drops NEUFS restent bloques derriere lui.
+# Il faut donc pouvoir dire « ce passe-la ne m'interesse pas » : PURGER memorise
+# la fenetre SANS rien publier, et on repart propre a partir de maintenant.
+PURGER = os.environ.get("DISCORD_RETOUR_PURGER", "").strip().lower() in (
     "1", "true", "oui", "yes")
 
 VERT, ORANGE, ROUGE = 0x2ECC71, 0xE67E22, 0xE74C3C
@@ -156,11 +176,15 @@ def a_debriefer(sh, connus: List[str]) -> List[Dict]:
     veille = (aujourdhui - _dt.timedelta(days=1)).isoformat()
 
     par_serie: Dict[str, Dict] = {}
+    ecartes = 0
     for tab, genre in dd.TABS:
         for r in _records(sh, tab):
             jour, ts, avec_heure = dd._quand(r.get("releaseDate"))
             if not jour or not (debut <= jour <= veille):
                 continue                  # trop vieux, ou pas encore 24 h
+            if dd.est_comic_du_mercredi(genre, jour):
+                ecartes += 1
+                continue                  # VeVe Comic Book Day : du volume
             cle = (str(r.get("series_uuid") or "").strip()
                    or str(r.get("veve_uuid") or "").strip())
             if not cle or cle in vus:
@@ -186,12 +210,102 @@ def a_debriefer(sh, connus: List[str]) -> List[Dict]:
             if not d["prix"] and r.get("store_price_gems"):
                 d["prix"] = r["store_price_gems"]
 
+    if ecartes:
+        print(f"{ecartes} ligne(s) de comic du mercredi ecartee(s) (VeVe Comic "
+              f"Book Day : du volume, pas de l'actualite — heuristique "
+              f"debrayable par DISCORD_SANS_COMIC_DAY=false).", flush=True)
     for d in par_serie.values():
         d["lignes"].sort(key=lambda l: (dd.ORDRE_RARETE.index(l["rarete"])
                                         if l["rarete"] in dd.ORDRE_RARETE
                                         else 99))
         d["total"] = sum(l["supply"] for l in d["lignes"])
     return sorted(par_serie.values(), key=lambda d: d["jour"])
+
+
+def comic_day_recent(sh):
+    """Le dernier COMIC BOOK DAY de la fenetre (et ses series).
+
+    Renvoie (jour, [series]) ou (None, []). On ne prend QUE le plus recent : le
+    message de suivi est reecrit, pas empile — un par semaine suffit."""
+    aujourdhui = _dt.date.today()
+    debut = (aujourdhui - _dt.timedelta(days=FENETRE)).isoformat()
+    veille = (aujourdhui - _dt.timedelta(days=1)).isoformat()
+
+    par_jour: Dict[str, Dict[str, Dict]] = {}
+    tab, genre = dd.TABS[0]                       # les comics, et eux seuls
+    for r in _records(sh, tab):
+        jour = dd._quand(r.get("releaseDate"))[0]
+        if not jour or not (debut <= jour <= veille):
+            continue
+        try:
+            if _dt.date.fromisoformat(jour).weekday() != dd.JOUR_COMIC_DAY:
+                continue
+        except ValueError:
+            continue
+        cle = (str(r.get("series_uuid") or "").strip()
+               or str(r.get("veve_uuid") or "").strip())
+        if not cle:
+            continue
+        d = par_jour.setdefault(jour, {}).setdefault(cle, {
+            "cle": cle, "jour": jour,
+            "nom": str(r.get("veve_series_name") or r.get("name") or ""),
+            "prix": r.get("store_price_gems"), "total": 0, "uuids": [],
+        })
+        d["total"] += dd._n(r.get("supply"))
+        u = str(r.get("veve_uuid") or "").strip()
+        if u:
+            d["uuids"].append(u)
+        if not d["prix"] and r.get("store_price_gems"):
+            d["prix"] = r["store_price_gems"]
+
+    if not par_jour:
+        return None, []
+    jour = max(par_jour)
+    return jour, list(par_jour[jour].values())
+
+
+MAX_LIGNES = int(os.environ.get("DISCORD_RETOUR_COMIC_LIGNES", "30"))
+
+
+def message_comic_day(jour: str, series: List[Dict],
+                      chaine: Dict[str, Dict[str, int]]) -> Dict:
+    """UN message pour tout le Comic Book Day, trie par taux d'ecoulement :
+    la pepite remonte d'elle-meme."""
+    lignes = []
+    tot_supply = tot_vendus = 0
+    for s in series:
+        vendus = sum(chaine.get(u, {}).get("mints", 0) for u in s["uuids"])
+        s["vendus"] = vendus
+        s["pct"] = _pct(vendus, s["total"])
+        tot_supply += s["total"]
+        tot_vendus += vendus
+    series.sort(key=lambda s: (-s["pct"], -s["vendus"]))
+
+    for s in series[:MAX_LIGNES]:
+        prix = dd._prix(s.get("prix"))
+        prix = f" · {prix} 💎" if prix else ""
+        lignes.append(
+            f"`{s['pct']:5.1f} %` **{s['nom']}** — {s['total']:,} ex{prix} · "
+            f"**{s['vendus']:,}** vendus".replace(",", " "))
+    reste = len(series) - MAX_LIGNES
+    if reste > 0:
+        lignes.append(f"*… et {reste} autre(s) série(s).*")
+
+    pct = _pct(tot_vendus, tot_supply)
+    entete = (f"📅 **VeVe Comic Book Day — {jour}**\n"
+              f"{len(series)} séries · {tot_supply:,} exemplaires · "
+              f"**{tot_vendus:,} vendus** ({pct:.1f} %)".replace(",", " "))
+
+    return {"content": "🔍 **Suivi du Comic Book Day**",
+            "embeds": [{
+                "title": f"📅 Comic Book Day du {jour}",
+                "color": couleur(pct),
+                "description": (entete + "\n\n" + "\n".join(lignes))[:4000],
+                "footer": {"text": "ⓘ Vendus = mints on-chain. Trié par taux "
+                                   "d'écoulement : la pépite remonte toute "
+                                   "seule. Message réécrit à chaque passage."},
+            }],
+            "allowed_mentions": api.mentions()}
 
 
 def toutes_les_cles(sh) -> List[str]:
@@ -203,7 +317,9 @@ def toutes_les_cles(sh) -> List[str]:
     for tab, _g in dd.TABS:
         for r in _records(sh, tab):
             jour = dd._quand(r.get("releaseDate"))[0]
-            if jour and debut <= jour <= veille:
+            genre = "comic" if tab == dd.TABS[0][0] else "collectible"
+            if (jour and debut <= jour <= veille
+                    and not dd.est_comic_du_mercredi(genre, jour)):
                 continue                  # dans la fenetre : on ne l'enterre pas
             cle = (str(r.get("series_uuid") or "").strip()
                    or str(r.get("veve_uuid") or "").strip())
@@ -314,6 +430,17 @@ def run() -> int:
     print(f"{len(neufs)} drop(s) a debriefer (sortis il y a 1 a {FENETRE} j).",
           flush=True)
 
+    if PURGER:
+        state["cles"] = list(dict.fromkeys(
+            list(state.get("cles", [])) + [d["cle"] for d in neufs]))
+        api.save_state(STATE_PATH, state, wh, THREAD)
+        print(f"PURGER : les {len(neufs)} drop(s) en attente sont marques comme "
+              f"vus, SANS rien publier. On repart propre : seuls les prochains "
+              f"drops seront debriefes.", flush=True)
+        _log(sheet_id, "OK", {"neufs": len(neufs), "postes": 0,
+                              "motif": "purge"})
+        return 0
+
     # ANTI-AVALANCHE — version qui ne detruit RIEN. Au-dela du seuil, on ne
     # publie pas ET ON NE MEMORISE PAS : le backlog reste intact, et l'humain
     # decide (en montant DISCORD_RETOUR_MAX_NEUFS, ou en purgeant l'etat).
@@ -321,10 +448,13 @@ def run() -> int:
     # protege n'est pas un garde-fou, c'est un bug.
     if len(neufs) > MAX_NEUFS:
         print(f"⚠️ {len(neufs)} drops a debriefer (> {MAX_NEUFS}) : RIEN n'est "
-              f"publie, et RIEN n'est memorise — le backlog est intact. Si "
-              f"c'est normal (un comic day en apporte quinze d'un coup), "
-              f"relance avec DISCORD_RETOUR_MAX_NEUFS plus haut ; sinon, il y a "
-              f"un bug a regarder.", flush=True)
+              f"publie, et RIEN n'est memorise — le backlog est intact.\n"
+              f"   ⚠️ CE BLOCAGE EST STICKY : tant qu'il dure, meme les drops "
+              f"NEUFS restent coinces derriere. Deux portes de sortie :\n"
+              f"   · retour_max = 50  -> on rattrape (8 cartes par run, le "
+              f"reste au tour suivant) ;\n"
+              f"   · purger_retour = true -> on marque ce passe comme vu SANS "
+              f"rien publier, et on repart propre.", flush=True)
         api.save_state(STATE_PATH, state, wh, THREAD)
         _log(sheet_id, "OK", {"neufs": len(neufs), "postes": 0,
                               "motif": "avalanche"})
@@ -393,12 +523,50 @@ def run() -> int:
     state["cles"] = list(dict.fromkeys(state.get("cles", [])))
     api.save_state(STATE_PATH, state, wh, THREAD)
 
+    # ═══ LE SUIVI DU COMIC BOOK DAY : UN message, RECRIT ═══
+    comic = suivre_comic_day(sh, state, wh)
+
     resume = {"neufs": len(neufs), "postes": len(postes),
-              "sautes": len(sautes), "titres": " | ".join(postes[:3]),
+              "sautes": len(sautes), "comic_day": comic,
+              "titres": " | ".join(postes[:3]),
               "duree": f"{time.time() - t0:.0f}s"}
     _log(sheet_id, "OK" if ok else "ECHEC", resume)
     print(f"Retour Discord : {resume}", flush=True)
     return 0 if ok else 1
+
+
+def suivre_comic_day(sh, state: Dict, wh: str) -> str:
+    """Poste (ou reecrit) le message de suivi du dernier Comic Book Day.
+    Un message par jour de comic day : tant qu'il est dans la fenetre on
+    l'EDITE ; le mercredi suivant en ouvre un nouveau."""
+    jour, series = comic_day_recent(sh)
+    if not jour or not series:
+        return "aucun"
+    chaine = chaine_par_uuid(sh, _jours_pt(jour))
+    if not chaine:
+        print("Comic Book Day : aucune donnee on-chain encore — on attend "
+              "(un « 0 vendu » faux serait pire qu'un silence).", flush=True)
+        return "sans donnee"
+
+    payload = message_comic_day(jour, series, chaine)
+    ids = state.setdefault("comic_day", {})
+    if not wh:
+        print(f"\n[SIMULATION]\n{payload['embeds'][0]['description']}\n",
+              flush=True)
+        return f"{jour} (simulation)"
+    mid = ids.get(jour)
+    neuf = (api.editer(wh, THREAD, mid, payload) if mid
+            else api.poster(wh, THREAD, payload))
+    if not neuf:
+        return "echec"
+    ids[jour] = neuf
+    # menage : on ne garde que les 8 derniers comic days dans l'etat
+    for vieux in sorted(ids)[:-8]:
+        ids.pop(vieux, None)
+    print(f"Comic Book Day {jour} : {len(series)} series, message "
+          f"{'reecrit' if mid == neuf else 'poste'} ({neuf}).", flush=True)
+    api.souffler()
+    return f"{jour} ({len(series)} series)"
 
 
 def _log(sheet_id: str, statut: str, resume: Dict) -> None:
@@ -412,5 +580,5 @@ def _log(sheet_id: str, statut: str, resume: Dict) -> None:
 if __name__ == "__main__":
     sys.exit(run())
 
-# FIN discord_retour.py v2 — les ventes viennent de la CHAINE, le ratio dit ce
+# FIN discord_retour.py v5 — les ventes viennent de la CHAINE, le ratio dit ce
 # que le chiffre brut cache, et le sondage est confronte a la realite.
