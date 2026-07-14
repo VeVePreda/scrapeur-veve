@@ -1,9 +1,8 @@
 """📊 LES STATS DANS LE POST FORUM DISCORD — 3 messages permanents, REECRITS.
 
 Demande de Preda (14/07) : « 1 message qui recap les années, 1 message qui
-recap les mois, 1 message qui recap les 15 derniers jours », chacun avec un
-**nom de code** dans son message, dans le post « 📊 STATS » du forum
-« 📁⎮hub-actu-test ».
+recap les mois, 1 message qui recap les jours », chacun avec un **nom de code**
+dans son message, dans le post « 📊 STATS » du forum « 📁⎮hub-actu-test ».
 
 POURQUOI TROIS MESSAGES EDITES, ET PAS UN MESSAGE PAR JOUR
 ----------------------------------------------------------
@@ -11,7 +10,7 @@ Preda voulait au depart « un systeme qui supprime petit a petit les stats
 journalieres et mensuelles pour ne laisser que celles des années ». Un webhook
 Discord peut EDITER ses propres messages : trois messages reecrits chaque matin
 font ce menage TOUT SEULS, sans jamais rien supprimer —
-  * un jour qui sort des 15 derniers est deja compte dans SON mois ;
+  * un jour qui sort du tableau est deja compte dans SON mois ;
   * un mois clos est deja compte dans SON année ;
   * l'année, elle, ne bouge plus.
 Le post reste donc propre en permanence (3 messages, jamais 400), et
@@ -21,24 +20,28 @@ ORDRE DE CREATION : ANNEES, puis MOIS, puis JOURS — dans un fil Discord le
 dernier message est en BAS, donc le tableau qu'on lit tous les matins (les
 jours) tombe sous les yeux en ouvrant le post.
 
+⚠️ v2 (apres le 1er run reel) : LA LARGEUR EST LE VRAI ENNEMI. Avec 9 colonnes
+et des nombres complets (« 899 721 216 801 »), Discord passait chaque ligne A LA
+LIGNE : illisible. Un bloc de code ne coupe pas, il ENROULE. Regle retenue :
+**5 colonnes, nombres compacts (1,47 M · 2,31 Md), largeur <= 45 caracteres.**
+Preda a choisi les colonnes : transactions · actifs · revenue · burn OMI $ ·
+achat de gems $. Et les volumes : 3 années, 5 mois, 7 jours.
+
 LES DEUX PIEGES DISCORD (payes une fois, plus jamais)
 -----------------------------------------------------
 1. **Poster dans un post de forum** = poster dans un THREAD : le webhook
-   appartient au SALON, on lui ajoute `?thread_id=<id du post>`. Sans ce
-   parametre, un webhook de forum se plaint (« Cannot send messages in a forum
-   channel ») ou cree un nouveau post.
+   appartient au SALON, on lui ajoute `?thread_id=<id du post>`.
 2. **Pour EDITER, il faut l'id du message** : on ne peut pas relire le salon
-   avec un webhook (l'API ne le permet pas — il faudrait un vrai bot). L'id est
-   donc memorise dans l'etat (`data/discord_stats_state.json`, commite par le
-   workflow). Si Preda supprime un message a la main, le PATCH renvoie 404
-   « Unknown Message » -> on en RECREE un et on reecrit l'id. Rien ne casse.
+   avec un webhook (il faudrait un vrai bot). L'id est donc memorise dans
+   l'etat (`data/discord_stats_state.json`, commite par le workflow). Si un
+   message est supprime a la main, le PATCH renvoie 404 -> on le RECREE.
 
 Env :
   SHEET_ID, GOOGLE_SERVICE_ACCOUNT_JSON  (lecture du Sheet)
-  DISCORD_STATS_WEBHOOK   (SECRET — webhook du salon forum ; sans lui : simulation)
-  DISCORD_STATS_THREAD    (id du post « 📊 STATS » ; defaut ci-dessous)
+  DISCORD_STATS_WEBHOOK   (SECRET ; sans lui : simulation dans les logs)
+  DISCORD_STATS_THREAD    (id du post « 📊 STATS »)
   DISCORD_STATS_STATE     (data/discord_stats_state.json)
-  DISCORD_STATS_JOURS     (15)   DISCORD_STATS_MOIS (24)
+  DISCORD_STATS_JOURS (7) · DISCORD_STATS_MOIS (5) · DISCORD_STATS_ANNEES (3)
   DISCORD_STATS_BLOCS     (annees,mois,jours — pour cibler a la main)
 """
 
@@ -61,124 +64,114 @@ WEBHOOK = os.environ.get("DISCORD_STATS_WEBHOOK", "").strip()
 THREAD = os.environ.get("DISCORD_STATS_THREAD", "1526491450538196992").strip()
 STATE_PATH = os.environ.get("DISCORD_STATS_STATE",
                             "data/discord_stats_state.json")
-N_JOURS = int(os.environ.get("DISCORD_STATS_JOURS", "15"))
-N_MOIS = int(os.environ.get("DISCORD_STATS_MOIS", "24"))
+N = {"jours": int(os.environ.get("DISCORD_STATS_JOURS", "7")),
+     "mois": int(os.environ.get("DISCORD_STATS_MOIS", "5")),
+     "annees": int(os.environ.get("DISCORD_STATS_ANNEES", "3"))}
 BLOCS = [b.strip() for b in
          os.environ.get("DISCORD_STATS_BLOCS", "annees,mois,jours").split(",")
          if b.strip()]
 
-# Le NOM DE CODE de chaque message (demande de Preda) : il est ecrit DANS le
-# message, ce qui permet de savoir d'un coup d'oeil qui est qui — et de le
-# retrouver a la main si l'etat est perdu.
+# Le NOM DE CODE de chaque message (demande de Preda) : ecrit DANS le message,
+# on sait d'un coup d'oeil qui est qui — et on les retrouve a la main si l'etat
+# est perdu.
 CODES = {"annees": "VEVE-STATS-ANNEES",
          "mois": "VEVE-STATS-MOIS",
          "jours": "VEVE-STATS-JOURS"}
 
-TITRES = {"annees": "🏛️ **Les années** — vue d'ensemble depuis 2021",
-          "mois": f"📅 **Les mois** — les {N_MOIS} derniers",
-          "jours": f"📊 **Les jours** — les {N_JOURS} derniers"}
+TITRES = {"annees": f"🏛️ **Les {N['annees']} dernières années**",
+          "mois": f"📅 **Les {N['mois']} derniers mois**",
+          "jours": f"📊 **Les {N['jours']} derniers jours**"}
 
-COULEURS = {"annees": 0xF1C40F,      # or
-            "mois": 0x7B2CBF,        # violet
-            "jours": 0x3498DB}       # bleu
+COULEURS = {"annees": 0xF1C40F, "mois": 0x7B2CBF, "jours": 0x3498DB}
+
+ENTETE_PERIODE = {"annees": "Année", "mois": "Mois", "jours": "Jour"}
+
+# LES 5 COLONNES CHOISIES PAR PREDA (la page 📊 STATS en compte 20 : tout
+# afficher faisait enrouler les lignes, donc plus rien de lisible).
+COLONNES = [("tx", "Tx"),             # TRANSACTION / Global
+            ("actifs", "Actifs"),     # ACTIF / Unique
+            ("revenue", "Revenue"),   # REVENUE / Total
+            ("burn_usd", "Burn"),     # OMI BURN / Global $
+            ("gems_usd", "Gems")]     # ACHAT / Gems $
+
+LEGENDE = ("*Tx = transactions · Actifs = wallets uniques · Revenue, Burn "
+           "(OMI brûlés) et Gems (achats) sont en $.*")
 
 AVERTISSEMENT = ("⚠️ Chiffres indicatifs, issus de sources publiques — ce n'est "
                  "PAS un conseil financier et des erreurs sont possibles.")
 
-# Les 9 colonnes retenues pour Discord (la page 📊 STATS en compte 20 : tout
-# afficher rendrait le tableau illisible sur telephone).
-COLONNES = [
-    ("periode", "Période", False),
-    ("tx", "Tx", True),
-    ("mint", "Mint", True),
-    ("market", "Market", True),
-    ("burn", "Burn", True),
-    ("actifs", "Actifs", True),
-    ("nouveaux", "Nouv.", True),
-    ("revenue", "Revenue $", True),
-]
-
-JOURS_FR = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi",
-            "Dimanche"]
+LARGEUR_MAX = int(os.environ.get("DISCORD_STATS_LARGEUR", "46"))
 
 
 # ---------------------------------------------------------------------------
-# Mise en forme
+# Mise en forme : COMPACT, sinon Discord enroule et tout devient illisible
 # ---------------------------------------------------------------------------
 
 def _fr(x) -> str:
     n = stats_read.nombre(x)
-    return f"{n:,}".replace(",", " ") if n else "—"
+    if not n:
+        return "—"
+    if abs(n) < 1_000_000:
+        return f"{n:,}".replace(",", " ")               # 41 450
+    if abs(n) < 1_000_000_000:
+        return f"{n / 1e6:.2f}".replace(".", ",") + " M"     # 1,47 M
+    return f"{n / 1e9:.2f}".replace(".", ",") + " Md"        # 2,31 Md
 
 
-def _periode(cle: str, brut: str) -> str:
-    """Jours -> « lun. 14/07 » ; mois -> « 2026-07 » ; années -> « 2026 »."""
+def _periode(cle: str, brut) -> str:
+    """Jours -> « 13/07 » (5 car.) ; mois -> « 2026-07 » ; années -> « 2026 »."""
     s = str(brut or "").strip()
     if cle != "jours":
         return s
     try:
-        d = _dt.date.fromisoformat(s[:10])
+        return _dt.date.fromisoformat(s[:10]).strftime("%d/%m")
     except ValueError:
         return s
-    return f"{JOURS_FR[d.weekday()][:3].lower()}. {d.strftime('%d/%m')}"
 
 
-def tableau(cle: str, lignes: List[Dict[str, Any]]) -> str:
-    """Un tableau ALIGNE dans un bloc de code (la seule facon d'avoir des
-    colonnes droites sur Discord : les embeds n'alignent rien)."""
-    entetes = [nom for _c, nom, _r in COLONNES] + ["🎉"]
-    corps: List[List[str]] = []
-    for r in lignes:
-        cells = [_periode(cle, r.get("periode"))]
-        cells += [_fr(r.get(c)) for c, _n, _al in COLONNES[1:]]
-        cells.append("•" if str(r.get("drop") or "").strip() else "")
-        corps.append(cells)
-    larg = [max(len(entetes[i]), *(len(l[i]) for l in corps)) if corps
-            else len(entetes[i]) for i in range(len(entetes))]
+def tableau(cle: str, lignes: List[Dict[str, Any]],
+            total: Optional[Dict] = None) -> str:
+    """Un tableau ALIGNE dans un bloc de code — la seule facon d'avoir des
+    colonnes droites sur Discord (les embeds n'alignent rien)."""
+    entetes = [ENTETE_PERIODE[cle]] + [nom for _c, nom in COLONNES]
+    corps = [[_periode(cle, r.get("periode"))] +
+             [_fr(r.get(c)) for c, _n in COLONNES] for r in lignes]
+    pied = ([f"Total"] + [_fr(total.get(c)) for c, _n in COLONNES]
+            if total else None)
+    toutes = corps + ([pied] if pied else [])
+    larg = [max(len(entetes[i]), *(len(l[i]) for l in toutes))
+            for i in range(len(entetes))] if toutes else \
+           [len(e) for e in entetes]
 
     def _ligne(cells: List[str]) -> str:
-        out = [cells[0].ljust(larg[0])]                 # periode a gauche
-        out += [cells[i].rjust(larg[i]) for i in range(1, len(cells) - 1)]
-        out.append(cells[-1].ljust(larg[-1]))           # marqueur de drop
-        return "  ".join(out).rstrip()
+        return (cells[0].ljust(larg[0]) + " " +
+                " ".join(cells[i].rjust(larg[i])
+                         for i in range(1, len(cells))))
 
-    lines = [_ligne(entetes), "-" * min(len(_ligne(entetes)), 90)]
+    lines = [_ligne(entetes), "-" * len(_ligne(entetes))]
     lines += [_ligne(c) for c in corps]
+    if pied:
+        lines += ["-" * len(_ligne(entetes)), _ligne(pied)]
     return "```\n" + "\n".join(lines) + "\n```"
 
 
-def entete_semaine(sem: Optional[Dict]) -> str:
-    if not sem:
-        return ""
-    d, f = sem["debut"], sem["fin"]
-    drops = f" · 🎉 {sem['drops']} drop(s)" if sem["drops"] else ""
-    return (f"**La semaine écoulée** — du {d} au {f} ({sem['jours']} j){drops}\n"
-            f"Transactions **{_fr(sem['tx'])}** · Mint **{_fr(sem['mint'])}** · "
-            f"Market **{_fr(sem['market'])}** · Burn **{_fr(sem['burn'])}**\n"
-            f"Actifs **{_fr(sem['actifs'])}** · Nouveaux "
-            f"**{_fr(sem['nouveaux'])}** · Revenue **{_fr(sem['revenue'])} $**\n"
-            f"*Les wallets actifs sont ici ADDITIONNÉS jour par jour : un même "
-            f"wallet actif deux jours compte deux fois.*\n​\n")
-
-
-def carte(cle: str, lignes: List[Dict], sem: Optional[Dict] = None) -> Dict:
-    desc = (entete_semaine(sem) if cle == "jours" else "") + tableau(cle, lignes)
+def carte(cle: str, lignes: List[Dict], total: Optional[Dict] = None) -> Dict:
     maj = _dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(hours=2)
     return {
         "title": {"annees": "🏛️ Par année", "mois": "📅 Par mois",
                   "jours": "📊 Par jour"}[cle],
         "color": COULEURS[cle],
-        "description": desc[:4000],
+        "description": (tableau(cle, lignes, total) + "\n" + LEGENDE)[:4000],
         "footer": {"text": f"{CODES[cle]} · mis à jour le "
                            f"{maj.strftime('%d/%m/%Y à %H:%M')} (Paris)\n"
                            f"{AVERTISSEMENT}"},
     }
 
 
-def message(cle: str, lignes: List[Dict], sem=None) -> Dict:
+def message(cle: str, lignes: List[Dict], total: Optional[Dict] = None) -> Dict:
     """Le NOM DE CODE est dans le message lui-meme (demande de Preda)."""
     return {"content": f"{TITRES[cle]}  ·  `⟦{CODES[cle]}⟧`",
-            "embeds": [carte(cle, lignes, sem)],
+            "embeds": [carte(cle, lignes, total)],
             "allowed_mentions": {"parse": []}}
 
 
@@ -307,38 +300,44 @@ def main() -> int:
 
     sh = _client().open_by_key(sheet_id)
     page = stats_read.lire(sh)
-    jours, mois, annees = page["jours"], page["mois"], page["annees"]
-    if not jours and not mois and not annees:
+    if not any(page.values()):
         print("📊 STATS illisible — AUCUN message poste (mieux vaut rien "
               "qu'un tableau faux).", file=sys.stderr)
         return 1
 
     state = load_state()
-    sem = stats_read.semaine(jours)
-    contenus = {
-        "annees": (annees, None),
-        "mois": (mois[:N_MOIS], None),
-        "jours": (jours[:N_JOURS], sem),
-    }
+    jours = page["jours"][:N["jours"]]
+    # Le TOTAL des 7 derniers jours (la « semaine ecoulee » : la veille + 6).
+    total = stats_read.semaine(page["jours"], N["jours"])
+    contenus = {"annees": (page["annees"][:N["annees"]], None),
+                "mois": (page["mois"][:N["mois"]], None),
+                "jours": (jours, total)}
 
-    # ORDRE : annees -> mois -> jours (le dernier poste est en bas du fil).
+    # ORDRE : annees -> mois -> jours (le dernier poste est en BAS du fil).
     ok, faits = True, []
     for cle in ("annees", "mois", "jours"):
         if cle not in BLOCS:
             continue
-        lignes, s = contenus[cle]
+        lignes, tot = contenus[cle]
         if not lignes:
             print(f"{CODES[cle]} : aucune donnee dans 📊 STATS — on ne touche "
                   f"pas au message existant.", flush=True)
             continue
-        if publier(cle, message(cle, lignes, s), state):
+        larg = max(len(l) for l in
+                   tableau(cle, lignes, tot).splitlines()[1:-1])
+        if larg > LARGEUR_MAX:
+            print(f"⚠️ {CODES[cle]} : tableau large de {larg} caracteres "
+                  f"(> {LARGEUR_MAX}) — Discord risque d'enrouler les lignes.",
+                  flush=True)
+        if publier(cle, message(cle, lignes, tot), state):
             faits.append(cle)
         else:
             ok = False
 
     save_state(state)
-    resume = {"jours": len(jours[:N_JOURS]), "mois": len(mois[:N_MOIS]),
-              "annees": len(annees), "publies": ",".join(faits) or "aucun",
+    resume = {"jours": len(jours), "mois": len(contenus["mois"][0]),
+              "annees": len(contenus["annees"][0]),
+              "publies": ",".join(faits) or "aucun",
               "duree": f"{time.time() - t0:.0f}s"}
     try:
         append_log(sheet_id, "discord_stats", "OK" if ok else "ECHEC",
@@ -352,5 +351,5 @@ def main() -> int:
 if __name__ == "__main__":
     sys.exit(main())
 
-# FIN discord_stats.py v1 — 3 messages, un nom de code chacun, reecrits chaque
-# matin : le post se range tout seul.
+# FIN discord_stats.py v2 — 5 colonnes, nombres compacts, largeur <= 46 : un
+# bloc de code Discord n'est PAS coupe, il est ENROULE. La largeur est tout.
