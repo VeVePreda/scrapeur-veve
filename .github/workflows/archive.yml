@@ -1,0 +1,92 @@
+name: Archive de la veille
+
+# Sauve les ~9 000 messages de veille VeVe (et leurs tweets fossilises dans les
+# embeds, et leurs images) avant qu'ils ne s'effacent.
+#
+# POURQUOI UN WORKFLOW A PART, alors que Preda a raison de refuser 50 workflows :
+# ce n'est pas un PUBLIEUR, c'est un COLLECTEUR. Il tourne longtemps, il ecrit un
+# gros fichier, et il depose un artifact. Le mettre dans le hub Discord (qui doit
+# rester rapide et publier 2x/jour) le rendrait fragile pour rien.
+#
+# LA RECOLTE EST SACREE : le module ecrit en cours de route (flush toutes les
+# 5 pages) et garde un etat de reprise. Un job annule ne perd que les dernieres
+# pages — pas le corpus.
+
+on:
+  workflow_dispatch:
+    inputs:
+      modes:
+        description: "Quoi faire"
+        required: false
+        default: "messages"
+        type: choice
+        options: ["messages", "images", "messages,images"]
+      max_pages:
+        description: "Nb max de pages de 100 messages (0 = tout)"
+        required: false
+        default: "0"
+      max_medias:
+        description: "Nb max de médias à télécharger (0 = tout)"
+        required: false
+        default: "0"
+  schedule:
+    # Le rattrapage quotidien : une fois la descente finie, il ne prend que les
+    # messages NOUVEAUX. Quelques secondes.
+    - cron: "20 4 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: veve-archive
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install requests
+
+      - name: Collecte
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          ARCHIVE_CHANNEL: ${{ vars.ARCHIVE_CHANNEL || '1126838487073689662' }}
+          ARCHIVE_MODES: ${{ github.event.inputs.modes || 'messages' }}
+          ARCHIVE_MAX_PAGES: ${{ github.event.inputs.max_pages || '0' }}
+          ARCHIVE_MAX_MEDIAS: ${{ github.event.inputs.max_medias || '0' }}
+        run: python -m scraper.archive_discord
+
+      # Le JSONL et l'etat vont dans le repo (PRIVE) : c'est ce qui permet la
+      # reprise et le rattrapage quotidien. Les MEDIAS, eux, n'y vont PAS —
+      # des centaines de Mo dans git, c'est un repo qu'on ne clone plus.
+      - name: Commit de l'archive
+        if: always()
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add data/archive_veille.jsonl data/archive_state.json 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "archive: veille VeVe"
+          # ⚠️ REBASER ET REESSAYER : un push rejete jetterait toute la recolte.
+          for i in 1 2 3 4 5; do
+            git pull --rebase --autostash origin main && git push origin main && break
+            sleep 10
+          done
+
+      # La copie locale de Preda : il telecharge cet artifact et le garde.
+      - name: Artifact (JSONL + médias)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-veille-veve
+          path: |
+            data/archive_veille.jsonl
+            data/archive_state.json
+            archive_medias/
+          retention-days: 90
+          if-no-files-found: warn
