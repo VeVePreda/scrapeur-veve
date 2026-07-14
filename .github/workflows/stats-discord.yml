@@ -21,6 +21,12 @@ on:
         description: "Blocs a publier (annees,mois,jours)"
         required: false
         default: "annees,mois,jours"
+      style:
+        description: "Mise en forme : code (tableau aligne) ou markdown"
+        required: false
+        default: "code"
+        type: choice
+        options: ["code", "markdown"]
 
 permissions:
   contents: write
@@ -48,6 +54,7 @@ jobs:
           DISCORD_STATS_WEBHOOK: ${{ secrets.DISCORD_STATS_WEBHOOK }}
           DISCORD_STATS_THREAD: ${{ vars.DISCORD_STATS_THREAD || '1526491450538196992' }}
           DISCORD_STATS_BLOCS: ${{ github.event.inputs.blocs || 'annees,mois,jours' }}
+          DISCORD_STATS_STYLE: ${{ github.event.inputs.style || vars.DISCORD_STATS_STYLE || 'code' }}
         run: python -m scraper.discord_stats
 
       # L'etat porte les 3 ids de messages : sans lui, on ne peut plus EDITER
