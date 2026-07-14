@@ -92,7 +92,10 @@ MCP_BID = os.environ.get("DISCORD_DROPS_MCP_BID", "5,000")
 # LES LIENS BOUTIQUE. Trois familles de pages VeVe, et c'est le TYPE DE DROP qui
 # tranche : un craft ne vit pas au meme endroit qu'une serie.
 #   comics  -> /comics/<series_uuid>     (un comic = une serie)
-#   crafts  -> /crafts/<uuid>            (drop_method = CRAFT)
+#   crafts  -> /crafts/<VEVE_UUID>       (drop_method = CRAFT) ⚠️ l'uuid de
+#              l'ELEMENT, PAS celui de la serie — verifie par Preda sur
+#              « Colossus x Wolverine » : la page vit sous l'uuid de l'objet.
+#              Un craft n'a qu'une rarete : son element EST le drop.
 #   series  -> /series/<series_uuid>     (tout le reste : les collectibles)
 # ⚠️ On ne reutilise PAS la colonne `veve_url` du catalogue : elle pointe vers
 # les anciennes routes (/collection/comic/…), qui ne sont plus celles de la
@@ -240,6 +243,9 @@ def drops_a_venir(sh, connus: List[str], trace: bool = False) -> List[Dict]:
                 "rarete": str(r.get("rarity") or "").strip().upper(),
                 "variante": str(r.get("edition_type") or "").strip(),
                 "supply": _n(r.get("supply")),
+                # l'uuid de l'ELEMENT (≠ series_uuid) : c'est lui qui ouvre la
+                # page d'un craft.
+                "uuid": str(r.get("veve_uuid") or "").strip(),
             })
             if not d["image"] and r.get("image_url"):
                 d["image"] = str(r["image_url"]).strip()
@@ -327,15 +333,22 @@ def _titre(d: Dict) -> str:
 
 
 def _lien(d: Dict) -> str:
-    """L'URL de la page boutique. Le TYPE DE DROP decide de la famille de page."""
+    """L'URL de la page boutique.
+
+    Le TYPE DE DROP decide de la famille de page — ET de l'identifiant :
+      * un comic ou une serie de collectibles s'ouvre par son **series_uuid** ;
+      * un CRAFT s'ouvre par l'uuid de son **ELEMENT** (verifie par Preda sur
+        « Colossus x Wolverine » : le series_uuid menait a une page etrangere).
+        C'est coherent : un craft n'a qu'une rarete, l'element EST le drop.
+    Confondre les deux uuid ne donne pas une erreur, ca donne la page de
+    QUELQU'UN D'AUTRE — le pire des bugs, celui qui a l'air de marcher."""
     methode = (d.get("methode") or "").upper()
     if d["genre"] == "comic":
-        famille = "comics"
-    elif "CRAFT" in methode:
-        famille = "crafts"
-    else:
-        famille = "series"
-    return f"{VEVE_BASE}/{famille}/{d['cle']}"
+        return f"{VEVE_BASE}/comics/{d['cle']}"
+    if "CRAFT" in methode:
+        uuid = next((l["uuid"] for l in d["lignes"] if l.get("uuid")), d["cle"])
+        return f"{VEVE_BASE}/crafts/{uuid}"
+    return f"{VEVE_BASE}/series/{d['cle']}"
 
 
 def _emoji_marque(d: Dict) -> str:
@@ -514,5 +527,5 @@ def _log(sheet_id: str, statut: str, resume: Dict) -> None:
 if __name__ == "__main__":
     sys.exit(run())
 
-# FIN discord_drops.py v5 — une serie = une carte, une vague = un ping, et les
+# FIN discord_drops.py v6 — une serie = une carte, une vague = un ping, et les
 # reactions posees par le bot (un webhook ne sait pas reagir).
