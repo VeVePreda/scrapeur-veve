@@ -134,20 +134,23 @@ CONDENSE = [("tx", "Tx"), ("actifs", "Actifs"), ("revenue", "Rev")]
 # qui evitent qu'on lise le chiffre de travers. Elles disent ce que le chiffre
 # COUVRE et ce qu'il NE couvre PAS — c'est la moitie de l'information.
 SECTIONS = [
-    ("TRANSACTION", "achats, ventes et mints",
+    ("🔁", "TRANSACTION", "achats, ventes et mints",
      [("tx", "Global"), ("mint", "Mint"), ("market", "Market")]),
-    ("ACTIFS", "wallets uniques, hors listing",
+    ("👤", "ACTIFS", "wallets uniques, hors listing",
      [("actifs", "Unique"), ("nouveaux", "Nouveaux"),
       ("anciens", "Anciens")]),
-    ("REVENUE", "la valeur Market est approximative",
+    ("💵", "REVENUE", "la valeur Market est souvent approximative ou incomplète",
      [("revenue", "Total"), ("rev_drop", "Drop"),
       ("rev_market", "Market")]),
-    ("LISTING", "les comptes uniques sont ceux qui n'ont ni acheté, ni vendu, "
-                "ni mint",
+    ("🏷️", "LISTING", "données sur ceux n'ayant ni acheté, ni vendu, ni mint",
      [("qte", "Quantité"), ("comptes", "Comptes uniques")]),
-    ("ACHAT", "ne prend pas en compte les achats en fiat",
+    ("🛒", "ACHAT", "ne prend pas en compte les achats en fiat",
      [("cours_omi", "Cours OMI"), ("gems_usd", "Gems")]),
 ]
+
+# La legende des cases, sous le condense des jours (demande de Preda) : un
+# symbole qu'on n'explique pas est un symbole qui ne sert a rien.
+LEGENDE_DROP = (f"\n\n*{DROP_OUI} = jour de drop · {DROP_NON} = jour sans drop*")
 
 # Les colonnes en dollars (le $ est colle au chiffre, pas mis en legende : en
 # markdown rien n'est aligne, donc chaque nombre doit se suffire a lui-meme).
@@ -239,10 +242,13 @@ def corps(cle: str, lignes: List[Dict[str, Any]]) -> str:
     Chaque nombre porte son etiquette : en markdown rien n'est aligne, donc rien
     ne doit dependre de la position."""
     if cle != "jours":
-        return "\n".join(_ligne(cle, r, CONDENSE) for r in lignes)
+        txt = "\n".join(_ligne(cle, r, CONDENSE) for r in lignes)
+        return txt + LEGENDE_DROP if _jour_like(cle) else txt
     blocs = []
-    for titre, note, colonnes in SECTIONS:
-        lines = [f"**{titre}**  *({note})*"]
+    for emoji, titre, note, colonnes in SECTIONS:
+        # Le titre, puis la precision SOUS lui, en italique (demande de Preda) :
+        # elle se lit comme une legende, pas comme une parenthese jetee.
+        lines = [f"{emoji} **{titre}**", f"*{note}*"]
         lines += [_ligne(cle, r, colonnes) for r in lignes]
         blocs.append("\n".join(lines))
     return "\n\n".join(blocs)
@@ -466,5 +472,5 @@ def main() -> int:
 if __name__ == "__main__":
     sys.exit(main())
 
-# FIN discord_stats.py v8 — 4 messages : condense partout, detail en cinq
+# FIN discord_stats.py v9 — 4 messages : condense partout, detail en cinq
 # parties sur les seuls jours, et le condense JUSTE AU-DESSUS du detail.
