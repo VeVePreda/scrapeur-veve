@@ -136,41 +136,51 @@ def chaine_par_uuid(sh, jours: List[str]) -> Dict[str, Dict[str, int]]:
 
 
 def notes_de_classement(sh) -> Dict[str, str]:
-    """{cle: note}. Lue par NOM de colonne (jamais par position — une page
-    reordonnee ferait glisser toutes les valeurs d'un cran).
+    """{cle: note} depuis 🏆A-CLASSEMENT.
 
-    ⚠️ CORRIGE (run reel) : `get_all_records()` EXPLOSE si deux colonnes portent
-    le meme nom (« the header row is not unique ») — et 🏆A-CLASSEMENT en a. On
-    lit donc les VALEURS BRUTES et on fabrique l'index nous-memes : la 1re
-    occurrence d'un nom gagne. Une page mal fichue ne doit pas faire taire tout
-    le module."""
+    ⚠️ DEUX PIEGES, tous deux payes sur le run reel :
+    1. `get_all_records()` EXPLOSE si deux colonnes portent le meme nom (« the
+       header row is not unique ») — la page en a.
+    2. **LES EN-TETES NE SONT PAS EN LIGNE 1** : la page commence par une
+       banniere (« 🆕 À NOTER — COMICS : 3 … »). Chercher les colonnes en
+       ligne 1 revient a lire un titre et a conclure qu'il n'y a pas de note.
+    → On ANCRE : on balaie les premieres lignes jusqu'a en trouver une qui porte
+    A LA FOIS une cle (`series_uuid`/`veve_uuid`) ET une colonne `note`. Meme
+    lecon que la page 📊 STATS : **on cherche la donnee, on ne suppose pas ou
+    elle est**. Si rien ne colle, la note disparait de la carte — elle ne fait
+    echouer personne."""
     try:
         vals = sh.worksheet(CLASSEMENT_TAB).get_all_values()
     except Exception as e:                                  # noqa: BLE001
         print(f"lecture de {CLASSEMENT_TAB} impossible : {e}", file=sys.stderr)
         return {}
-    if len(vals) < 2:
-        return {}
-    entetes = [str(c).strip() for c in vals[0]]
-    lignes = []
-    for r in vals[1:]:
-        d = {}
-        for i, nom in enumerate(entetes):
-            if nom and nom not in d:          # 1re occurrence : elle gagne
-                d[nom] = r[i] if i < len(r) else ""
-        lignes.append(d)
-    entetes = list(dict.fromkeys(e for e in entetes if e))
-    col_note = next((c for c in entetes if c.strip().lower() == "note"), "")
-    col_cle = next((c for c in ("series_uuid", "veve_uuid", "uuid")
-                    if c in entetes), "")
-    if not col_note or not col_cle:
-        print(f"{CLASSEMENT_TAB} : pas de colonne « note » et/ou de cle "
-              f"(vu : {entetes[:8]}) — la note ne sera pas affichee.",
-              flush=True)
-        return {}
-    return {str(r.get(col_cle) or "").strip(): str(r.get(col_note) or "").strip()
-            for r in lignes if str(r.get(col_cle) or "").strip()
-            and str(r.get(col_note) or "").strip()}
+
+    CLES = ("series_uuid", "veve_uuid", "uuid")
+    for i, ligne in enumerate(vals[:40]):
+        noms = [str(c).strip() for c in ligne]
+        bas = [n.lower() for n in noms]
+        if "note" not in bas:
+            continue
+        cle = next((c for c in CLES if c in bas), "")
+        if not cle:
+            continue
+        i_note = bas.index("note")
+        i_cle = bas.index(cle)
+        out = {}
+        for r in vals[i + 1:]:
+            if len(r) <= max(i_note, i_cle):
+                continue
+            k, note = str(r[i_cle]).strip(), str(r[i_note]).strip()
+            if k and note and k not in out:       # la 1re occurrence gagne
+                out[k] = note
+        print(f"{CLASSEMENT_TAB} : en-tetes trouves en ligne {i + 1} "
+              f"({len(out)} notes).", flush=True)
+        return out
+
+    print(f"{CLASSEMENT_TAB} : aucune ligne d'en-tetes portant « note » ET une "
+          f"cle dans les 40 premieres lignes — la note ne sera pas affichee.",
+          flush=True)
+    return {}
 
 
 # ---------------------------------------------------------------------------
@@ -334,13 +344,15 @@ def message_comic_day(jour: str, series: List[Dict],
     vus.sort(key=lambda s: (-s["pct"], -s["vendus"]))
     tot_vendus = sum(s["vendus"] for s in vus)
 
+    # Le nom d'un comic prend souvent toute la ligne : les chiffres passent
+    # DESSOUS. Deux lignes lisibles valent mieux qu'une ligne qui s'enroule.
+    # (Le prix en gems est retire : sur un comic day, il est le meme partout et
+    # n'apprend rien.)
     lignes = []
     for s in vus[:MAX_LIGNES]:
-        prix = dd._prix(s.get("prix"), "comic")
-        prix = f" · {prix} 💎" if prix else ""
-        lignes.append(
-            f"`{s['pct']:5.1f} %` **{s['nom']}** — {s['total']:,} ex{prix} · "
-            f"**{s['vendus']:,}** vendus".replace(",", " "))
+        lignes.append(f"**{s['nom']}**")
+        lignes.append(f"`{s['pct']:5.1f} %` · {s['total']:,} ex · "
+                      f"**{s['vendus']:,}** vendus".replace(",", " "))
     reste = len(vus) - MAX_LIGNES
     if reste > 0:
         lignes.append(f"*… et {reste} autre(s) série(s).*")
@@ -403,7 +415,7 @@ def couleur(pct: float) -> int:
 
 
 def carte(d: Dict, chaine: Dict[str, Dict[str, int]], note: str,
-          sondage: Dict[str, int]) -> Dict:
+          sondage: Dict[str, int], suivi=None) -> Dict:
     vendus = sum(chaine.get(l["uuid"], {}).get("mints", 0) for l in d["lignes"])
     market = sum(chaine.get(l["uuid"], {}).get("market", 0) for l in d["lignes"])
     pct = _pct(vendus, d["total"])
@@ -417,7 +429,7 @@ def carte(d: Dict, chaine: Dict[str, Dict[str, int]], note: str,
     style = "F" if d.get("avec_heure") else "D"
     lignes = [f"🕗 Drop : **<t:{d['ts']}:{style}>**", ""]
 
-    prix = dd._prix(d.get("prix"))
+    prix = dd._prix(d.get("prix"), d["genre"])
     if prix:
         lignes.append(f"💎 **Prix drop** : {prix} gems")
     lignes.append(f"📦 **Mint total** : {d['total']:,}".replace(",", " "))
@@ -426,35 +438,42 @@ def carte(d: Dict, chaine: Dict[str, Dict[str, int]], note: str,
     if market:
         lignes.append(f"🔁 **Revendus dès le 1er jour** : {market:,}"
                       .replace(",", " "))
-    if note:
-        lignes.append(f"🏆 **Classement** : {note}")
 
-    if sondage:
-        total_votes = sum(sondage.values())
-        if total_votes:
-            detail = " · ".join(f"{e} **{n}**" for e, n in sondage.items() if n)
-            lignes += ["", f"🗳️ **Le sondage disait** : {detail}"]
+    # LES PALIERS. La carte est REECRITE a 48 h puis 72 h pour les completer :
+    # un retour fige a J+1 ne dit pas si la vague retombe ou si elle continue.
+    if suivi:
+        lignes.append("")
+        for label, v, delta in suivi:
+            queue = (f" · **{delta:+.1f} %**" if delta is not None
+                     else f" · **{_pct(v, d['total']):.1f} %** du tirage")
+            lignes.append(f"Ventes après **{label}** : **{v:,}**"
+                          .replace(",", " ") + queue)
+
+    bas = []
+    if note:
+        bas.append(f"🏆 **Classement** : {note}")
+    if sondage and sum(sondage.values()):
+        detail = " · ".join(f"{e} **{n}**" for e, n in sondage.items() if n)
+        bas.append(f"🗳️ **Le sondage disait** : {detail}")
+    if bas:
+        lignes += [""] + bas
 
     lignes += ["", f"[Page VeVe](<{dd._lien(d)}>)"]
 
     e = {"title": f"{licence} {genre} : {nom}".strip(),
          "color": couleur(pct),
-         "description": "\n".join(lignes)[:4000],
-         "footer": {"text": f"ⓘ Ventes = mints on-chain, cumulés sur {JOURS} "
-                            f"journées (une journée VeVe se ferme à 09:00 "
-                            f"Paris) — la fenêtre couvre les premières 24 h, "
-                            f"parfois un peu plus."}}
+         "description": "\n".join(lignes)[:4000]}
     if d.get("image"):
         e["image"] = {"url": d["image"]}
     return e
 
 
 def message(d: Dict, chaine, note: str, sondage: Dict[str, int],
-            ping: bool) -> Dict:
+            ping: bool, suivi=None) -> Dict:
     tete = "🔍 **Retour sur drop**"
     contenu = f"<@&{ROLE}> {tete}" if (ping and ROLE) else tete
     return {"content": contenu,
-            "embeds": [carte(d, chaine, note, sondage)],
+            "embeds": [carte(d, chaine, note, sondage, suivi)],
             "allowed_mentions": api.mentions([ROLE] if (ping and ROLE) else [])}
 
 
@@ -528,12 +547,15 @@ def run() -> int:
 
     # Les journees PT a lire, pour TOUS les drops d'un coup (une seule lecture
     # de ChainItems : c'est un gros onglet).
-    jours = sorted({j for d in neufs for j in _jours_pt(d["jour"])})
+    jours = sorted({j for d in neufs for j in _jours_pt(d["jour"], 4)})
     chaine = chaine_par_uuid(sh, jours)
     notes = notes_de_classement(sh)
     # Les ids des cartes d'annonce, poses par le module `drops`.
     annonces = api.load_state(dd.STATE_PATH, api.webhook(dd.MODULE),
                               dd.THREAD).get("messages", {})
+    # Les cartes EN COURS : posees, mais dont les paliers ne sont pas tous la.
+    # Elles seront REECRITES a 48 h puis 72 h.
+    cartes = state.setdefault("cartes", {})
 
     # On ne memorise QUE ce qu'on publie : les drops au-dela de MAX_CARTES
     # repasseront au prochain run (la fenetre de 7 jours leur laisse le temps).
@@ -561,25 +583,50 @@ def run() -> int:
                           f"resultat)")
             continue
 
-        sondage = {}
-        mid = annonces.get(d["cle"])
-        if mid:
-            sondage = api.lire_reactions(dd.THREAD, mid)
+        deja = cartes.get(d["cle"]) or {}
+
+        # ⚠️ LE SONDAGE EST FIGE A LA CREATION. Il dit ce que le groupe pensait
+        # AVANT de savoir — le relire a chaque reecriture le contaminerait par
+        # ce qui s'est passe depuis. Un pronostic qu'on corrige apres coup n'est
+        # plus un pronostic.
+        if "sondage" in deja:
+            sondage = deja["sondage"]
+        else:
+            mid_annonce = annonces.get(d["cle"])
+            sondage = (api.lire_reactions(dd.THREAD, mid_annonce)
+                       if mid_annonce else {})
 
         note = notes.get(d["cle"], "")
-        payload = message(d, chaine, note, sondage, ping=premier_ping)
+        suivi = paliers(sh, d["jour"], [l["uuid"] for l in d["lignes"]])
+        payload = message(d, chaine, note, sondage, ping=premier_ping,
+                          suivi=suivi)
+
         if not wh:
             print(f"\n[SIMULATION]\n{payload['embeds'][0]['title']}\n"
                   f"{payload['embeds'][0]['description']}\n", flush=True)
             nouveau = "simulation"
+        elif deja.get("mid"):
+            nouveau = api.editer(wh, THREAD, deja["mid"], payload)
         else:
             nouveau = api.poster(wh, THREAD, payload)
         if not nouveau:
             ok = False
             continue
-        premier_ping = False
-        state.setdefault("cles", []).append(d["cle"])
-        postes.append(f"{d['nom']} ({vendus}/{d['total']})")
+
+        if not deja.get("mid"):
+            premier_ping = False
+        cartes[d["cle"]] = {"mid": nouveau, "sondage": sondage,
+                            "paliers": len(suivi), "jour": d["jour"]}
+
+        # La carte est FINIE quand ses trois paliers sont la : on la range dans
+        # les cles vues, elle ne sera plus jamais rouverte.
+        if len(suivi) >= len(PALIERS):
+            state.setdefault("cles", []).append(d["cle"])
+            cartes.pop(d["cle"], None)
+
+        etat = ("posté" if not deja.get("mid")
+                else f"réécrit ({len(suivi)}/{len(PALIERS)} paliers)")
+        postes.append(f"{d['nom']} ({vendus}/{d['total']}, {etat})")
         if wh:
             api.souffler()
 
@@ -649,5 +696,5 @@ def _log(sheet_id: str, statut: str, resume: Dict) -> None:
 if __name__ == "__main__":
     sys.exit(run())
 
-# FIN discord_retour.py v6 — les ventes viennent de la CHAINE, le ratio dit ce
+# FIN discord_retour.py v8 — les ventes viennent de la CHAINE, le ratio dit ce
 # que le chiffre brut cache, et le sondage est confronte a la realite.
