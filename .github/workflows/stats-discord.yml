@@ -1,7 +1,7 @@
 name: Stats Discord (post forum)
 
-# Reecrit les 3 messages permanents du post « 📊 STATS » du forum hub-actu :
-#   ⟦VEVE-STATS-ANNEES⟧ · ⟦VEVE-STATS-MOIS⟧ · ⟦VEVE-STATS-JOURS⟧
+# Reecrit les 4 messages permanents du post « 📊 STATS » du forum hub-actu :
+#   Stats Années · Stats Mois · Stats Jours (condense) · Stats Jours (detail)
 # Il ne COLLECTE RIEN : il lit la page 📊 STATS deja calculee (donc il ne peut
 # pas dire autre chose que le Sheet).
 #
@@ -18,9 +18,9 @@ on:
   workflow_dispatch:
     inputs:
       blocs:
-        description: "Blocs a publier (annees,mois,jours)"
+        description: "Blocs a publier (annees,mois,jours_court,jours)"
         required: false
-        default: "annees,mois,jours"
+        default: "annees,mois,jours_court,jours"
 
 permissions:
   contents: write
@@ -47,13 +47,13 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           DISCORD_STATS_WEBHOOK: ${{ secrets.DISCORD_STATS_WEBHOOK }}
           DISCORD_STATS_THREAD: ${{ vars.DISCORD_STATS_THREAD || '1526491450538196992' }}
-          DISCORD_STATS_BLOCS: ${{ github.event.inputs.blocs || 'annees,mois,jours' }}
+          DISCORD_STATS_BLOCS: ${{ github.event.inputs.blocs || 'annees,mois,jours_court,jours' }}
         run: python -m scraper.discord_stats
 
-      # L'etat porte les 3 ids de messages : sans lui, on ne peut plus EDITER
+      # L'etat porte les 4 ids de messages : sans lui, on ne peut plus EDITER
       # (un webhook ne sait pas relire un salon) et on reposterait 3 messages
       # de plus chaque matin.
-      - name: Commit de l'etat (les ids des 3 messages)
+      - name: Commit de l'etat (les ids des 4 messages)
         if: always()
         run: |
           git config user.name "github-actions"
