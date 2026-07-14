@@ -66,12 +66,9 @@ AVERTISSEMENT = ("⚠️ Informations fournies à titre indicatif — ce n'est P
                  "publiques et peuvent comporter des erreurs ou être "
                  "incomplets.")
 
-# Colonnes du tableau quotidien de 📊 STATS (ligne d'en-tetes = 9, donnees des
-# la 10). On lit la page telle qu'elle est affichee : aucun risque de dire
-# autre chose que le Sheet.
-COLS = ["Date", "Drop", "Global", "Mint", "Airdrop", "Market", "Burn",
-        "Unique", "Nouveaux", "Anciens", "Quantité", "Comptes",
-        "Total", "Drop$", "Market$", "OMI$", "OMI→NFT", "OMI→GEM"]
+# Les colonnes ne sont plus decrites ici : c'est scraper/stats_read.py qui
+# trouve le tableau par ANCRE (l'en-tete « Date ») et le valide. Une plage en
+# dur est une bombe a retardement — elle a explose le 13/07 (cf. lire_stats).
 
 
 def _n(x) -> int:
@@ -96,22 +93,30 @@ def _records(sh, tab) -> List[Dict[str, Any]]:
         return []
 
 
+# De la cle positionnelle de stats_read vers le nom qu'attend ce module.
+_DEPUIS_STATS_READ = {
+    "periode": "Date", "drop": "Drop", "tx": "Global", "mint": "Mint",
+    "airdrop": "Airdrop", "market": "Market", "burn": "Burn",
+    "actifs": "Unique", "nouveaux": "Nouveaux", "anciens": "Anciens",
+    "qte": "Quantité", "comptes": "Comptes", "revenue": "Total",
+    "rev_drop": "Drop$", "rev_market": "Market$", "burn_usd": "OMI$",
+    "omi_nft": "OMI→NFT", "omi_gem": "OMI→GEM",
+}
+
+
 def lire_stats(sh) -> List[Dict[str, Any]]:
-    """Le tableau quotidien de 📊 STATS, tel qu'affiche (A10:R60)."""
-    try:
-        ws = sh.worksheet(STATS_TAB)
-        from gspread.utils import ValueRenderOption
-        vals = ws.get_values("A10:R60",
-                             value_render_option=ValueRenderOption.unformatted)
-    except Exception as e:
-        print(f"lecture 📊 STATS impossible : {e}", file=sys.stderr)
-        return []
-    out = []
-    for r in vals or []:
-        if r and str(r[0]).strip():
-            d = dict(zip(COLS, list(r) + [""] * (len(COLS) - len(r))))
-            out.append(d)
-    return out
+    """Le tableau quotidien de 📊 STATS.
+
+    ⚠️ CORRIGE LE 14/07 — ce module lisait la plage FIGEE « A10:R60 ». Depuis
+    l'habillage du 13/07 (zone de Preda + bandeau de la semaine), les jours
+    commencent en ligne 20 : le digest prenait la ligne « ▼ SEMAINE DU… » pour
+    le dernier jour et postait une carte de ZEROS, sans broncher. On passe donc
+    par stats_read, qui ANCRE sur la ligne d'en-tetes et REFUSE de rendre quoi
+    que ce soit si la page a change de forme."""
+    from scraper import stats_read
+    return [{_DEPUIS_STATS_READ[k]: v for k, v in r.items()
+             if k in _DEPUIS_STATS_READ}
+            for r in stats_read.lire(sh)["jours"]]
 
 
 # ---------------------------------------------------------------------------
@@ -422,18 +427,4 @@ def main() -> int:
         state["slugs"] = list(dict.fromkeys(
             list(state.get("slugs", [])) + [a["slug"] for a in arts]))
     save_state(state)
-    resume = {"jour": jour, "hebdo": hebdo, "articles": len(arts),
-              "duration": f"{time.time() - t0:.0f}s"}
-    try:
-        append_log(sheet_id, "digest", "OK",
-                   "; ".join(f"{k}={v}" for k, v in resume.items()))
-    except Exception:
-        pass
-    print(f"Digest : {resume}", flush=True)
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
-
-# FIN digest.py v5 (la DATE DE PARUTION fait foi)
+    resu
