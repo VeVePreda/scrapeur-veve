@@ -86,7 +86,7 @@ MAX_CARTES = int(os.environ.get("DISCORD_DROPS_MAX_CARTES", "5"))
 # n'est pas une news — et c'est souvent une date bidon. (Run reel du 14/07 :
 # 1651 « drops a venir » ! Un chiffre pareil n'est jamais une actualite, c'est
 # un symptome.)
-HORIZON = int(os.environ.get("DISCORD_DROPS_HORIZON", "21"))
+HORIZON = int(os.environ.get("DISCORD_DROPS_HORIZON", "7"))
 MCP_BID = os.environ.get("DISCORD_DROPS_MCP_BID", "5,000")
 
 EMOJI_VEVE = os.environ.get("DISCORD_DROPS_EMOJI_VEVE",
@@ -127,48 +127,55 @@ def _n(x) -> int:
         return 0
 
 
-def _date(x) -> str:
-    """La date de sortie -> « YYYY-MM-DD », ou "" si ce n'est PAS une date.
+def _quand(x):
+    """La date de sortie -> (jour « YYYY-MM-DD », timestamp Unix, heure_connue).
 
-    ⚠️ v3, apres le run reel du 14/07 (1651 « drops a venir ») : je faisais
-    `s[:10]` et je comparais des CHAINES. Une cellule qui n'est pas une date
-    (« 46212.625 », un nombre, un texte) donnait donc une pseudo-date qui, en
-    comparaison de chaines, tombait « dans le futur » (« 4… » > « 2… »).
-    **On ne compare JAMAIS des chaines dont on n'a pas prouve que ce sont des
-    dates.** Ici : on PARSE, et ce qui ne parse pas n'est pas une date."""
+    ⚠️ v4, apres le run reel : j'avais DEUX parseurs — un pour la date (qui
+    marchait) et un pour l'heure (qui ne connaissait pas le format du Sheet).
+    Resultat : les 5 drops etaient bien trouves, puis TOUS sautes pour « pas
+    d'heure exploitable ». **Deux parseurs pour la meme donnee, c'est un qui
+    ment.** Il n'y en a plus qu'un.
+
+    ⚠️ v3 : on PARSE, on ne compare pas des chaines. Une cellule qui n'est pas
+    une date (« 46212.625 », un texte) donnait une pseudo-date qui, en
+    comparaison de chaines, tombait « dans le futur » (« 4… » > « 2… ») —
+    d'ou les 1651 « drops a venir »."""
     s = str(x or "").strip()
     if not s:
-        return ""
-    # serial Google (une cellule DATE lue en valeur brute)
-    if s.replace(".", "", 1).replace(",", "", 1).isdigit():
+        return "", 0, False
+
+    # 1. Serial Google (une cellule DATE lue en valeur brute). La PARTIE
+    #    DECIMALE porte l'heure : 46212,708 = le 09/07/2026 a 17h00.
+    brut = s.replace(",", ".")
+    try:
+        n = float(brut)
+    except ValueError:
+        n = None
+    if n is not None:
+        if not 20000 <= n <= 80000:            # ~1954 a ~2119 : hors plage
+            return "", 0, False
+        base = _dt.datetime(1899, 12, 30, tzinfo=_dt.timezone.utc)
+        d = base + _dt.timedelta(days=n)
+        avec_heure = abs(n - int(n)) > 1e-6
+        return d.date().isoformat(), int(d.timestamp()), avec_heure
+
+    # 2. Texte. Les formats AVEC heure d'abord : c'est elle qu'on veut.
+    t = s.replace("T", " ").replace("Z", "").strip()
+    for fmt, heure in (("%Y-%m-%d %H:%M:%S", True), ("%Y-%m-%d %H:%M", True),
+                       ("%d/%m/%Y %H:%M:%S", True), ("%d/%m/%Y %H:%M", True),
+                       ("%Y-%m-%d", False), ("%d/%m/%Y", False),
+                       ("%m/%d/%Y", False)):
         try:
-            n = float(s.replace(",", "."))
-        except ValueError:
-            return ""
-        if 20000 <= n <= 80000:               # ~1954 a ~2119 : plausible
-            return (_dt.date(1899, 12, 30)
-                    + _dt.timedelta(days=int(n))).isoformat()
-        return ""
-    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
-        try:
-            return _dt.datetime.strptime(s[:10], fmt).date().isoformat()
+            d = _dt.datetime.strptime(t[:19] if heure else t[:10], fmt)
         except ValueError:
             continue
-    return ""
+        d = d.replace(tzinfo=_dt.timezone.utc)
+        return d.date().isoformat(), int(d.timestamp()), heure
+    return "", 0, False
 
 
-def _horodatage(r: Dict) -> int:
-    """L'heure du drop en timestamp Unix, pour le `<t:…:F>` de Discord — qui
-    l'affiche dans le FUSEAU DE CHAQUE LECTEUR. C'est tout l'interet : personne
-    n'a a convertir quoi que ce soit."""
-    brut = str(r.get("releaseDate") or "").strip()
-    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
-        try:
-            d = _dt.datetime.strptime(brut[:len(fmt) + 2].rstrip("Z"), fmt)
-            return int(d.replace(tzinfo=_dt.timezone.utc).timestamp())
-        except ValueError:
-            continue
-    return 0
+def _date(x) -> str:
+    return _quand(x)[0]
 
 
 def _fenetre():
@@ -188,7 +195,7 @@ def drops_a_venir(sh, connus: List[str], trace: bool = False) -> List[Dict]:
     for tab, genre in TABS:
         for r in _records(sh, tab):
             brut = r.get("releaseDate")
-            jour = _date(brut)
+            jour, ts, avec_heure = _quand(brut)
             if not jour:
                 if str(brut or "").strip():
                     illisibles += 1
@@ -214,7 +221,7 @@ def drops_a_venir(sh, connus: List[str], trace: bool = False) -> List[Dict]:
                 "prix": r.get("store_price_gems"),
                 "image": str(r.get("image_url") or "").strip(),
                 "url": str(r.get("veve_url") or "").strip(),
-                "ts": _horodatage(r),
+                "ts": ts, "avec_heure": avec_heure, "brut": str(brut)[:30],
                 "lignes": [],
             })
             d["lignes"].append({
@@ -272,11 +279,14 @@ def cles_a_venir(sh) -> List[str]:
 # ---------------------------------------------------------------------------
 
 def _complet(d: Dict) -> str:
-    """Ce qui manque pour publier. Une carte a trous ne part pas."""
+    """Ce qui manque pour publier. Une carte a trous ne part pas — mais une
+    heure manquante n'est PAS un trou : on affiche alors la DATE seule
+    (`<t:…:D>`) plutot que de retenir l'annonce. Ce qui compte, c'est le jour ;
+    inventer une heure serait pire que de ne pas la dire."""
     if not d.get("nom"):
         return "pas de nom"
     if not d.get("ts"):
-        return "pas d'heure de drop exploitable"
+        return f"date de drop illisible (cellule : {d.get('brut', '?')!r})"
     if not d.get("lignes") or not d.get("total"):
         return "aucun supply connu (fiche pas encore enrichie ?)"
     return ""
@@ -313,8 +323,11 @@ def texte(d: Dict, ping: bool) -> str:
     tete = f"{EMOJI_VEVE} "
     if ping and ROLE:
         tete += f"<@&{ROLE}> "
+    # `F` = date + heure ; `D` = date seule. Dans les deux cas Discord l'affiche
+    # dans le FUSEAU DE CHAQUE LECTEUR — personne n'a rien a convertir.
+    style = "F" if d.get("avec_heure") else "D"
     lignes = [f"{tete}{_titre(d)} {_emoji_marque(d)}".rstrip(),
-              f"🕗 Drop date: **<t:{d['ts']}:F>** 🕗"]
+              f"🕗 Drop date: **<t:{d['ts']}:{style}>** 🕗"]
 
     for i, l in enumerate(d["lignes"]):
         nom = NOM_RARETE.get(l["rarete"], l["rarete"].title() or "—")
@@ -387,8 +400,11 @@ def run() -> int:
     neufs = drops_a_venir(sh, state.get("cles", []), trace=True)
     print(f"{len(neufs)} serie(s) neuve(s) a annoncer.", flush=True)
     for d in neufs[:5]:
+        heure = "avec heure" if d.get("avec_heure") else \
+            f"SANS heure (cellule : {d.get('brut')!r}) -> date seule"
         print(f"   · {d['jour']} — {d['nom'] or d['cle']} "
-              f"({len(d['lignes'])} raretes, supply {d['total']})", flush=True)
+              f"({len(d['lignes'])} raretes, supply {d['total']}, {heure})",
+              flush=True)
 
     if len(neufs) > MAX_NEUFS:
         print(f"{len(neufs)} drops « neufs » (> {MAX_NEUFS}) -> on memorise "
@@ -464,5 +480,5 @@ def _log(sheet_id: str, statut: str, resume: Dict) -> None:
 if __name__ == "__main__":
     sys.exit(run())
 
-# FIN discord_drops.py v3 — une serie = une carte, une vague = un ping, et les
+# FIN discord_drops.py v4 — une serie = une carte, une vague = un ping, et les
 # reactions posees par le bot (un webhook ne sait pas reagir).
