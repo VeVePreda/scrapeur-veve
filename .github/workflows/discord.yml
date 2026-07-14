@@ -127,6 +127,12 @@ jobs:
           DISCORD_RETOUR_REJOUER: ${{ github.event.inputs.rejouer_retour || 'false' }}
           DISCORD_RETOUR_MAX_NEUFS: ${{ github.event.inputs.retour_max || '25' }}
           DISCORD_RETOUR_PURGER: ${{ github.event.inputs.purger_retour || 'false' }}
+          # ⚠️ Une URL de piece jointe Discord est SIGNEE et EXPIRE (ex/is/hm) :
+          # au bout de quelques heures l'image ne s'affiche plus. Pour du
+          # durable, heberger l'image sur le repo PUBLIC (raw.githubusercontent)
+          # et poser l'URL ici.
+          DISCORD_RETOUR_IMAGE_COMIC_DAY: ${{ vars.DISCORD_RETOUR_IMAGE_COMIC_DAY || '' }}
+          DISCORD_RETOUR_IMAGE_FAIBLES: ${{ vars.DISCORD_RETOUR_IMAGE_FAIBLES || '' }}
         run: python -m scraper.discord_hub
 
       # L'etat porte les ids des messages (stats) et les slugs deja annonces
