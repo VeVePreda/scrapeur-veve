@@ -1,8 +1,8 @@
 """📊 LES STATS DANS LE POST FORUM DISCORD — 3 messages permanents, REECRITS.
 
-Le post « 📊 STATS » du forum « 📁⎮hub-actu-test » porte TROIS messages, et
-seulement trois : Stats Années, Stats Mois, Stats Jours. Ils sont postes une
-fois, puis EDITES a chaque run.
+Le post « 📊 STATS » du forum « 📁⎮hub-actu-test » porte QUATRE messages, et
+seulement quatre : Stats Années · Stats Mois · Stats Jours (condense) · Stats
+Jours (detail). Ils sont postes une fois, puis EDITES a chaque run.
 
 POURQUOI TROIS MESSAGES EDITES, ET PAS UN MESSAGE PAR JOUR
 ----------------------------------------------------------
@@ -29,8 +29,11 @@ v6 — LA FORME, APRES QUATRE ALLERS-RETOURS AVEC PREDA
   lettres, avec les chiffres COMPLETS. Le prix a payer : rien n'est aligne, donc
   **chaque nombre porte son etiquette** (« Global **3 421** ») — sinon on ne
   saurait plus lire une colonne.
-* **CINQ PARTIES** (les memes groupes que la page 📊 STATS, separes par une ligne
-  vide) : TRANSACTION · ACTIFS · REVENUE · LISTING · ACHAT.
+* **CINQ PARTIES** (TRANSACTION · ACTIFS · REVENUE · LISTING · ACHAT, les memes
+  groupes que la page 📊 STATS) — mais SEULEMENT sur le detail des JOURS (v7) :
+  a la maille du mois ou de l'année, ce niveau de detail n'apprend rien. Les
+  années, les mois et le message CONDENSE des jours tiennent sur une ligne par
+  periode.
 * **☑ / ☐** en tete de chaque jour : case cochee = jour de drop. Uniquement sur
   les JOURS (sur un mois ou une année, il y a forcement eu des drops).
 * `[MAJ 14/07 a 11h]` en code inline dans le message.
@@ -74,36 +77,58 @@ WEBHOOK = os.environ.get("DISCORD_STATS_WEBHOOK", "").strip()
 THREAD = os.environ.get("DISCORD_STATS_THREAD", "1526491450538196992").strip()
 STATE_PATH = os.environ.get("DISCORD_STATS_STATE",
                             "data/discord_stats_state.json")
+# QUATRE messages (v7). Le tableau des jours existe en DEUX versions : un
+# condense (l'essentiel d'un coup d'oeil) JUSTE AU-DESSUS du detail en cinq
+# parties. Les mois et les années restent condenses : le detail n'a de sens
+# qu'a la maille du jour.
+ORDRE = ("annees", "mois", "jours_court", "jours")
+
 N = {"jours": int(os.environ.get("DISCORD_STATS_JOURS", "7")),
      "mois": int(os.environ.get("DISCORD_STATS_MOIS", "5")),
      "annees": int(os.environ.get("DISCORD_STATS_ANNEES", "4"))}
+N["jours_court"] = N["jours"]
+
+# La source de chaque message dans la page 📊 STATS.
+SOURCE = {"annees": "annees", "mois": "mois",
+          "jours_court": "jours", "jours": "jours"}
+
 BLOCS = [b.strip() for b in
-         os.environ.get("DISCORD_STATS_BLOCS", "annees,mois,jours").split(",")
+         os.environ.get("DISCORD_STATS_BLOCS", ",".join(ORDRE)).split(",")
          if b.strip()]
 
 # Sert uniquement a nommer les messages dans les LOGS (cote Discord, plus aucun
 # matricule n'est affiche : Preda n'en voulait pas).
 CODES = {"annees": "VEVE-STATS-ANNEES",
          "mois": "VEVE-STATS-MOIS",
+         "jours_court": "VEVE-STATS-JOURS-COURT",
          "jours": "VEVE-STATS-JOURS"}
 
 TITRES = {"annees": f"🏛️ **Les {N['annees']} dernières années**",
           "mois": f"📅 **Les {N['mois']} derniers mois**",
-          "jours": f"📊 **Les {N['jours']} derniers jours**"}
+          "jours_court": f"📊 **Les {N['jours']} derniers jours — l'essentiel**",
+          "jours": f"📊 **Les {N['jours']} derniers jours — le détail**"}
 
 CARTES = {"annees": "🏛️ Stats Années",
           "mois": "📅 Stats Mois",
-          "jours": "📊 Stats Jours"}
+          "jours_court": "📊 Stats Jours — condensé",
+          "jours": "📊 Stats Jours — détail"}
 
-COULEURS = {"annees": 0xF1C40F, "mois": 0x7B2CBF, "jours": 0x3498DB}
+COULEURS = {"annees": 0xF1C40F, "mois": 0x7B2CBF,
+            "jours_court": 0x2ECC71, "jours": 0x3498DB}
 
 # ☑ / ☐ : cases a cocher (demande de Preda). Ce sont des CARACTERES, pas des
 # emojis — discrets, et ils ne deforment pas la ligne.
 DROP_OUI = os.environ.get("DISCORD_STATS_DROP_OUI", "☑")
 DROP_NON = os.environ.get("DISCORD_STATS_DROP_NON", "☐")
 
-# LES CINQ PARTIES, dans l'ordre voulu par Preda. Ce sont exactement les groupes
-# de colonnes de la page 📊 STATS : ce qui est vrai dans le Sheet l'est ici.
+# LA VERSION CONDENSEE (années, mois, et le 1er message des jours) : une ligne
+# par periode, l'essentiel et rien d'autre.
+CONDENSE = [("tx", "Tx"), ("actifs", "Actifs"), ("nouveaux", "Nouv"),
+            ("anciens", "Anc"), ("revenue", "Rev")]
+
+# LES CINQ PARTIES — SEULEMENT pour le detail des JOURS (demande de Preda) : a
+# la maille du mois ou de l'année, ce niveau de detail n'apprend rien. Ce sont
+# exactement les groupes de colonnes de la page 📊 STATS.
 SECTIONS = [
     ("TRANSACTION", [("tx", "Global"), ("mint", "Mint"),
                      ("market", "Market")]),
@@ -160,6 +185,11 @@ def _valeur(cle_col: str, r: Dict) -> str:
     return v + " $" if v != "—" and cle_col in DOLLARS else v
 
 
+def _jour_like(cle: str) -> bool:
+    """Les deux messages des jours : le condense et le detail."""
+    return cle in ("jours", "jours_court")
+
+
 def _date(brut) -> Optional[_dt.date]:
     try:
         return _dt.date.fromisoformat(str(brut or "").strip()[:10])
@@ -168,8 +198,9 @@ def _date(brut) -> Optional[_dt.date]:
 
 
 def _periode(cle: str, brut) -> str:
-    """Jours -> « lun. 13/07 » ; mois -> « 2026-07 » ; années -> « 2026 »."""
-    if cle != "jours":
+    """Jours (condense OU detail) -> « lun. 13/07 » ; mois -> « 2026-07 » ;
+    années -> « 2026 »."""
+    if not _jour_like(cle):
         return str(brut or "").strip()
     d = _date(brut)
     if not d:
@@ -179,24 +210,31 @@ def _periode(cle: str, brut) -> str:
 
 
 def _case(cle: str, r: Dict) -> str:
-    """☑ jour de drop · ☐ jour sans drop — uniquement sur les JOURS."""
-    if cle != "jours":
+    """☑ jour de drop · ☐ jour sans drop — uniquement sur les JOURS (sur un mois
+    ou une année, il y a forcement eu des drops : la case ne dirait rien)."""
+    if not _jour_like(cle):
         return ""
     return (DROP_OUI if str(r.get("drop") or "").strip() else DROP_NON) + " "
 
 
+def _ligne(cle: str, r: Dict, colonnes) -> str:
+    chiffres = " · ".join(f"{nom} **{_valeur(c, r)}**" for c, nom in colonnes)
+    return (f"{_case(cle, r)}`{_periode(cle, r.get('periode'))}` — {chiffres}")
+
+
 def corps(cle: str, lignes: List[Dict[str, Any]]) -> str:
-    """Cinq parties, separees par une ligne vide. Chaque nombre porte son
-    etiquette : en markdown rien n'est aligne, donc rien ne doit dependre de la
-    position."""
-    blocs: List[str] = []
+    """Le DETAIL (cinq parties separees par une ligne vide) n'est rendu que pour
+    le message « jours ». Tout le reste — années, mois, et le message condense
+    des jours — tient sur une ligne par periode.
+
+    Chaque nombre porte son etiquette : en markdown rien n'est aligne, donc rien
+    ne doit dependre de la position."""
+    if cle != "jours":
+        return "\n".join(_ligne(cle, r, CONDENSE) for r in lignes)
+    blocs = []
     for titre, colonnes in SECTIONS:
         lines = [f"**{titre}**"]
-        for r in lignes:
-            chiffres = " · ".join(f"{nom} **{_valeur(c, r)}**"
-                                  for c, nom in colonnes)
-            lines.append(f"{_case(cle, r)}`{_periode(cle, r.get('periode'))}`"
-                         f" — {chiffres}")
+        lines += [_ligne(cle, r, colonnes) for r in lignes]
         blocs.append("\n".join(lines))
     return "\n\n".join(blocs)
 
@@ -282,6 +320,33 @@ def editer(mid: str, payload: Dict) -> Optional[str]:
     return None
 
 
+def supprimer(mid: str) -> bool:
+    url = _q(f"{WEBHOOK}/messages/{mid}", thread_id=THREAD)
+    for _ in range(3):
+        r = requests.delete(url, timeout=20)
+        if _attendre_429(r):
+            continue
+        return r.status_code in (204, 404)      # 404 = deja parti, c'est bon
+    return False
+
+
+def reordonner(state: Dict) -> None:
+    """Discord n'a AUCUN moyen de deplacer un message : l'ordre d'un fil est
+    l'ordre de CREATION. Or le condense doit apparaitre AU-DESSUS du detail, et
+    le detail existe deja (poste ce matin). Seule sortie : SUPPRIMER le detail
+    et le laisser se recreer APRES le condense. On ne le fait qu'une fois — la
+    fois ou le condense n'a pas encore d'id."""
+    ids = state.get("messages", {})
+    if not WEBHOOK or ids.get("jours_court") or not ids.get("jours"):
+        return
+    print("Le message condense doit passer AU-DESSUS du detail : on supprime "
+          "le detail (un fil Discord se range par ordre de creation, rien ne "
+          "se deplace) — il sera recree juste apres.", flush=True)
+    if supprimer(ids["jours"]):
+        ids.pop("jours", None)
+    time.sleep(1.5)
+
+
 def publier(cle: str, payload: Dict, state: Dict) -> bool:
     if not WEBHOOK:
         print(f"\n[SIMULATION — pas de DISCORD_STATS_WEBHOOK] {CODES[cle]}",
@@ -355,11 +420,14 @@ def main() -> int:
         return 1
 
     state = load_state()
-    contenus = {cle: page[cle][:N[cle]] for cle in ("annees", "mois", "jours")}
+    contenus = {cle: page[SOURCE[cle]][:N[cle]] for cle in ORDRE}
+    reordonner(state)
 
-    # ORDRE : annees -> mois -> jours (le dernier poste est en BAS du fil).
+    # ORDRE : annees -> mois -> jours condense -> jours detaille. Le dernier
+    # poste est en BAS du fil, donc le detail ferme la marche et le condense
+    # arrive juste au-dessus, comme demande.
     ok, faits = True, []
-    for cle in ("annees", "mois", "jours"):
+    for cle in ORDRE:
         if cle not in BLOCS:
             continue
         lignes = contenus[cle]
@@ -389,4 +457,5 @@ def main() -> int:
 if __name__ == "__main__":
     sys.exit(main())
 
-# FIN discord_stats.py v6 — markdown, 5 parties, cases ☑/☐, chiffres complets.
+# FIN discord_stats.py v7 — 4 messages : condense partout, detail en cinq
+# parties sur les seuls jours, et le condense JUSTE AU-DESSUS du detail.
