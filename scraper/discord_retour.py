@@ -105,6 +105,36 @@ PURGER = os.environ.get("DISCORD_RETOUR_PURGER", "").strip().lower() in (
     "1", "true", "oui", "yes")
 
 VERT, ORANGE, ROUGE = 0x2ECC71, 0xE67E22, 0xE74C3C
+GRIS = 0x95A5A6
+
+# Les illustrations des messages groupes. ⚠️ Une URL de pièce jointe Discord est
+# SIGNEE et EXPIRE (parametres ex/is/hm) : au bout de quelques heures, l'image
+# ne s'affiche plus. Pour du durable, heberger l'image ailleurs (ex. le repo
+# PUBLIC jetonveve -> raw.githubusercontent.com) et poser l'URL ici.
+IMAGE_COMIC_DAY = os.environ.get("DISCORD_RETOUR_IMAGE_COMIC_DAY", "").strip()
+IMAGE_FAIBLES = os.environ.get("DISCORD_RETOUR_IMAGE_FAIBLES", "").strip()
+
+# La signature de la maison.
+SIGNATURE = os.environ.get("DISCORD_RETOUR_SIGNATURE", "— Maow")
+
+
+def total_serie(genre: str, supplies: List[int]) -> int:
+    """LE TIRAGE D'UNE SERIE. ⚠️ PIEGE MAJEUR, deja paye au chantier classement
+    et repaye ici :
+
+    **Pour un COMIC, `supply` (= totalIssued) est le tirage de la SERIE, recopie
+    sur CHACUNE des lignes de rarete.** L'additionner donne 5 x 1 000 = 5 000 —
+    et Captain America #7, qui a fait SOLD OUT a 1 000, s'affichait a 20 % du
+    tirage. On prend donc le MAXIMUM, pas la somme.
+
+    Pour un COLLECTIBLE, `supply` est bien propre a chaque element (Phoenix
+    Five : 75 / 1 975 / 475) : la somme est juste.
+    Additionner ou maximiser n'est pas un detail de calcul, c'est une question
+    de MODELE : que represente une ligne ?"""
+    supplies = [s for s in supplies if s]
+    if not supplies:
+        return 0
+    return max(supplies) if genre == "comic" else sum(supplies)
 
 
 # ---------------------------------------------------------------------------
@@ -281,7 +311,8 @@ def a_debriefer(sh, connus: List[str]) -> List[Dict]:
         d["lignes"].sort(key=lambda l: (dd.ORDRE_RARETE.index(l["rarete"])
                                         if l["rarete"] in dd.ORDRE_RARETE
                                         else 99))
-        d["total"] = sum(l["supply"] for l in d["lignes"])
+        d["total"] = total_serie(d["genre"],
+                                 [l["supply"] for l in d["lignes"]])
     return sorted(par_serie.values(), key=lambda d: d["jour"])
 
 
@@ -312,9 +343,9 @@ def comic_day_recent(sh):
         d = par_jour.setdefault(jour, {}).setdefault(cle, {
             "cle": cle, "jour": jour,
             "nom": str(r.get("veve_series_name") or r.get("name") or ""),
-            "prix": r.get("store_price_gems"), "total": 0, "uuids": [],
+            "prix": r.get("store_price_gems"), "supplies": [], "uuids": [],
         })
-        d["total"] += dd._n(r.get("supply"))
+        d["supplies"].append(dd._n(r.get("supply")))
         u = str(r.get("veve_uuid") or "").strip()
         if u:
             d["uuids"].append(u)
@@ -324,7 +355,10 @@ def comic_day_recent(sh):
     if not par_jour:
         return None, []
     jour = max(par_jour)
-    return jour, list(par_jour[jour].values())
+    series = list(par_jour[jour].values())
+    for s_ in series:                       # ⚠️ un comic : le MAX, pas la somme
+        s_["total"] = total_serie("comic", s_.pop("supplies"))
+    return jour, series
 
 
 # 10 series par message : au-dela, le message devient un mur. Le suivi d'un
@@ -385,11 +419,13 @@ def messages_comic_day(jour: str, series: List[Dict], chaine, suivi=None):
             + "\n".join(lignes).rstrip()
         titre = (f"📅 Comic Book Day du {jour}" if i == 0
                  else f"📅 Comic Book Day du {jour} — suite {i + 1}")
+        e = {"title": titre, "color": couleur(pct),
+             "description": corps[:4000] or "—"}
+        if i == 0 and IMAGE_COMIC_DAY:      # l'illustration, sur le 1er seul
+            e["image"] = {"url": IMAGE_COMIC_DAY}
         out.append({"content": ("🔍 **Suivi du Comic Book Day**" if i == 0
                                 else ""),
-                    "embeds": [{"title": titre, "color": couleur(pct),
-                                "description": corps[:4000] or "—"}],
-                    "allowed_mentions": api.mentions()})
+                    "embeds": [e], "allowed_mentions": api.mentions()})
 
     if faibles:
         noms = "\n".join(f"• {s_['nom']}" for s_ in faibles)
@@ -399,13 +435,13 @@ def messages_comic_day(jour: str, series: List[Dict], chaine, suivi=None):
                 f"chiffres.*")
         if muettes:
             note += (f"\n*({len(muettes)} autre(s) série(s) sans aucune donnée "
-                     f"de vente — c'est une lacune de collecte, pas un zéro : "
-                     f"elles reviendront.)*")
-        out.append({"content": "",
-                    "embeds": [{"title": f"🌱 Faibles ventes — {len(faibles)} "
-                                         f"série(s)",
-                                "color": 0x95A5A6,
-                                "description": (noms + "\n\n" + note)[:4000]}],
+                     f"de vente {SIGNATURE})*")
+        e = {"title": f"🌱 Faibles ventes — {len(faibles)} série(s)",
+             "color": GRIS,
+             "description": (noms + "\n\n" + note)[:4000]}
+        if IMAGE_FAIBLES:
+            e["image"] = {"url": IMAGE_FAIBLES}
+        out.append({"content": "", "embeds": [e],
                     "allowed_mentions": api.mentions()})
     return out
 
@@ -435,7 +471,15 @@ def toutes_les_cles(sh) -> List[str]:
 # ---------------------------------------------------------------------------
 
 def _pct(vendus: int, total: int) -> float:
-    return (100.0 * vendus / total) if total else 0.0
+    return min(100.0, 100.0 * vendus / total) if total else 0.0
+
+
+def est_epuise(vendus: int, total: int) -> bool:
+    """SOLD OUT. Un drop epuise n'a plus d'histoire : il n'y a plus rien a
+    vendre, donc plus rien a suivre. (On tolere un leger depassement : la chaine
+    compte parfois un mint de plus que le tirage declare — mieux vaut dire
+    « sold out » que « 100,2 % ».)"""
+    return bool(total) and vendus >= total
 
 
 def couleur(pct: float) -> int:
@@ -463,19 +507,26 @@ def carte(d: Dict, chaine: Dict[str, Dict[str, int]], note: str,
     if prix:
         lignes.append(f"💎 **Prix drop** : {prix} gems")
     lignes.append(f"📦 **Mint total** : {d['total']:,}".replace(",", " "))
-    lignes.append(f"🛒 **Vendus** : {vendus:,}".replace(",", " ")
-                  + f"  ·  **{pct:.1f} %** du tirage")
+    epuise = est_epuise(vendus, d["total"])
+    if epuise:
+        # SOLD OUT : le stock est parti. Continuer a montrer des paliers serait
+        # absurde — il n'y a plus rien a vendre. La carte est CLOSE.
+        lignes.append(f"🛒 **Vendus** : {vendus:,}".replace(",", " ")
+                      + "  ·  🔥 **SOLD OUT**")
+    else:
+        lignes.append(f"🛒 **Vendus** : {vendus:,}".replace(",", " ")
+                      + f"  ·  **{pct:.1f} %** du tirage")
 
-    # LES PALIERS. La carte est REECRITE a 48 h puis 72 h pour les completer :
-    # un retour fige a J+1 ne dit pas si la vague retombe ou si elle continue.
-    # Le 1er palier est un CUMUL, les suivants des TRANCHES (cf. paliers()).
-    if suivi:
-        lignes.append("")
-        for label, v, croissance in suivi:
-            queue = (f" · **{croissance:+.1f} %**" if croissance is not None
-                     else f" · **{_pct(v, d['total']):.1f} %** du tirage")
-            lignes.append(f"Ventes après **{label}** : **{v:,}**"
-                          .replace(",", " ") + queue)
+        # LES PALIERS. La carte est REECRITE a 48 h puis 72 h pour les
+        # completer : un retour fige a J+1 ne dit pas si la vague retombe ou si
+        # elle continue. Le 1er palier est un CUMUL, les suivants des TRANCHES.
+        if suivi:
+            lignes.append("")
+            for label, v, croissance in suivi:
+                queue = (f" · **{croissance:+.1f} %**" if croissance is not None
+                         else f" · **{_pct(v, d['total']):.1f} %** du tirage")
+                lignes.append(f"Drop après **{label}** : **{v:,}**"
+                              .replace(",", " ") + queue)
 
     bas = []
     if note:
@@ -489,7 +540,7 @@ def carte(d: Dict, chaine: Dict[str, Dict[str, int]], note: str,
     lignes += ["", f"[Page VeVe](<{dd._lien(d)}>)"]
 
     e = {"title": f"{licence} {genre} : {nom}".strip(),
-         "color": couleur(pct),
+         "color": 0xF1C40F if epuise else couleur(pct),
          "description": "\n".join(lignes)[:4000]}
     if d.get("image"):
         e["image"] = {"url": d["image"]}
@@ -646,9 +697,9 @@ def run() -> int:
         cartes[d["cle"]] = {"mid": nouveau, "sondage": sondage,
                             "paliers": len(suivi), "jour": d["jour"]}
 
-        # La carte est FINIE quand ses trois paliers sont la : on la range dans
-        # les cles vues, elle ne sera plus jamais rouverte.
-        if len(suivi) >= len(PALIERS):
+        # La carte est FINIE quand ses trois paliers sont la — ou quand le drop
+        # est SOLD OUT : il n'y a plus rien a suivre.
+        if len(suivi) >= len(PALIERS) or est_epuise(vendus, d["total"]):
             state.setdefault("cles", []).append(d["cle"])
             cartes.pop(d["cle"], None)
 
@@ -734,5 +785,5 @@ def _log(sheet_id: str, statut: str, resume: Dict) -> None:
 if __name__ == "__main__":
     sys.exit(run())
 
-# FIN discord_retour.py v9 — les ventes viennent de la CHAINE, le ratio dit ce
+# FIN discord_retour.py v10 — les ventes viennent de la CHAINE, le ratio dit ce
 # que le chiffre brut cache, et le sondage est confronte a la realite.
