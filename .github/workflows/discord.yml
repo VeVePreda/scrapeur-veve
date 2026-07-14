@@ -50,6 +50,16 @@ on:
         default: "false"
         type: choice
         options: ["false", "true"]
+      rejouer_retour:
+        description: "Retour : oublier les drops de la fenetre deja memorises, pour les debriefer"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+      retour_max:
+        description: "Retour : nb max de drops a debriefer d'un coup (defaut 25)"
+        required: false
+        default: "25"
 
 permissions:
   contents: write
@@ -98,6 +108,8 @@ jobs:
           # Vide = le retour ne ping personne (choix par defaut : c'est une
           # analyse, pas une alerte). Mets un id de role ici pour l'activer.
           DISCORD_RETOUR_ROLE: ${{ vars.DISCORD_RETOUR_ROLE || '' }}
+          DISCORD_RETOUR_REJOUER: ${{ github.event.inputs.rejouer_retour || 'false' }}
+          DISCORD_RETOUR_MAX_NEUFS: ${{ github.event.inputs.retour_max || '25' }}
         run: python -m scraper.discord_hub
 
       # L'etat porte les ids des messages (stats) et les slugs deja annonces
