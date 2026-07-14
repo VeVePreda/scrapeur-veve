@@ -60,6 +60,12 @@ on:
         description: "Retour : nb max de drops a debriefer d'un coup (defaut 25)"
         required: false
         default: "25"
+      purger_retour:
+        description: "Retour : marquer les drops en attente comme VUS, sans rien publier"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
 
 permissions:
   contents: write
@@ -110,6 +116,7 @@ jobs:
           DISCORD_RETOUR_ROLE: ${{ vars.DISCORD_RETOUR_ROLE || '' }}
           DISCORD_RETOUR_REJOUER: ${{ github.event.inputs.rejouer_retour || 'false' }}
           DISCORD_RETOUR_MAX_NEUFS: ${{ github.event.inputs.retour_max || '25' }}
+          DISCORD_RETOUR_PURGER: ${{ github.event.inputs.purger_retour || 'false' }}
         run: python -m scraper.discord_hub
 
       # L'etat porte les ids des messages (stats) et les slugs deja annonces
