@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
     inputs:
       steps:
-        description: "Etapes (all, ou liste : catalogue,chain,ventes,editions,registre,stats)"
+        description: "Etapes (all, ou liste : catalogue,chain,ventes,editions,registre,stats,comics)"
         required: false
         default: "all"
 
@@ -116,3 +116,25 @@ jobs:
       - name: 7) Page 📊 STATS (activite 7 jours + sante des sources)
         if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'stats')) }}
         run: python -m scraper.stats_page
+
+      # 📚 LE PONT VERS LES ALERTES COMICS (14/07)
+      # Le tirage d'un comic n'existe que dans le Sheet. L'alerte « comic a petit
+      # tirage brade » tourne sur jetonveve (repo public), qui n'a AUCUN acces au
+      # Sheet — et c'est tres bien ainsi. On exporte donc un CSV minimal (uuid,
+      # serie, nom, rarete, tirage), que jetonveve lit en lecture seule.
+      - name: 8) Export du tirage des comics (pont vers les alertes)
+        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'comics')) }}
+        run: python -m scraper.export_comics
+
+      - name: 9) Commit du CSV comics
+        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'comics')) }}
+        run: |
+          git config user.name "veve-daily-bot"
+          git config user.email "actions@users.noreply.github.com"
+          [ -f data/comics_supply.csv ] && git add data/comics_supply.csv
+          git diff --cached --quiet && { echo "Rien a committer."; exit 0; }
+          git commit -m "comics: export du tirage (pont alertes)"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && break
+            sleep $((i * 5))
+          done
