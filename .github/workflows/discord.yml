@@ -40,6 +40,12 @@ on:
         description: "Stats : quels messages (annees,mois,jours_court,jours)"
         required: false
         default: "annees,mois,jours_court,jours"
+      rejouer_drops:
+        description: "Drops : oublier les drops A VENIR deja memorises, pour les annoncer"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
 
 permissions:
   contents: write
@@ -82,6 +88,7 @@ jobs:
           DISCORD_DROPS_WEBHOOK: ${{ secrets.DISCORD_DROPS_WEBHOOK }}
           DISCORD_DROPS_THREAD: ${{ vars.DISCORD_DROPS_THREAD || '1526540247469391952' }}
           DISCORD_DROPS_ROLE: ${{ vars.DISCORD_DROPS_ROLE || '1104653344108191818' }}
+          DISCORD_DROPS_REJOUER: ${{ github.event.inputs.rejouer_drops || 'false' }}
         run: python -m scraper.discord_hub
 
       # L'etat porte les ids des messages (stats) et les slugs deja annonces
