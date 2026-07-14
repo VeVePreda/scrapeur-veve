@@ -82,6 +82,11 @@ MAX_NEUFS = int(os.environ.get("DISCORD_DROPS_MAX_NEUFS", "8"))
 REJOUER = os.environ.get("DISCORD_DROPS_REJOUER", "").strip().lower() in (
     "1", "true", "oui", "yes")
 MAX_CARTES = int(os.environ.get("DISCORD_DROPS_MAX_CARTES", "5"))
+# HORIZON : un drop s'annonce quelques jours avant, pas des mois. Au-dela, ce
+# n'est pas une news — et c'est souvent une date bidon. (Run reel du 14/07 :
+# 1651 « drops a venir » ! Un chiffre pareil n'est jamais une actualite, c'est
+# un symptome.)
+HORIZON = int(os.environ.get("DISCORD_DROPS_HORIZON", "21"))
 MCP_BID = os.environ.get("DISCORD_DROPS_MCP_BID", "5,000")
 
 EMOJI_VEVE = os.environ.get("DISCORD_DROPS_EMOJI_VEVE",
@@ -123,16 +128,33 @@ def _n(x) -> int:
 
 
 def _date(x) -> str:
+    """La date de sortie -> « YYYY-MM-DD », ou "" si ce n'est PAS une date.
+
+    ⚠️ v3, apres le run reel du 14/07 (1651 « drops a venir ») : je faisais
+    `s[:10]` et je comparais des CHAINES. Une cellule qui n'est pas une date
+    (« 46212.625 », un nombre, un texte) donnait donc une pseudo-date qui, en
+    comparaison de chaines, tombait « dans le futur » (« 4… » > « 2… »).
+    **On ne compare JAMAIS des chaines dont on n'a pas prouve que ce sont des
+    dates.** Ici : on PARSE, et ce qui ne parse pas n'est pas une date."""
     s = str(x or "").strip()
     if not s:
         return ""
-    if s.replace(".", "", 1).isdigit() and len(s) < 8:      # serial Google
+    # serial Google (une cellule DATE lue en valeur brute)
+    if s.replace(".", "", 1).replace(",", "", 1).isdigit():
         try:
-            return (_dt.date(1899, 12, 30)
-                    + _dt.timedelta(days=int(float(s)))).isoformat()
-        except (ValueError, OverflowError):
+            n = float(s.replace(",", "."))
+        except ValueError:
             return ""
-    return s[:10]
+        if 20000 <= n <= 80000:               # ~1954 a ~2119 : plausible
+            return (_dt.date(1899, 12, 30)
+                    + _dt.timedelta(days=int(n))).isoformat()
+        return ""
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
+        try:
+            return _dt.datetime.strptime(s[:10], fmt).date().isoformat()
+        except ValueError:
+            continue
+    return ""
 
 
 def _horodatage(r: Dict) -> int:
@@ -149,18 +171,35 @@ def _horodatage(r: Dict) -> int:
     return 0
 
 
-def drops_a_venir(sh, connus: List[str]) -> List[Dict]:
+def _fenetre():
+    """[aujourd'hui, aujourd'hui + HORIZON] — la fenetre d'une ANNONCE."""
+    a = _dt.date.today()
+    return a.isoformat(), (a + _dt.timedelta(days=HORIZON)).isoformat()
+
+
+def drops_a_venir(sh, connus: List[str], trace: bool = False) -> List[Dict]:
     """Un drop = une SERIE (les 5 raretes d'un comic sont UNE annonce).
-    Seuls les drops A VENIR sont candidats : la date fait foi."""
+    Seuls les drops de la FENETRE sont candidats : la date fait foi."""
     vus = set(connus or [])
-    aujourdhui = _dt.date.today().isoformat()
+    aujourdhui, horizon = _fenetre()
     par_serie: Dict[str, Dict] = {}
+    illisibles, lointains, echantillon = 0, 0, []
 
     for tab, genre in TABS:
         for r in _records(sh, tab):
-            jour = _date(r.get("releaseDate"))
-            if not jour or jour < aujourdhui:
+            brut = r.get("releaseDate")
+            jour = _date(brut)
+            if not jour:
+                if str(brut or "").strip():
+                    illisibles += 1
+                    if len(echantillon) < 3:
+                        echantillon.append(repr(brut)[:40])
+                continue
+            if jour < aujourdhui:
                 continue                       # passe : ce n'est plus une news
+            if jour > horizon:
+                lointains += 1
+                continue                       # trop loin : pas encore une news
             cle = (str(r.get("series_uuid") or "").strip()
                    or str(r.get("veve_uuid") or "").strip())
             if not cle or cle in vus:
@@ -188,6 +227,13 @@ def drops_a_venir(sh, connus: List[str]) -> List[Dict]:
             if not d["prix"] and r.get("store_price_gems"):
                 d["prix"] = r["store_price_gems"]
 
+    if trace:
+        print(f"Fenetre : {aujourdhui} -> {horizon} ({HORIZON} j). "
+              f"{len(par_serie)} serie(s) dedans · {lointains} au-dela de "
+              f"l'horizon · {illisibles} date(s) illisible(s)"
+              + (f" (ex. {', '.join(echantillon)})" if echantillon else ""),
+              flush=True)
+
     for d in par_serie.values():
         d["lignes"].sort(key=lambda l: (ORDRE_RARETE.index(l["rarete"])
                                         if l["rarete"] in ORDRE_RARETE else 99))
@@ -195,7 +241,7 @@ def drops_a_venir(sh, connus: List[str]) -> List[Dict]:
     return sorted(par_serie.values(), key=lambda d: (d["jour"], d["nom"]))
 
 
-def cles_du_passe(sh) -> List[str]:
+def cles_hors_fenetre(sh) -> List[str]:
     """Les series DEJA sorties — et ELLES SEULES.
 
     ⚠️ CORRIGE APRES LE 1er RUN REEL (14/07) : je memorisais TOUT le catalogue,
@@ -203,12 +249,12 @@ def cles_du_passe(sh) -> List[str]:
     precisement ce qu'on voulait annoncer, et ces drops-la ne seraient JAMAIS
     sortis. Le 1er run doit dire « le passe, je le connais » — pas « l'avenir
     aussi ». Ce qui est a venir reste annoncable."""
-    aujourdhui = _dt.date.today().isoformat()
+    aujourdhui, horizon = _fenetre()
     out = []
     for tab, _g in TABS:
         for r in _records(sh, tab):
             jour = _date(r.get("releaseDate"))
-            if jour and jour >= aujourdhui:
+            if jour and aujourdhui <= jour <= horizon:
                 continue                      # a venir : on ne l'enterre pas
             cle = (str(r.get("series_uuid") or "").strip()
                    or str(r.get("veve_uuid") or "").strip())
@@ -326,10 +372,10 @@ def run() -> int:
     if premier:
         # Le 1er run apprend LE PASSE, et rien que le passe : les drops a venir
         # sont exactement ce qu'on veut annoncer.
-        state["cles"] = cles_du_passe(sh)
-        print(f"1er run -> {len(state['cles'])} series DEJA SORTIES memorisees "
-              f"(le passe, et rien que le passe : les drops a venir restent "
-              f"annoncables).", flush=True)
+        state["cles"] = cles_hors_fenetre(sh)
+        print(f"1er run -> {len(state['cles'])} series HORS FENETRE memorisees "
+              f"(le passe et le lointain : seuls les drops des {HORIZON} "
+              f"prochains jours restent annoncables).", flush=True)
 
     if REJOUER:
         avenir = set(cles_a_venir(sh))
@@ -338,10 +384,11 @@ def run() -> int:
         print(f"REJOUER : {avant - len(state['cles'])} drop(s) a venir oublies "
               f"de l'etat — ils vont etre (re)annonces.", flush=True)
 
-    neufs = drops_a_venir(sh, state.get("cles", []))
-    tous = len(cles_a_venir(sh))
-    print(f"Catalogue : {tous} serie(s) avec un drop a venir · "
-          f"{len(neufs)} neuve(s) a annoncer.", flush=True)
+    neufs = drops_a_venir(sh, state.get("cles", []), trace=True)
+    print(f"{len(neufs)} serie(s) neuve(s) a annoncer.", flush=True)
+    for d in neufs[:5]:
+        print(f"   · {d['jour']} — {d['nom'] or d['cle']} "
+              f"({len(d['lignes'])} raretes, supply {d['total']})", flush=True)
 
     if len(neufs) > MAX_NEUFS:
         print(f"{len(neufs)} drops « neufs » (> {MAX_NEUFS}) -> on memorise "
@@ -417,5 +464,5 @@ def _log(sheet_id: str, statut: str, resume: Dict) -> None:
 if __name__ == "__main__":
     sys.exit(run())
 
-# FIN discord_drops.py v2 — une serie = une carte, une vague = un ping, et les
+# FIN discord_drops.py v3 — une serie = une carte, une vague = un ping, et les
 # reactions posees par le bot (un webhook ne sait pas reagir).
