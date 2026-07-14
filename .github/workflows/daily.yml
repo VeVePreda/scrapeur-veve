@@ -117,23 +117,24 @@ jobs:
         if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'stats')) }}
         run: python -m scraper.stats_page
 
-      # 📚 LE PONT VERS LES ALERTES COMICS (14/07)
-      # Le tirage d'un comic n'existe que dans le Sheet. L'alerte « comic a petit
-      # tirage brade » tourne sur jetonveve (repo public), qui n'a AUCUN acces au
-      # Sheet — et c'est tres bien ainsi. On exporte donc un CSV minimal (uuid,
-      # serie, nom, rarete, tirage), que jetonveve lit en lecture seule.
-      - name: 8) Export du tirage des comics (pont vers les alertes)
+      # 🌉 LE PONT VERS LES ALERTES (14/07)
+      # Le tirage, la 1re edition publique, le nombre d'offres et la note de
+      # classement n'existent QUE dans le Sheet. Les alertes tournent sur
+      # jetonveve (repo public), qui n'a AUCUN acces au Sheet — et c'est tres
+      # bien ainsi. On exporte donc un CSV minimal (comics ET collectibles), que
+      # jetonveve lit en lecture seule avec PREDA_TOKEN.
+      - name: "8) Export du catalogue (pont vers les alertes)"
         if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'comics')) }}
-        run: python -m scraper.export_comics
+        run: python -m scraper.export_elements
 
-      - name: 9) Commit du CSV comics
+      - name: "9) Commit du CSV catalogue"
         if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'comics')) }}
         run: |
           git config user.name "veve-daily-bot"
           git config user.email "actions@users.noreply.github.com"
-          [ -f data/comics_supply.csv ] && git add data/comics_supply.csv
+          [ -f data/elements.csv ] && git add data/elements.csv
           git diff --cached --quiet && { echo "Rien a committer."; exit 0; }
-          git commit -m "comics: export du tirage (pont alertes)"
+          git commit -m "catalogue: export du pont (alertes)"
           for i in 1 2 3; do
             git pull --rebase origin main && git push && break
             sleep $((i * 5))
