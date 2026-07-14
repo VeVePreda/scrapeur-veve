@@ -29,8 +29,14 @@ LES GARDE-FOUS
 2. **LA DATE FAIT FOI** : on ne traite que les drops sortis il y a entre 1 et
    `RETOUR_FENETRE` (7) jours. Meme avec un etat perdu, on ne peut pas deterrer
    2021 — et un retour sur un drop d'il y a 3 mois n'interesse personne.
-3. **Anti-avalanche** : au-dela de `RETOUR_MAX_NEUFS` (8), on memorise sans
-   publier.
+3. **Anti-avalanche QUI NE DETRUIT RIEN** : au-dela de `RETOUR_MAX_NEUFS` (25),
+   on ne publie RIEN **et on ne memorise RIEN** — le backlog reste intact et le
+   log CRIE. L'humain tranche. ⚠️ Calibre apres le 1er run reel : 41 drops en
+   7 jours, et c'est NORMAL (un mercredi comic day en apporte quinze d'un coup) ;
+   le seuil de 8, recopie du module d'annonce, les avait tous avales. Un
+   garde-fou qui detruit ce qu'il protege n'est pas un garde-fou, c'est un bug.
+   Au-dela de `RETOUR_MAX_CARTES` (8) par run, le reste attend simplement le
+   prochain tour — la fenetre de 7 jours lui en laisse le temps.
 4. **Aucun chiffre invente** : sans donnee on-chain pour ce drop, on SAUTE (et
    on le dit) — la carte repassera au prochain run. Un « 0 vendu » faux serait
    pire qu'un silence.
@@ -38,7 +44,8 @@ LES GARDE-FOUS
 
 Env : DISCORD_RETOUR_THREAD · DISCORD_RETOUR_ROLE (vide = aucun ping)
       DISCORD_RETOUR_STATE · RETOUR_JOURS (2) · RETOUR_FENETRE (7)
-      DISCORD_RETOUR_MAX_NEUFS (8) · DISCORD_RETOUR_MAX_CARTES (5)
+      DISCORD_RETOUR_MAX_NEUFS (25) · DISCORD_RETOUR_MAX_CARTES (8)
+      DISCORD_RETOUR_REJOUER (rattrapage : oublier la fenetre deja memorisee)
 """
 
 from __future__ import annotations
@@ -65,8 +72,17 @@ CLASSEMENT_TAB = os.environ.get("DISCORD_RETOUR_CLASSEMENT_TAB",
 
 JOURS = int(os.environ.get("DISCORD_RETOUR_JOURS", "2"))       # journees PT
 FENETRE = int(os.environ.get("DISCORD_RETOUR_FENETRE", "7"))   # age max du drop
-MAX_NEUFS = int(os.environ.get("DISCORD_RETOUR_MAX_NEUFS", "8"))
-MAX_CARTES = int(os.environ.get("DISCORD_RETOUR_MAX_CARTES", "5"))
+# ⚠️ CALIBRE APRES LE 1er RUN REEL : 41 drops en 7 jours, et c'est NORMAL (le
+# mercredi comic day en apporte quinze d'un coup). Le seuil de 8, recopie du
+# module d'annonce, a donc avale les 41. **Un garde-fou ne doit jamais detruire
+# ce qu'il protege** — voir plus bas : au-dela du seuil, on ne publie RIEN et on
+# ne memorise RIEN, on CRIE. L'humain tranche.
+MAX_NEUFS = int(os.environ.get("DISCORD_RETOUR_MAX_NEUFS", "25"))
+MAX_CARTES = int(os.environ.get("DISCORD_RETOUR_MAX_CARTES", "8"))
+# Rattrapage : oublier les drops de la fenetre deja memorises (le 1er run les a
+# enterres). Sert une fois.
+REJOUER = os.environ.get("DISCORD_RETOUR_REJOUER", "").strip().lower() in (
+    "1", "true", "oui", "yes")
 
 VERT, ORANGE, ROUGE = 0x2ECC71, 0xE67E22, 0xE74C3C
 
@@ -287,16 +303,32 @@ def run() -> int:
               f"(seuls les drops des {FENETRE} derniers jours sont a "
               f"debriefer).", flush=True)
 
+    if REJOUER:
+        fenetre = {d["cle"] for d in a_debriefer(sh, [])}
+        avant = len(state.get("cles", []))
+        state["cles"] = [c for c in state.get("cles", []) if c not in fenetre]
+        print(f"REJOUER : {avant - len(state['cles'])} drop(s) de la fenetre "
+              f"oublies de l'etat — ils vont etre debriefes.", flush=True)
+
     neufs = a_debriefer(sh, state.get("cles", []))
     print(f"{len(neufs)} drop(s) a debriefer (sortis il y a 1 a {FENETRE} j).",
           flush=True)
 
+    # ANTI-AVALANCHE — version qui ne detruit RIEN. Au-dela du seuil, on ne
+    # publie pas ET ON NE MEMORISE PAS : le backlog reste intact, et l'humain
+    # decide (en montant DISCORD_RETOUR_MAX_NEUFS, ou en purgeant l'etat).
+    # C'est la lecon du module `drops` : un garde-fou qui avale la donnee qu'il
+    # protege n'est pas un garde-fou, c'est un bug.
     if len(neufs) > MAX_NEUFS:
-        print(f"{len(neufs)} > {MAX_NEUFS} : on memorise sans publier.",
-              flush=True)
-        state["cles"] = list(dict.fromkeys(
-            list(state.get("cles", [])) + [d["cle"] for d in neufs]))
-        neufs = []
+        print(f"⚠️ {len(neufs)} drops a debriefer (> {MAX_NEUFS}) : RIEN n'est "
+              f"publie, et RIEN n'est memorise — le backlog est intact. Si "
+              f"c'est normal (un comic day en apporte quinze d'un coup), "
+              f"relance avec DISCORD_RETOUR_MAX_NEUFS plus haut ; sinon, il y a "
+              f"un bug a regarder.", flush=True)
+        api.save_state(STATE_PATH, state, wh, THREAD)
+        _log(sheet_id, "OK", {"neufs": len(neufs), "postes": 0,
+                              "motif": "avalanche"})
+        return 0
 
     if not neufs:
         api.save_state(STATE_PATH, state, wh, THREAD)
@@ -313,8 +345,14 @@ def run() -> int:
     annonces = api.load_state(dd.STATE_PATH, api.webhook(dd.MODULE),
                               dd.THREAD).get("messages", {})
 
+    # On ne memorise QUE ce qu'on publie : les drops au-dela de MAX_CARTES
+    # repasseront au prochain run (la fenetre de 7 jours leur laisse le temps).
     ok, postes, sautes = True, [], []
     premier_ping = True
+    if len(neufs) > MAX_CARTES:
+        print(f"{len(neufs)} a debriefer, {MAX_CARTES} par run : les autres "
+              f"passeront au prochain tour (ils restent dans la fenetre).",
+              flush=True)
     for d in neufs[:MAX_CARTES]:
         vendus = sum(chaine.get(l["uuid"], {}).get("mints", 0)
                      for l in d["lignes"])
@@ -374,5 +412,5 @@ def _log(sheet_id: str, statut: str, resume: Dict) -> None:
 if __name__ == "__main__":
     sys.exit(run())
 
-# FIN discord_retour.py v1 — les ventes viennent de la CHAINE, le ratio dit ce
+# FIN discord_retour.py v2 — les ventes viennent de la CHAINE, le ratio dit ce
 # que le chiffre brut cache, et le sondage est confronte a la realite.
