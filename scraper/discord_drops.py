@@ -89,6 +89,18 @@ MAX_CARTES = int(os.environ.get("DISCORD_DROPS_MAX_CARTES", "5"))
 HORIZON = int(os.environ.get("DISCORD_DROPS_HORIZON", "7"))
 MCP_BID = os.environ.get("DISCORD_DROPS_MCP_BID", "5,000")
 
+# LES LIENS BOUTIQUE. Trois familles de pages VeVe, et c'est le TYPE DE DROP qui
+# tranche : un craft ne vit pas au meme endroit qu'une serie.
+#   comics  -> /comics/<series_uuid>     (un comic = une serie)
+#   crafts  -> /crafts/<uuid>            (drop_method = CRAFT)
+#   series  -> /series/<series_uuid>     (tout le reste : les collectibles)
+# ⚠️ On ne reutilise PAS la colonne `veve_url` du catalogue : elle pointe vers
+# les anciennes routes (/collection/comic/…), qui ne sont plus celles de la
+# boutique. Un lien mort est pire que pas de lien.
+VEVE_BASE = os.environ.get("DISCORD_DROPS_VEVE_BASE",
+                           "https://www.veve.me/collectibles/en")
+LIEN_TEXTE = os.environ.get("DISCORD_DROPS_LIEN_TEXTE", "Page VeVe")
+
 EMOJI_VEVE = os.environ.get("DISCORD_DROPS_EMOJI_VEVE",
                             "<:VeVeLogo:1104658104383193178>")
 EMOJI_MARQUES = json.loads(os.environ.get(
@@ -314,6 +326,18 @@ def _titre(d: Dict) -> str:
     return f"{quoi}: **{nom}**"
 
 
+def _lien(d: Dict) -> str:
+    """L'URL de la page boutique. Le TYPE DE DROP decide de la famille de page."""
+    methode = (d.get("methode") or "").upper()
+    if d["genre"] == "comic":
+        famille = "comics"
+    elif "CRAFT" in methode:
+        famille = "crafts"
+    else:
+        famille = "series"
+    return f"{VEVE_BASE}/{famille}/{d['cle']}"
+
+
 def _emoji_marque(d: Dict) -> str:
     cle = (d.get("marque") or d.get("licence") or "").strip().lower()
     return EMOJI_MARQUES.get(cle, "")
@@ -329,6 +353,8 @@ def texte(d: Dict, ping: bool) -> str:
     lignes = [f"{tete}{_titre(d)} {_emoji_marque(d)}".rstrip(),
               f"🕗 Drop date: **<t:{d['ts']}:{style}>** 🕗"]
 
+    lignes.append("")                       # de l'air : la date respire
+
     for i, l in enumerate(d["lignes"]):
         nom = NOM_RARETE.get(l["rarete"], l["rarete"].title() or "—")
         variante = l["variante"] or "—"
@@ -339,6 +365,7 @@ def texte(d: Dict, ping: bool) -> str:
 
     label = "Total Comic Editions" if d["genre"] == "comic" else "Total Editions"
     lignes.append(f"**{label}: {d['total']:,}**")
+    lignes.append("")
 
     format_ = []
     if d.get("methode"):
@@ -348,6 +375,13 @@ def texte(d: Dict, ping: bool) -> str:
         format_.append(f"Enter **{p}** 💎")
     format_.append(f"Min. MCP Priority Bid **{MCP_BID}**")
     lignes.append(" | ".join(format_))
+    lignes.append("")
+
+    # Le lien est MASQUE et entre <> : sans les chevrons, Discord collerait un
+    # deuxieme embed d'apercu sous la carte et volerait la vedette a l'image.
+    lignes.append("__**Liens**__")
+    lignes.append(f"[{LIEN_TEXTE}](<{_lien(d)}>)")
+    lignes.append("")
 
     lignes.append("__**Participation**__")
     lignes.append("🇩rop /  🇲arket / ❌ Pass")
@@ -480,5 +514,5 @@ def _log(sheet_id: str, statut: str, resume: Dict) -> None:
 if __name__ == "__main__":
     sys.exit(run())
 
-# FIN discord_drops.py v4 — une serie = une carte, une vague = un ping, et les
+# FIN discord_drops.py v5 — une serie = une carte, une vague = un ping, et les
 # reactions posees par le bot (un webhook ne sait pas reagir).
