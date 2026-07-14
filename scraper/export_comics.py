@@ -110,18 +110,48 @@ def lire_listings(sh) -> Dict[str, int]:
 
 
 def lire_notes(sh) -> Dict[str, str]:
-    """{series_uuid -> note} depuis 🏆A-CLASSEMENT (le jugement de Preda)."""
+    """{series_uuid -> note} depuis 🏆A-CLASSEMENT — le jugement de Preda.
+
+    ⚠️ ON REPREND LA LECTURE EPROUVEE DE `discord_retour` (elle, elle marche).
+    Ma v2 exigeait les en-tetes EXACTS « series_uuid » et « note » : resultat,
+    **0 note sur 14 651 lignes**. Trois pieges, tous deja payes :
+      1. les en-tetes ne sont PAS en ligne 1 (une banniere precede) ;
+      2. la casse n'est pas garantie (« Note » ≠ « note ») ;
+      3. la cle peut s'appeler series_uuid, veve_uuid ou uuid.
+    → On BALAIE les 40 premieres lignes en cherchant une ligne qui porte A LA
+    FOIS une cle ET une colonne « note » (insensible a la casse). Et on DIT ce
+    qu'on a trouve : un export muet est ce qui a masque le probleme."""
+    CLES = ("series_uuid", "veve_uuid", "uuid")
     try:
-        ws = sh.worksheet(CLASSEMENT_TAB)
-    except Exception:                                       # noqa: BLE001
+        vals = sh.worksheet(CLASSEMENT_TAB).get_all_values()
+    except Exception as e:                                  # noqa: BLE001
+        print(f"  lecture de {CLASSEMENT_TAB} impossible : {e}",
+              file=sys.stderr)
         return {}
-    out: Dict[str, str] = {}
-    for r in _lire(ws, "series_uuid", "note"):
-        s = str(r.get("series_uuid") or "").strip()
-        n = str(r.get("note") or "").strip()
-        if s and n:
-            out[s] = n
-    return out
+
+    for i, ligne in enumerate(vals[:40]):
+        bas = [str(c).strip().lower() for c in ligne]
+        if "note" not in bas:
+            continue
+        cle = next((c for c in CLES if c in bas), "")
+        if not cle:
+            continue
+        i_note, i_cle = bas.index("note"), bas.index(cle)
+        out: Dict[str, str] = {}
+        for r in vals[i + 1:]:
+            if len(r) <= max(i_note, i_cle):
+                continue
+            k, n = str(r[i_cle]).strip(), str(r[i_note]).strip()
+            if k and n and k not in out:        # la 1re occurrence gagne
+                out[k] = n
+        print(f"  {CLASSEMENT_TAB} : en-tetes en ligne {i + 1} "
+              f"(cle « {cle} »), {len(out)} note(s).", flush=True)
+        return out
+
+    print(f"  ⚠️ {CLASSEMENT_TAB} : aucune ligne portant « note » ET une cle "
+          f"({'/'.join(CLES)}) dans les 40 premieres lignes. En-tetes vus en "
+          f"ligne 1 : {vals[0][:12] if vals else '(vide)'}", file=sys.stderr)
+    return {}
 
 
 def tirages_par_serie(lignes: List[Dict]) -> Dict[str, int]:
