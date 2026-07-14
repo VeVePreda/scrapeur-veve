@@ -1,0 +1,63 @@
+name: Stats Discord (post forum)
+
+# Reecrit les 3 messages permanents du post « 📊 STATS » du forum hub-actu :
+#   ⟦VEVE-STATS-ANNEES⟧ · ⟦VEVE-STATS-MOIS⟧ · ⟦VEVE-STATS-JOURS⟧
+# Il ne COLLECTE RIEN : il lit la page 📊 STATS deja calculee (donc il ne peut
+# pas dire autre chose que le Sheet).
+#
+# DEUX PASSAGES, et c'est voulu — les messages sont EDITES, pas empiles :
+#   * 03:45 UTC (05:45 Paris) : juste apres le daily, tout est pret pour 6h ;
+#   * 07:45 UTC (09:45 Paris) : apres chain-catchup, quand la journee PT est
+#     CLOSE (elle ne se ferme qu'a 09:00 Paris) — le tableau gagne son dernier
+#     jour. Un 2e passage ne coute rien puisqu'il REECRIT le meme message.
+
+on:
+  schedule:
+    - cron: "45 3 * * *"
+    - cron: "45 7 * * *"
+  workflow_dispatch:
+    inputs:
+      blocs:
+        description: "Blocs a publier (annees,mois,jours)"
+        required: false
+        default: "annees,mois,jours"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: veve-discord-stats
+  cancel-in-progress: false
+
+jobs:
+  stats-discord:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Stats dans le post forum
+        env:
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          DISCORD_STATS_WEBHOOK: ${{ secrets.DISCORD_STATS_WEBHOOK }}
+          DISCORD_STATS_THREAD: ${{ vars.DISCORD_STATS_THREAD || '1526491450538196992' }}
+          DISCORD_STATS_BLOCS: ${{ github.event.inputs.blocs || 'annees,mois,jours' }}
+        run: python -m scraper.discord_stats
+
+      # L'etat porte les 3 ids de messages : sans lui, on ne peut plus EDITER
+      # (un webhook ne sait pas relire un salon) et on reposterait 3 messages
+      # de plus chaque matin.
+      - name: Commit de l'etat (les ids des 3 messages)
+        if: always()
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add data/discord_stats_state.json 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "discord stats: ids des messages"
+          git push || true
