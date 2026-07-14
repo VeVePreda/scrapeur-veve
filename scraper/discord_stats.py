@@ -101,11 +101,18 @@ COLONNES = [("tx", "Tx"),             # TRANSACTION / Global
             ("revenue", "Revenue")]   # REVENUE / Total
 
 SEP = " | "                            # les barres aident vraiment l'oeil
+DROP = os.environ.get("DISCORD_STATS_DROP", "🎉")   # le symbole des jours de drop
 
-LEGENDE = ("*Tx = transactions · Actifs = wallets uniques · Revenue en $.*")
+# STYLE : "code" (tableau monospace aligne) ou "markdown" (une ligne par
+# periode, en gras/code inline). Le markdown est plus joli mais N'ALIGNE RIEN :
+# Discord rend les chiffres en police proportionnelle, donc les colonnes
+# dansent. Preda tranche apres avoir vu les deux.
+STYLE = os.environ.get("DISCORD_STATS_STYLE", "code").strip().lower()
 
-AVERTISSEMENT = ("⚠️ Chiffres indicatifs, issus de sources publiques — ce n'est "
-                 "PAS un conseil financier et des erreurs sont possibles.")
+LEGENDE = "*Tx = transactions · Actifs = wallets uniques · Revenue en $.*"
+
+AVERTISSEMENT = ("*Chiffres indicatifs, issus de sources publiques — ce n'est "
+                 "PAS un conseil financier et des erreurs sont possibles.*")
 
 LARGEUR_MAX = int(os.environ.get("DISCORD_STATS_LARGEUR", "46"))
 
@@ -141,11 +148,15 @@ def _periode(cle: str, brut) -> str:
     return d.strftime("%d/%m") if d else str(brut or "").strip()
 
 
-def _semaines(cle: str, lignes: List[Dict]) -> List[Optional[List[str]]]:
-    """Les lignes du tableau, avec une LIGNE VIDE entre chaque semaine (demande
-    de Preda). La semaine = la semaine ISO du Sheet, pas un decoupage par 7 :
-    les jours manquants (journee PT pas encore close) ne decalent donc rien."""
-    out: List[Optional[List[str]]] = []
+def _drop(r) -> bool:
+    return bool(str(r.get("drop") or "").strip())
+
+
+def _lignes(cle: str, lignes: List[Dict]) -> List[Optional[tuple]]:
+    """(cellules, jour_de_drop) — avec une LIGNE VIDE entre chaque semaine
+    (demande de Preda). La coupe se fait sur la semaine ISO, pas tous les
+    7 jours : un jour manquant (journee PT pas encore close) ne decale rien."""
+    out: List[Optional[tuple]] = []
     prec = None
     for r in lignes:
         cells = [_periode(cle, r.get("periode"))] + \
@@ -156,55 +167,78 @@ def _semaines(cle: str, lignes: List[Dict]) -> List[Optional[List[str]]]:
             if prec is not None and sem != prec:
                 out.append(None)                 # respiration entre 2 semaines
             prec = sem
-        out.append(cells)
+        out.append((cells, _drop(r)))
     return out
 
 
-def tableau(cle: str, lignes: List[Dict[str, Any]],
-            total: Optional[Dict] = None) -> str:
+def tableau(cle: str, lignes: List[Dict[str, Any]]) -> str:
     """Un tableau ALIGNE dans un bloc de code — la seule facon d'avoir des
-    colonnes droites sur Discord (les embeds n'alignent rien)."""
+    colonnes droites sur Discord (les embeds n'alignent rien). Le symbole de
+    drop est pose APRES la derniere colonne : un emoji n'a pas la largeur d'un
+    caractere monospace, il ne doit donc jamais tomber au milieu du tableau."""
     entetes = [ENTETE_PERIODE[cle]] + [nom for _c, nom in COLONNES]
-    corps = _semaines(cle, lignes)
-    pied = (["Total"] + [_fr(total.get(c)) for c, _n in COLONNES]
-            if total else None)
-    remplies = [c for c in corps if c] + ([pied] if pied else [])
+    corps = _lignes(cle, lignes)
+    remplies = [it[0] for it in corps if it]
     larg = [max([len(entetes[i])] + [l[i] and len(l[i]) or 0
                                      for l in remplies])
             for i in range(len(entetes))]
 
-    def _ligne(cells: List[str]) -> str:
+    def _l(cells: List[str]) -> str:
         return (cells[0].ljust(larg[0]) + SEP +
                 SEP.join(cells[i].rjust(larg[i])
                          for i in range(1, len(cells))))
 
-    regle = "-+-".join("-" * w for w in larg)
-    lines = [_ligne(entetes), regle]
-    lines += [_ligne(c) if c else "" for c in corps]
-    if pied:
-        lines += [regle, _ligne(pied)]
+    lines = [_l(entetes), "-+-".join("-" * w for w in larg)]
+    for item in corps:
+        if not item:
+            lines.append("")
+            continue
+        cells, drop = item
+        lines.append(_l(cells) + (f" {DROP}" if drop else ""))
     return "```\n" + "\n".join(lines) + "\n```"
 
 
+def markdown(cle: str, lignes: List[Dict[str, Any]]) -> str:
+    """La variante MARKDOWN (proposition a Preda) : plus jolie, mais Discord la
+    rend en police PROPORTIONNELLE — donc rien ne s'aligne. On compense en
+    mettant chaque chiffre dans du code inline et en nommant les colonnes."""
+    noms = [nom for _c, nom in COLONNES]
+    out: List[str] = []
+    for item in _lignes(cle, lignes):
+        if not item:
+            out.append("")
+            continue
+        cells, drop = item
+        chiffres = " · ".join(f"{noms[i]} `{cells[i + 1]}`"
+                              for i in range(len(noms)))
+        out.append(f"**{cells[0]}**{' ' + DROP if drop else ''} — {chiffres}")
+    return "\n".join(out)
+
+
+def corps(cle: str, lignes: List[Dict[str, Any]]) -> str:
+    return (markdown if STYLE == "markdown" else tableau)(cle, lignes)
+
+
 def _maj() -> str:
+    """Le format voulu par Preda : « [MAJ 14/07 à 10h] »."""
     h = _dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(hours=2)  # Paris
-    return h.strftime("%d/%m/%Y à %H:%M")
+    return h.strftime("[MAJ %d/%m à %Hh]")
 
 
-def carte(cle: str, lignes: List[Dict], total: Optional[Dict] = None) -> Dict:
+def carte(cle: str, lignes: List[Dict]) -> Dict:
+    """Plus de pied de carte : Preda n'y voulait ni matricule ni ⚠️ — l'
+    avertissement descend dans le corps, en italique."""
     return {
         "title": CARTES[cle],
         "color": COULEURS[cle],
-        "description": (tableau(cle, lignes, total) + "\n" + LEGENDE)[:4000],
-        "footer": {"text": f"{CODES[cle]} · {AVERTISSEMENT}"},
+        "description": (corps(cle, lignes) + "\n" + LEGENDE + "\n" +
+                        AVERTISSEMENT)[:4000],
     }
 
 
-def message(cle: str, lignes: List[Dict], total: Optional[Dict] = None) -> Dict:
-    """Dans le corps : la DATE DE DERNIERE MISE A JOUR (a la place du nom de
-    code, qui reste dans le pied de la carte pour identifier le message)."""
-    return {"content": f"{TITRES[cle]}  ·  *mis à jour le {_maj()} (Paris)*",
-            "embeds": [carte(cle, lignes, total)],
+def message(cle: str, lignes: List[Dict]) -> Dict:
+    return {"content": f"{TITRES[cle]}  ·  {_maj()}",
+            "embeds": [carte(cle, lignes)],
             "allowed_mentions": {"parse": []}}
 
 
@@ -339,35 +373,36 @@ def main() -> int:
         return 1
 
     state = load_state()
-    jours = page["jours"][:N["jours"]]
-    total = stats_read.semaine(page["jours"], N["jours"])   # cumul des 14 j
-    contenus = {"annees": (page["annees"][:N["annees"]], None),
-                "mois": (page["mois"][:N["mois"]], None),
-                "jours": (jours, total)}
+    # Plus de ligne « Total » sur les jours (demande de Preda) : le cumul se lit
+    # deja dans le message des MOIS.
+    contenus = {"annees": page["annees"][:N["annees"]],
+                "mois": page["mois"][:N["mois"]],
+                "jours": page["jours"][:N["jours"]]}
 
     # ORDRE : annees -> mois -> jours (le dernier poste est en BAS du fil).
     ok, faits = True, []
     for cle in ("annees", "mois", "jours"):
         if cle not in BLOCS:
             continue
-        lignes, tot = contenus[cle]
+        lignes = contenus[cle]
         if not lignes:
             print(f"{CODES[cle]} : aucune donnee dans 📊 STATS — on ne touche "
                   f"pas au message existant.", flush=True)
             continue
-        larg = max(len(l) for l in tableau(cle, lignes, tot).splitlines())
-        if larg > LARGEUR_MAX:
-            print(f"⚠️ {CODES[cle]} : tableau large de {larg} caracteres "
-                  f"(> {LARGEUR_MAX}) — Discord risque d'enrouler les lignes.",
-                  flush=True)
-        if publier(cle, message(cle, lignes, tot), state):
+        if STYLE != "markdown":
+            larg = max(len(l) for l in tableau(cle, lignes).splitlines())
+            if larg > LARGEUR_MAX:
+                print(f"⚠️ {CODES[cle]} : tableau large de {larg} caracteres "
+                      f"(> {LARGEUR_MAX}) — Discord va enrouler les lignes.",
+                      flush=True)
+        if publier(cle, message(cle, lignes), state):
             faits.append(cle)
         else:
             ok = False
 
     save_state(state)
-    resume = {"jours": len(jours), "mois": len(contenus["mois"][0]),
-              "annees": len(contenus["annees"][0]),
+    resume = {"style": STYLE, "jours": len(contenus["jours"]),
+              "mois": len(contenus["mois"]), "annees": len(contenus["annees"]),
               "publies": ",".join(faits) or "aucun",
               "duree": f"{time.time() - t0:.0f}s"}
     try:
@@ -382,5 +417,6 @@ def main() -> int:
 if __name__ == "__main__":
     sys.exit(main())
 
-# FIN discord_stats.py v3 — 3 colonnes, barres verticales, une respiration
-# entre chaque semaine ISO, et la date de mise a jour a la place du matricule.
+# FIN discord_stats.py v4 — 🎉 sur les jours de drop, plus de total, [MAJ ..],
+# pied de carte supprime, avertissement en italique, et un STYLE markdown en
+# option (DISCORD_STATS_STYLE=markdown) pour comparer.
