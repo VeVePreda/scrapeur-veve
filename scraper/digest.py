@@ -427,4 +427,18 @@ def main() -> int:
         state["slugs"] = list(dict.fromkeys(
             list(state.get("slugs", [])) + [a["slug"] for a in arts]))
     save_state(state)
-    resu
+    resume = {"jour": jour, "hebdo": hebdo, "articles": len(arts),
+              "duration": f"{time.time() - t0:.0f}s"}
+    try:
+        append_log(sheet_id, "digest", "OK",
+                   "; ".join(f"{k}={v}" for k, v in resume.items()))
+    except Exception:
+        pass
+    print(f"Digest : {resume}", flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+# FIN digest.py v5 (la DATE DE PARUTION fait foi)

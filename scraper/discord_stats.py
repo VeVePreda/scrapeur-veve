@@ -1,8 +1,8 @@
 """📊 LES STATS DANS LE POST FORUM DISCORD — 3 messages permanents, REECRITS.
 
 Demande de Preda (14/07) : « 1 message qui recap les années, 1 message qui
-recap les mois, 1 message qui recap les jours », chacun avec un **nom de code**
-dans son message, dans le post « 📊 STATS » du forum « 📁⎮hub-actu-test ».
+recap les mois, 1 message qui recap les jours », dans le post « 📊 STATS » du
+forum « 📁⎮hub-actu-test ».
 
 POURQUOI TROIS MESSAGES EDITES, ET PAS UN MESSAGE PAR JOUR
 ----------------------------------------------------------
@@ -20,12 +20,18 @@ ORDRE DE CREATION : ANNEES, puis MOIS, puis JOURS — dans un fil Discord le
 dernier message est en BAS, donc le tableau qu'on lit tous les matins (les
 jours) tombe sous les yeux en ouvrant le post.
 
-⚠️ v2 (apres le 1er run reel) : LA LARGEUR EST LE VRAI ENNEMI. Avec 9 colonnes
-et des nombres complets (« 899 721 216 801 »), Discord passait chaque ligne A LA
-LIGNE : illisible. Un bloc de code ne coupe pas, il ENROULE. Regle retenue :
-**5 colonnes, nombres compacts (1,47 M · 2,31 Md), largeur <= 45 caracteres.**
-Preda a choisi les colonnes : transactions · actifs · revenue · burn OMI $ ·
-achat de gems $. Et les volumes : 3 années, 5 mois, 7 jours.
+⚠️ LA LARGEUR EST LE VRAI ENNEMI (leçon du 1er run reel). Un bloc de code
+Discord ne COUPE pas les lignes trop longues : il les ENROULE. Avec 9 colonnes
+et des nombres complets (« 899 721 216 801 »), chaque ligne s'affichait sur
+deux : illisible. D'ou la regle : peu de colonnes, nombres compacts
+(1,47 M · 2,31 Md), largeur <= LARGEUR_MAX — et un garde-fou qui previent dans
+les logs si on la depasse.
+
+v3 (retour de Preda) : plus de burn OMI ni de gems (3 colonnes : transactions,
+actifs, revenue), **des barres verticales entre les colonnes** pour l'oeil, une
+**ligne vide entre chaque semaine** dans le tableau des jours, et 4 années /
+5 mois / 14 jours. Le nom de code quitte le corps du message (il reste dans le
+pied de la carte) : a sa place, la DATE DE DERNIERE MISE A JOUR.
 
 LES DEUX PIEGES DISCORD (payes une fois, plus jamais)
 -----------------------------------------------------
@@ -41,7 +47,7 @@ Env :
   DISCORD_STATS_WEBHOOK   (SECRET ; sans lui : simulation dans les logs)
   DISCORD_STATS_THREAD    (id du post « 📊 STATS »)
   DISCORD_STATS_STATE     (data/discord_stats_state.json)
-  DISCORD_STATS_JOURS (7) · DISCORD_STATS_MOIS (5) · DISCORD_STATS_ANNEES (3)
+  DISCORD_STATS_JOURS (14) · DISCORD_STATS_MOIS (5) · DISCORD_STATS_ANNEES (4)
   DISCORD_STATS_BLOCS     (annees,mois,jours — pour cibler a la main)
 """
 
@@ -64,16 +70,15 @@ WEBHOOK = os.environ.get("DISCORD_STATS_WEBHOOK", "").strip()
 THREAD = os.environ.get("DISCORD_STATS_THREAD", "1526491450538196992").strip()
 STATE_PATH = os.environ.get("DISCORD_STATS_STATE",
                             "data/discord_stats_state.json")
-N = {"jours": int(os.environ.get("DISCORD_STATS_JOURS", "7")),
+N = {"jours": int(os.environ.get("DISCORD_STATS_JOURS", "14")),
      "mois": int(os.environ.get("DISCORD_STATS_MOIS", "5")),
-     "annees": int(os.environ.get("DISCORD_STATS_ANNEES", "3"))}
+     "annees": int(os.environ.get("DISCORD_STATS_ANNEES", "4"))}
 BLOCS = [b.strip() for b in
          os.environ.get("DISCORD_STATS_BLOCS", "annees,mois,jours").split(",")
          if b.strip()]
 
-# Le NOM DE CODE de chaque message (demande de Preda) : ecrit DANS le message,
-# on sait d'un coup d'oeil qui est qui — et on les retrouve a la main si l'etat
-# est perdu.
+# Le nom de code ne sert plus qu'a IDENTIFIER le message (pied de carte) : dans
+# le corps, Preda veut voir la date de derniere mise a jour, pas un matricule.
 CODES = {"annees": "VEVE-STATS-ANNEES",
          "mois": "VEVE-STATS-MOIS",
          "jours": "VEVE-STATS-JOURS"}
@@ -82,20 +87,22 @@ TITRES = {"annees": f"🏛️ **Les {N['annees']} dernières années**",
           "mois": f"📅 **Les {N['mois']} derniers mois**",
           "jours": f"📊 **Les {N['jours']} derniers jours**"}
 
+CARTES = {"annees": "🏛️ Stats Années",
+          "mois": "📅 Stats Mois",
+          "jours": "📊 Stats Jours"}
+
 COULEURS = {"annees": 0xF1C40F, "mois": 0x7B2CBF, "jours": 0x3498DB}
 
 ENTETE_PERIODE = {"annees": "Année", "mois": "Mois", "jours": "Jour"}
 
-# LES 5 COLONNES CHOISIES PAR PREDA (la page 📊 STATS en compte 20 : tout
-# afficher faisait enrouler les lignes, donc plus rien de lisible).
+# LES COLONNES VOULUES PAR PREDA (v3 : burn OMI et gems retires).
 COLONNES = [("tx", "Tx"),             # TRANSACTION / Global
             ("actifs", "Actifs"),     # ACTIF / Unique
-            ("revenue", "Revenue"),   # REVENUE / Total
-            ("burn_usd", "Burn"),     # OMI BURN / Global $
-            ("gems_usd", "Gems")]     # ACHAT / Gems $
+            ("revenue", "Revenue")]   # REVENUE / Total
 
-LEGENDE = ("*Tx = transactions · Actifs = wallets uniques · Revenue, Burn "
-           "(OMI brûlés) et Gems (achats) sont en $.*")
+SEP = " | "                            # les barres aident vraiment l'oeil
+
+LEGENDE = ("*Tx = transactions · Actifs = wallets uniques · Revenue en $.*")
 
 AVERTISSEMENT = ("⚠️ Chiffres indicatifs, issus de sources publiques — ce n'est "
                  "PAS un conseil financier et des erreurs sont possibles.")
@@ -104,29 +111,53 @@ LARGEUR_MAX = int(os.environ.get("DISCORD_STATS_LARGEUR", "46"))
 
 
 # ---------------------------------------------------------------------------
-# Mise en forme : COMPACT, sinon Discord enroule et tout devient illisible
+# Mise en forme
 # ---------------------------------------------------------------------------
 
 def _fr(x) -> str:
+    """COMPACT : un nombre complet (« 899 721 216 801 ») fait enrouler la ligne."""
     n = stats_read.nombre(x)
     if not n:
         return "—"
     if abs(n) < 1_000_000:
-        return f"{n:,}".replace(",", " ")               # 41 450
+        return f"{n:,}".replace(",", " ")                    # 41 450
     if abs(n) < 1_000_000_000:
         return f"{n / 1e6:.2f}".replace(".", ",") + " M"     # 1,47 M
     return f"{n / 1e9:.2f}".replace(".", ",") + " Md"        # 2,31 Md
 
 
-def _periode(cle: str, brut) -> str:
-    """Jours -> « 13/07 » (5 car.) ; mois -> « 2026-07 » ; années -> « 2026 »."""
-    s = str(brut or "").strip()
-    if cle != "jours":
-        return s
+def _date(brut) -> Optional[_dt.date]:
     try:
-        return _dt.date.fromisoformat(s[:10]).strftime("%d/%m")
+        return _dt.date.fromisoformat(str(brut or "").strip()[:10])
     except ValueError:
-        return s
+        return None
+
+
+def _periode(cle: str, brut) -> str:
+    """Jours -> « 13/07 » ; mois -> « 2026-07 » ; années -> « 2026 »."""
+    if cle != "jours":
+        return str(brut or "").strip()
+    d = _date(brut)
+    return d.strftime("%d/%m") if d else str(brut or "").strip()
+
+
+def _semaines(cle: str, lignes: List[Dict]) -> List[Optional[List[str]]]:
+    """Les lignes du tableau, avec une LIGNE VIDE entre chaque semaine (demande
+    de Preda). La semaine = la semaine ISO du Sheet, pas un decoupage par 7 :
+    les jours manquants (journee PT pas encore close) ne decalent donc rien."""
+    out: List[Optional[List[str]]] = []
+    prec = None
+    for r in lignes:
+        cells = [_periode(cle, r.get("periode"))] + \
+                [_fr(r.get(c)) for c, _n in COLONNES]
+        if cle == "jours":
+            d = _date(r.get("periode"))
+            sem = d.isocalendar()[:2] if d else None
+            if prec is not None and sem != prec:
+                out.append(None)                 # respiration entre 2 semaines
+            prec = sem
+        out.append(cells)
+    return out
 
 
 def tableau(cle: str, lignes: List[Dict[str, Any]],
@@ -134,43 +165,45 @@ def tableau(cle: str, lignes: List[Dict[str, Any]],
     """Un tableau ALIGNE dans un bloc de code — la seule facon d'avoir des
     colonnes droites sur Discord (les embeds n'alignent rien)."""
     entetes = [ENTETE_PERIODE[cle]] + [nom for _c, nom in COLONNES]
-    corps = [[_periode(cle, r.get("periode"))] +
-             [_fr(r.get(c)) for c, _n in COLONNES] for r in lignes]
-    pied = ([f"Total"] + [_fr(total.get(c)) for c, _n in COLONNES]
+    corps = _semaines(cle, lignes)
+    pied = (["Total"] + [_fr(total.get(c)) for c, _n in COLONNES]
             if total else None)
-    toutes = corps + ([pied] if pied else [])
-    larg = [max(len(entetes[i]), *(len(l[i]) for l in toutes))
-            for i in range(len(entetes))] if toutes else \
-           [len(e) for e in entetes]
+    remplies = [c for c in corps if c] + ([pied] if pied else [])
+    larg = [max([len(entetes[i])] + [l[i] and len(l[i]) or 0
+                                     for l in remplies])
+            for i in range(len(entetes))]
 
     def _ligne(cells: List[str]) -> str:
-        return (cells[0].ljust(larg[0]) + " " +
-                " ".join(cells[i].rjust(larg[i])
+        return (cells[0].ljust(larg[0]) + SEP +
+                SEP.join(cells[i].rjust(larg[i])
                          for i in range(1, len(cells))))
 
-    lines = [_ligne(entetes), "-" * len(_ligne(entetes))]
-    lines += [_ligne(c) for c in corps]
+    regle = "-+-".join("-" * w for w in larg)
+    lines = [_ligne(entetes), regle]
+    lines += [_ligne(c) if c else "" for c in corps]
     if pied:
-        lines += ["-" * len(_ligne(entetes)), _ligne(pied)]
+        lines += [regle, _ligne(pied)]
     return "```\n" + "\n".join(lines) + "\n```"
 
 
+def _maj() -> str:
+    h = _dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(hours=2)  # Paris
+    return h.strftime("%d/%m/%Y à %H:%M")
+
+
 def carte(cle: str, lignes: List[Dict], total: Optional[Dict] = None) -> Dict:
-    maj = _dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(hours=2)
     return {
-        "title": {"annees": "🏛️ Par année", "mois": "📅 Par mois",
-                  "jours": "📊 Par jour"}[cle],
+        "title": CARTES[cle],
         "color": COULEURS[cle],
         "description": (tableau(cle, lignes, total) + "\n" + LEGENDE)[:4000],
-        "footer": {"text": f"{CODES[cle]} · mis à jour le "
-                           f"{maj.strftime('%d/%m/%Y à %H:%M')} (Paris)\n"
-                           f"{AVERTISSEMENT}"},
+        "footer": {"text": f"{CODES[cle]} · {AVERTISSEMENT}"},
     }
 
 
 def message(cle: str, lignes: List[Dict], total: Optional[Dict] = None) -> Dict:
-    """Le NOM DE CODE est dans le message lui-meme (demande de Preda)."""
-    return {"content": f"{TITRES[cle]}  ·  `⟦{CODES[cle]}⟧`",
+    """Dans le corps : la DATE DE DERNIERE MISE A JOUR (a la place du nom de
+    code, qui reste dans le pied de la carte pour identifier le message)."""
+    return {"content": f"{TITRES[cle]}  ·  *mis à jour le {_maj()} (Paris)*",
             "embeds": [carte(cle, lignes, total)],
             "allowed_mentions": {"parse": []}}
 
@@ -307,8 +340,7 @@ def main() -> int:
 
     state = load_state()
     jours = page["jours"][:N["jours"]]
-    # Le TOTAL des 7 derniers jours (la « semaine ecoulee » : la veille + 6).
-    total = stats_read.semaine(page["jours"], N["jours"])
+    total = stats_read.semaine(page["jours"], N["jours"])   # cumul des 14 j
     contenus = {"annees": (page["annees"][:N["annees"]], None),
                 "mois": (page["mois"][:N["mois"]], None),
                 "jours": (jours, total)}
@@ -323,8 +355,7 @@ def main() -> int:
             print(f"{CODES[cle]} : aucune donnee dans 📊 STATS — on ne touche "
                   f"pas au message existant.", flush=True)
             continue
-        larg = max(len(l) for l in
-                   tableau(cle, lignes, tot).splitlines()[1:-1])
+        larg = max(len(l) for l in tableau(cle, lignes, tot).splitlines())
         if larg > LARGEUR_MAX:
             print(f"⚠️ {CODES[cle]} : tableau large de {larg} caracteres "
                   f"(> {LARGEUR_MAX}) — Discord risque d'enrouler les lignes.",
@@ -351,5 +382,5 @@ def main() -> int:
 if __name__ == "__main__":
     sys.exit(main())
 
-# FIN discord_stats.py v2 — 5 colonnes, nombres compacts, largeur <= 46 : un
-# bloc de code Discord n'est PAS coupe, il est ENROULE. La largeur est tout.
+# FIN discord_stats.py v3 — 3 colonnes, barres verticales, une respiration
+# entre chaque semaine ISO, et la date de mise a jour a la place du matricule.
