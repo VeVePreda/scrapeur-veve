@@ -122,22 +122,31 @@ DROP_OUI = os.environ.get("DISCORD_STATS_DROP_OUI", "☑")
 DROP_NON = os.environ.get("DISCORD_STATS_DROP_NON", "☐")
 
 # LA VERSION CONDENSEE (années, mois, et le 1er message des jours) : une ligne
-# par periode, l'essentiel et rien d'autre.
-CONDENSE = [("tx", "Tx"), ("actifs", "Actifs"), ("nouveaux", "Nouv"),
-            ("anciens", "Anc"), ("revenue", "Rev")]
+# par periode, l'essentiel et rien d'autre. v8 : Nouveaux et Anciens sortent
+# d'ici — ils ne vivent plus que dans le DETAIL des jours (demande de Preda).
+CONDENSE = [("tx", "Tx"), ("actifs", "Actifs"), ("revenue", "Rev")]
 
-# LES CINQ PARTIES — SEULEMENT pour le detail des JOURS (demande de Preda) : a
-# la maille du mois ou de l'année, ce niveau de detail n'apprend rien. Ce sont
-# exactement les groupes de colonnes de la page 📊 STATS.
+# LES CINQ PARTIES — SEULEMENT pour le detail des JOURS : a la maille du mois ou
+# de l'année, ce niveau de detail n'apprend rien. Ce sont exactement les groupes
+# de colonnes de la page 📊 STATS.
+#
+# Chaque partie porte une NOTE (v8, dictee par Preda) : ce sont les precisions
+# qui evitent qu'on lise le chiffre de travers. Elles disent ce que le chiffre
+# COUVRE et ce qu'il NE couvre PAS — c'est la moitie de l'information.
 SECTIONS = [
-    ("TRANSACTION", [("tx", "Global"), ("mint", "Mint"),
-                     ("market", "Market")]),
-    ("ACTIFS", [("actifs", "Unique"), ("nouveaux", "Nouveaux"),
-                ("anciens", "Anciens")]),
-    ("REVENUE", [("revenue", "Total"), ("rev_drop", "Drop"),
-                 ("rev_market", "Market")]),
-    ("LISTING", [("qte", "Quantité"), ("comptes", "Comptes uniques")]),
-    ("ACHAT", [("cours_omi", "Cours OMI"), ("gems_usd", "Gems")]),
+    ("TRANSACTION", "achats, ventes et mints",
+     [("tx", "Global"), ("mint", "Mint"), ("market", "Market")]),
+    ("ACTIFS", "wallets uniques, hors listing",
+     [("actifs", "Unique"), ("nouveaux", "Nouveaux"),
+      ("anciens", "Anciens")]),
+    ("REVENUE", "la valeur Market est approximative",
+     [("revenue", "Total"), ("rev_drop", "Drop"),
+      ("rev_market", "Market")]),
+    ("LISTING", "les comptes uniques sont ceux qui n'ont ni acheté, ni vendu, "
+                "ni mint",
+     [("qte", "Quantité"), ("comptes", "Comptes uniques")]),
+    ("ACHAT", "ne prend pas en compte les achats en fiat",
+     [("cours_omi", "Cours OMI"), ("gems_usd", "Gems")]),
 ]
 
 # Les colonnes en dollars (le $ est colle au chiffre, pas mis en legende : en
@@ -232,8 +241,8 @@ def corps(cle: str, lignes: List[Dict[str, Any]]) -> str:
     if cle != "jours":
         return "\n".join(_ligne(cle, r, CONDENSE) for r in lignes)
     blocs = []
-    for titre, colonnes in SECTIONS:
-        lines = [f"**{titre}**"]
+    for titre, note, colonnes in SECTIONS:
+        lines = [f"**{titre}**  *({note})*"]
         lines += [_ligne(cle, r, colonnes) for r in lignes]
         blocs.append("\n".join(lines))
     return "\n\n".join(blocs)
@@ -457,5 +466,5 @@ def main() -> int:
 if __name__ == "__main__":
     sys.exit(main())
 
-# FIN discord_stats.py v7 — 4 messages : condense partout, detail en cinq
+# FIN discord_stats.py v8 — 4 messages : condense partout, detail en cinq
 # parties sur les seuls jours, et le condense JUSTE AU-DESSUS du detail.
