@@ -178,7 +178,11 @@ def _num(x):
 # wallet. Un floor est un prix DEMANDE : n'importe qui peut demander n'importe
 # quoi. Au-dela du seuil, on IGNORE le floor et on retombe sur le prix store —
 # et on DIT combien on en a ecarte (jamais en silence).
-PRIX_MAX = float(os.environ.get("PRIX_MAX", "1000000"))
+# Seuil floor ABERRANT (demande Preda 15/07 : « au-dessus de 50 000 plutôt que
+# 1M ») — un floor est un prix DEMANDE, n'importe qui peut lister n'importe quoi.
+# Au-dela, on ignore ce floor et le prix store prend le relais (les prix store,
+# eux, restent tres bas : ce plafond ne les ecarte jamais). Tunable via PRIX_MAX.
+PRIX_MAX = float(os.environ.get("PRIX_MAX", "50000"))
 
 
 def _read_prices(sh):
@@ -503,10 +507,17 @@ def replay(folder: str, imx_folder: str = ""):
                - _dt.timedelta(days=REVEIL_FENETRE)).isoformat()
     avant: Dict[str, str] = {}
     dedans: Dict[str, str] = {}
+    # last_active VRAI (IMX + CC), hors re-mint de migration : le dump du 28/01 a
+    # touche TOUS les holders et masquait la dormance (0 en Désinscrit/Fantôme).
+    # On l'exclut (demande Preda 15/07). Alimente par _voir, cote CC (migration
+    # filtree a l'appel) ET cote IMX (via _ingest_imx voir=_voir, deja < migration).
+    last_seen: Dict[str, str] = {}
 
     def _voir(w: str, jour: str) -> None:
         if not w or not jour or w in SYSTEM:
             return
+        if jour > last_seen.get(w, ""):
+            last_seen[w] = jour
         if jour < debut_f:
             if jour > avant.get(w, ""):
                 avant[w] = jour
@@ -531,8 +542,11 @@ def replay(folder: str, imx_folder: str = ""):
                 frm = sys.intern((r.get("from") or "").strip().lower())
                 to = sys.intern((r.get("to") or "").strip().lower())
                 day = sys.intern((r.get("date_pt") or "").strip())
-                _voir(frm, day)
-                _voir(to, day)
+                # le re-mint de MASSE de la migration (jour de migration, source
+                # systeme) n'est pas de l'activite utilisateur : on ne le date pas.
+                if not (day == MIGRATION_DAY and frm in SYSTEM):
+                    _voir(frm, day)
+                    _voir(to, day)
                 seq[(sys.intern(uid), sys.intern(ed))].append(
                     (ts, frm, to, day, key))
                 n += 1
@@ -624,16 +638,19 @@ def replay(folder: str, imx_folder: str = ""):
                 dups += 1                        # doublon d'archives chevauchantes
                 continue
             prev_key = key
-            # activite on-chain (min/max + semaines actives) pour les reels
+            # activite on-chain (min/max + semaines actives) pour les reels.
+            # Le re-mint de migration (28/01, source systeme) n'est PAS compte
+            # comme last_active ni comme semaine active (last_seen fait foi).
             wk = _week_key(day)
+            remint = (day == MIGRATION_DAY and frm in SYSTEM)
             for w in (frm, to):
                 if w and w not in SYSTEM:
                     p = P(w)
                     if not p["first"] or day < p["first"]:
                         p["first"] = day
-                    if day > p["last"]:
+                    if day > p["last"] and not remint:
                         p["last"] = day
-                    if wk is not None:
+                    if wk is not None and not remint:
                         p["weeks"].add(wk)
             if to == MARKET_ESCROW:
                 listed = 1                       # mise en vente : proprio inchange
@@ -688,6 +705,18 @@ def replay(folder: str, imx_folder: str = ""):
     if n_imx:
         print(f"Pulse IMX : {n_imx} transferts 2021->{MIGRATION_DAY} integres "
               f"({len(monthly)} mois au pulse).", flush=True)
+    # last_active DEFINITIF = max(CC hors migration, IMX). Comble les holders
+    # dont la SEULE trace CC etait le re-mint de migration : leur vrai
+    # last_active vient alors de l'ere IMX -> Désinscrit/Fantôme redeviennent
+    # parlants (fin des 0 dus a la migration, demande Preda 15/07).
+    combles = 0
+    for w, p in prof.items():
+        ls = last_seen.get(w, "")
+        if ls > p["last"]:
+            p["last"] = ls
+            combles += 1
+    print(f"last_active : {combles} wallet(s) redates par l'ere IMX (hors "
+          f"re-mint de migration).", flush=True)
     # 👴 REVEILS : 1re activite DANS la fenetre apres une absence de plus de
     # REVEIL_GAP jours. Calcule sur l'archive COMPLETE (IMX + CC) — la seule
     # source qui connaisse l'AVANT.
@@ -1745,6 +1774,27 @@ def _write_dashboard(sh, profiles, whale_blocks, corner, today):
     return len(grid)
 
 
+def _open_with_retry(sheet_id):
+    """Ouvre le Sheet en encaissant un 429 (quota de LECTURE par minute) — le
+    ledger peut tomber juste apres un autre gros job (demande Preda 15/07 :
+    « faudra lui mettre a l'occasion »). Backoff genereux ; les autres lectures
+    du ledger degradent deja proprement (try/except -> vide), le seul point qui
+    PLANTE est l'ouverture."""
+    from gspread.exceptions import APIError
+    for i, d in enumerate((0, 15, 30, 45, 60, 60)):
+        if d:
+            print(f"  ouverture du Sheet : quota atteint, pause {d}s...",
+                  flush=True)
+            time.sleep(d)
+        try:
+            return _client().open_by_key(sheet_id)
+        except APIError as e:
+            code = getattr(getattr(e, "response", None), "status_code", None)
+            if code not in (429, 503) or i == 5:
+                raise
+    return _client().open_by_key(sheet_id)
+
+
 def main() -> int:
     t0 = time.time()
     sheet_id = os.environ.get("SHEET_ID")
@@ -1784,7 +1834,7 @@ def main() -> int:
     def do(step: str) -> bool:
         return "all" in steps or step in steps
 
-    sh = _client().open_by_key(sheet_id)
+    sh = _open_with_retry(sheet_id)
     (ledger, prof, whale_blocks, corner, size_rows, profiles,
      pulse_rows, reveils) = build_all(folder, snap_folder, sh, top, today,
                                       imx_folder)
