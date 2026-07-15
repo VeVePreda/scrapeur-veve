@@ -273,7 +273,11 @@ def write(sh, ws, row0: int) -> int:
     br0, bnc = meta["banner"]
     reqs.append(_bg(sid, br0, 1, 0, bnc, VIOLET))
     reqs.append(_merge(sid, br0, 0, bnc))
-    reqs.append(_bg(sid, meta["kpi_row"], 1, 0, 10, BOLD))
+    # ligne KPI : gras + alignee a GAUCHE (demande Preda) — la valeur colle a son
+    # libelle (« Supply 4 266 ») au lieu d'etre calee a droite de sa case.
+    reqs.append(_bg(sid, meta["kpi_row"], 1, 0, 10,
+                    {"textFormat": {"bold": True},
+                     "horizontalAlignment": "LEFT"}))
     # menu de l'item : surligne (demande Preda) + label en gras
     reqs.append(_bg(sid, ar0 + 1, 1, 0, 1, BOLD))
     reqs.append(_bg(sid, ar0 + 1, 1, 1, 1, HILITE))
