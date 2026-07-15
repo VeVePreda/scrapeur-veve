@@ -118,15 +118,17 @@ PSEUDO_PROFILE_COLS = ["holdings", "distinct_collectibles", "acquired", "sold",
 # rang_* <- position dans les 3 classements de WHALE_TYPES (vide si hors top)
 RANK_COLS = {"holdings": "rang_qty", "value_floor": "rang_floor",
              "value_store": "rang_store"}
-CORNER_HEADER = (["veve_uuid", "name", "category", "circulating", "holders",
-                  "gini"]
-                 + [f"top{i}_{s}" for i in range(1, 11) for s in ("cnt", "pct")]
-                 + ["qty_dominant", "qty_dominant_pct",
-                    "vstore_dominant", "vstore_dominant_pct",
-                    "vfloor_dominant", "vfloor_dominant_pct",
-                    "score_dominant", "score_dominant_pct",
-                    "activity_dominant", "activity_dominant_pct",
-                    "engagement_dominant", "engagement_dominant_pct"])
+_CORNER_BASE = (["veve_uuid", "name", "category", "circulating", "holders",
+                 "gini"]
+                + [f"top{i}_{s}" for i in range(1, 11) for s in ("cnt", "pct")]
+                + ["qty_dominant", "qty_dominant_pct",
+                   "vstore_dominant", "vstore_dominant_pct",
+                   "vfloor_dominant", "vfloor_dominant_pct",
+                   "score_dominant", "score_dominant_pct",
+                   "activity_dominant", "activity_dominant_pct",
+                   "engagement_dominant", "engagement_dominant_pct"])
+# CORNER_HEADER complet (base + fiche VeveFox) defini plus bas, une fois
+# SCORES / ACTIVITIES / QTY_ORDER / HOLD_ORDER connus.
 
 # Tranches de QUANTITE (nb d'exemplaires detenus) — demande Preda.
 # Echelles v3 = SPECIFICATION EXACTE de Preda (12/07).
@@ -283,6 +285,54 @@ GOCHAIN_URL = os.environ.get(
 # Bareme d'activite en FRANCAIS (Preda 2026-07-10) — remplace
 # Active/Engaged/Dormant/Lapsed/Inactive/Ghost.
 ACTIVITIES = ["Actif", "Engagé", "Somnolant", "Inactif", "Désinscrit", "Fantôme"]
+
+# ── 🦊 FICHE PAR ITEM (style VeveFox, demande Preda 15/07) ────────────────────
+# La fiche complete par item vit dans 🎯A-CORNERISATION (colonnes ajoutees, cf.
+# CORNER_HEADER plus bas) : pour chaque activite et profil, le nb de PERSONNES
+# ET la SUPPLY ; + taille de wallet, quantite detenue, scores moyens ; et les 3
+# heatmaps croisees ENCODEES en chaines (";" cellules, "|" lignes) — les grilles
+# de la page 5. Le module interactif de 📊 STATS re-explose ces chaines par SPLIT
+# selon l'item choisi dans le menu deroulant.
+PROFILE_ORDER = SCORES + ["Unclassified"]       # 8 : le "n/a" du score = Unclassified
+ACTIVITY_ORDER = ACTIVITIES + ["Non classé"]    # 7 : activite inconnue (snapshot seul)
+# Score 0-100 par palier (facon VeveFox) -> un score MOYEN par item. Les
+# non-classes (Unclassified / Non classé) sont EXCLUS de la moyenne, jamais
+# comptes comme 0 (sinon un catalogue mal scanne afficherait un faux score bas).
+SCORE_MID = {"Diamond-Hands": 97.5, "Serious Collector": 87.5, "Collector": 70.0,
+             "Trader": 50.0, "Flipper": 30.0, "Seasoned Flipper": 12.5,
+             "Aggressive Flipper": 2.5}
+ACTIVITY_MID = {"Actif": 95.0, "Engagé": 80.0, "Somnolant": 60.0,
+                "Inactif": 40.0, "Désinscrit": 20.0, "Fantôme": 5.0}
+# Tranches de QUANTITE DETENUE DE L'ITEM par un wallet (holding amount VeveFox).
+HOLD_BUCKETS = [(1, 1, "1"), (2, 5, "2-5"), (6, 10, "6-10"), (11, 20, "11-20"),
+                (21, 50, "21-50"), (51, 100, "51-100"), (101, 500, "101-500"),
+                (501, float("inf"), "500+")]
+HOLD_ORDER = [b[2] for b in HOLD_BUCKETS]
+# 🎯A-CORNERISATION porte la fiche COMPLETE par item (demande Preda 15/07 :
+# "ajoute les colonnes ici, les modules STATS tirent de là"). Pour CHAQUE
+# categorie d'activite et de profil : le nb de PERSONNES (wallets) ET la SUPPLY
+# (exemplaires) — les deux, comme le PDF VeveFox. Puis taille de wallet et
+# quantite detenue (pers + supply), scores moyens, et les 3 heatmaps croisees
+# ENCODEES (";" cellules, "|" lignes) = les grilles roses de la page 5, rangees
+# en technique pour le module (pas faites pour etre lues a l'oeil).
+CORNER_HEADER = (
+    _CORNER_BASE + ["avg_collector", "avg_activity"]
+    + [f"act_pers_{s}" for s in ACTIVITY_ORDER]
+    + [f"act_sup_{s}" for s in ACTIVITY_ORDER]
+    + [f"prof_pers_{s}" for s in PROFILE_ORDER]
+    + [f"prof_sup_{s}" for s in PROFILE_ORDER]
+    + [f"ws_pers_{s}" for s in QTY_ORDER]
+    + [f"ws_sup_{s}" for s in QTY_ORDER]
+    + [f"hold_pers_{s}" for s in HOLD_ORDER]
+    + [f"hold_sup_{s}" for s in HOLD_ORDER]
+    + ["hm_prof_act", "hm_prof_ws", "hm_act_ws"])
+
+
+def hold_bucket(c: int) -> str:
+    for lo, hi, lbl in HOLD_BUCKETS:
+        if lo <= c <= hi:
+            return lbl
+    return HOLD_ORDER[-1]
 
 
 def _ts(x: str):
@@ -1125,8 +1175,12 @@ def _write(sh, tab, header, rows):
     ws = _open_worksheet(sh, tab, cols=len(header))
     ws.clear()
     grid = [header] + rows
-    for i in range(0, len(grid), 50000):
-        chunk = grid[i:i + 50000]
+    # Chunk par CELLULES (~200k/appel), pas par lignes : 🎯A-CORNERISATION est
+    # devenu large (~110 colonnes avec la fiche VeveFox) -> un seul update de
+    # 8 600 lignes x 110 col frolerait le 400 "request too large".
+    step = max(1, 200000 // max(1, len(header)))
+    for i in range(0, len(grid), step):
+        chunk = grid[i:i + step]
         if i == 0:
             ws.update(range_name="A1", values=chunk, value_input_option="RAW")
         else:
@@ -1266,13 +1320,15 @@ def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date,
                          pr["activityStatus"]])
         whale_blocks.append((title, rows))
 
-    # CORNERISATION : 1 ligne/collectible
+    # CORNERISATION : 1 ligne/item, ENRICHIE de la fiche complete (demande Preda
+    # 15/07) — les modules VeveFox de 📊 STATS tirent tout de cet onglet.
     corner = []
     for uid, holders in per_uuid.items():
         counts = sorted(holders.items(), key=lambda x: -x[1])
         circ = sum(c for _w, c in counts)
         nm, cat = names.get(uid) or snap_names.get(uid) or ("", "")
-        row = [uid, nm, cat, circ, len(holders), _gini([c for _w, c in counts])]
+        gini_v = _gini([c for _w, c in counts])
+        row = [uid, nm, cat, circ, len(holders), gini_v]
         for i in range(10):
             if i < len(counts):
                 cnt = counts[i][1]
@@ -1282,19 +1338,66 @@ def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date,
         # ventilation de l'offre par bucket qty / valeur / score / activite
         b_qty, b_vs, b_vf, b_sc, b_ac, b_en = (Counter(), Counter(), Counter(),
                                                Counter(), Counter(), Counter())
+        # PERSONNES (wallets) par activite / profil / taille, quantite detenue
+        # (pers + supply), heatmaps croisees, scores moyens ponderes.
+        pers_ac, pers_sc, ws_w = Counter(), Counter(), Counter()
+        hold_w, hold_t = Counter(), Counter()
+        hm_pa, hm_pw, hm_aw = Counter(), Counter(), Counter()
+        sum_c = wt_c = sum_a = wt_a = 0.0
         for w, c in counts:
-            b_qty[qbk.get(w, "1")] += c
+            qb = qbk.get(w, "1")
+            sc = score.get(w, "n/a")
+            ac = activity.get(w, "")
+            b_qty[qb] += c
             b_vs[vsbk.get(w, "<100")] += c
             b_vf[vfbk.get(w, "<100")] += c
-            b_sc[score.get(w, "n/a")] += c
-            b_ac[activity.get(w, "")] += c
+            b_sc[sc] += c
+            b_ac[ac] += c
             b_en[engage.get(w, "n/a")] += c
+            pers_sc[sc] += 1
+            pers_ac[ac] += 1
+            ws_w[qb] += 1
+            hb = hold_bucket(c)
+            hold_w[hb] += 1
+            hold_t[hb] += c
+            pk = "Unclassified" if sc == "n/a" else sc
+            akk = "Non classé" if ac == "" else ac
+            hm_pa[(pk, akk)] += c
+            hm_pw[(pk, qb)] += c
+            hm_aw[(akk, qb)] += c
+            if sc in SCORE_MID:
+                sum_c += SCORE_MID[sc] * c
+                wt_c += c
+            if ac in ACTIVITY_MID:
+                sum_a += ACTIVITY_MID[ac] * c
+                wt_a += c
         for dist, order in ((b_qty, QTY_ORDER), (b_vs, VALUE_ORDER),
                             (b_vf, VALUE_ORDER), (b_sc, SCORES + ["n/a"]),
                             (b_ac, ACTIVITIES),
                             (b_en, ENGAGEMENTS + ["n/a"])):
             d, pct = _dominant(dist, order)
             row += [d, pct]
+        # --- FICHE COMPLETE (meme ordre que CORNER_HEADER) ---
+        # cles internes : activite "" = "Non classé", score "n/a" = "Unclassified".
+        ac_keys = ACTIVITIES + [""]          # aligne sur ACTIVITY_ORDER
+        sc_keys = SCORES + ["n/a"]           # aligne sur PROFILE_ORDER
+        row += [round(sum_c / wt_c, 1) if wt_c else "",
+                round(sum_a / wt_a, 1) if wt_a else ""]
+        row += [pers_ac.get(k, 0) for k in ac_keys]        # act_pers_*
+        row += [b_ac.get(k, 0) for k in ac_keys]           # act_sup_*
+        row += [pers_sc.get(k, 0) for k in sc_keys]        # prof_pers_*
+        row += [b_sc.get(k, 0) for k in sc_keys]           # prof_sup_*
+        row += [ws_w.get(k, 0) for k in QTY_ORDER]         # ws_pers_*
+        row += [b_qty.get(k, 0) for k in QTY_ORDER]        # ws_sup_*
+        row += [hold_w.get(k, 0) for k in HOLD_ORDER]      # hold_pers_*
+        row += [hold_t.get(k, 0) for k in HOLD_ORDER]      # hold_sup_*
+        row += [
+            "|".join(";".join(str(hm_pa.get((p, a), 0)) for a in ACTIVITY_ORDER)
+                     for p in PROFILE_ORDER),
+            "|".join(";".join(str(hm_pw.get((p, q), 0)) for q in QTY_ORDER)
+                     for p in PROFILE_ORDER),
+            "|".join(";".join(str(hm_aw.get((a, q), 0)) for q in QTY_ORDER)
+                     for a in ACTIVITY_ORDER)]
         corner.append(row)
     corner.sort(key=lambda r: -r[3])
 
@@ -1693,7 +1796,7 @@ def main() -> int:
     if do("whales"):
         _write_whales_flat(sh, whale_blocks)               # 🐋 -> _Whales (cache)
     if do("corner"):
-        _write(sh, CORNER_TAB, CORNER_HEADER, corner)      # 🎯
+        _write(sh, CORNER_TAB, CORNER_HEADER, corner)      # 🎯 (fiche complete)
     if do("size"):
         _write_size_history(sh, size_rows, today.strftime("%Y-%m"))   # 📈
     if do("pseudos"):
