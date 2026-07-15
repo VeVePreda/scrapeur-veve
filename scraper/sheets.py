@@ -706,9 +706,14 @@ def sync_dynamic(items: List[Dict[str, Any]], spreadsheet_id: str) -> Dict[str, 
             v = it.get(f)
             snap[f] = _cell(v) if v not in (None, "") else (old or {}).get(f, "")
 
-        row = {"snapshot_date": stamp, **snap}
+        # snapshot_date = l'heure d'OBSERVATION si l'appelant la fournit (le pont
+        # 🌉 porte l'heure ou le floor a change, pas l'heure d'ingestion), sinon
+        # l'heure courante. Retro-compatible : floors/comic_prices/dynamic_run ne
+        # passent rien -> `stamp` comme avant.
+        sd = it.get("snapshot_date") or stamp
+        row = {"snapshot_date": sd, **snap}
         new_rows.append([row.get(c, "") for c in DYN_HEADER])
-        new_state[pid] = {**snap, "last_snapshot": stamp}
+        new_state[pid] = {**snap, "last_snapshot": sd}
         appended += 1
 
     # Append the changed rows to the history page. Make sure row 1 is the CURRENT

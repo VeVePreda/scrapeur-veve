@@ -45,6 +45,16 @@ def main() -> int:
         return 2
     max_items = int(os.environ.get("FLOORS_MAX", "0") or "0")
 
+    # 🌉 LE PONT (15/07) : le floor collectible peut etre CEDE au pont veille→
+    # 🟠H-PRIX (jetonveve, horaire). Ici on garde le meme fichier, mais on
+    # n'ecrit plus `market_lowestOffer` : une seule source par champ (le pont),
+    # zero course sur _DynState. `market_totalListings` reste ecrit ici (le pont
+    # ne le connait pas). FLOORS_FLOOR_SOURCE=bridge pour ceder ; "self" (defaut)
+    # = comportement historique, tant que le pont n'est pas verifie.
+    cede_floor = os.environ.get("FLOORS_FLOOR_SOURCE", "self").lower() == "bridge"
+    print(f"Floor collectible : source = {'PONT (cede)' if cede_floor else 'floors.py'}.",
+          flush=True)
+
     # ---- collectibles + tracker floor (fallback source) ----
     print("Listing collectibles from my-nft-tracker (fallback floor)...", flush=True)
     colls = [p for p in scrape_catalogue(category="collectible",
@@ -84,11 +94,12 @@ def main() -> int:
             else:
                 n_none += 1
         item = {"veve_uuid": uid, "name": p.get("name"), "category": "collectible"}
-        if floor is not None:
+        if floor is not None and not cede_floor:   # 🌉 cede -> le pont ecrit le floor
             item["market_lowestOffer"] = floor
         if listings is not None:
             item["market_totalListings"] = listings
-        items.append(item)
+        if len(item) > 3:                          # ni floor ni listings -> rien a ecrire
+            items.append(item)
 
     # ---- append changes to the shared 🟠H-PRIX history ----
     summary = sheets.sync_dynamic(items, sheet_id)
