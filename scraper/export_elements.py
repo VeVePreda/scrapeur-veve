@@ -40,7 +40,7 @@ SUPPLY_MAX = int(os.environ.get("ELEMENTS_SUPPLY_MAX", "0"))   # 0 = tout
 CLASSEMENT_TAB = os.environ.get("CLASSEMENT_TAB", "🏆A-CLASSEMENT")
 ENTETE = ["veve_uuid", "series_uuid", "name", "category", "rarity",
           "edition_type", "supply", "first_public", "listings", "note",
-          "brand", "licensor"]
+          "brand", "licensor", "atl", "atl_date", "ath", "ath_date"]
 COL_LISTINGS = "market_totalListings"
 
 
@@ -161,6 +161,12 @@ def construire(comics: List[Dict], collect: List[Dict],
                 note,
                 (r.get("veve_brand") or "").strip(),
                 (r.get("veve_licensor") or "").strip(),
+                # ATH/ATL du floor (par element) — pour l'alerte : ATL sur
+                # chaque carte + les canaux 🆕 ATH / 📉 plus-bas historique.
+                r.get("atl") or "",
+                (r.get("atl_date") or "").strip(),
+                r.get("ath") or "",
+                (r.get("ath_date") or "").strip(),
             ])
     out.sort(key=lambda l: (l[3], l[6], l[2]))
     return out

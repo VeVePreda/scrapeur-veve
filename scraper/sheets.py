@@ -58,6 +58,10 @@ COLLECTIBLE_COLD = [
     "veve_url", "image_url", "tracker_uuid", "description", "special_edition",
     "market_fee", "supply", "store_price_gems",
     "first_available_edition", "is_blindbox", "drop_method",
+    # ATH/ATL du floor (source : allTimeHighest/Lowest de MyNftTracker, deja
+    # collecte gratuitement par veve_scraper). Ajoutees EN FIN pour ne rien
+    # decaler.
+    "atl", "atl_date", "ath", "ath_date",
 ]
 COMICS_COLD = [
     "veve_uuid", "name", "category", "edition_type", "rarity", "releaseDate",
@@ -66,6 +70,7 @@ COMICS_COLD = [
     "veve_url", "image_url", "tracker_uuid", "description", "drop_method",
     "market_fee", "supply", "store_price_gems",
     "veve_exclusive", "first_available_edition", "start_year",
+    "atl", "atl_date", "ath", "ath_date",
 ]
 # ---------------------------------------------------------------------------
 # Colonnes FROIDES ajoutees le 2026-07-13 (chantier "page Classement").

@@ -160,6 +160,13 @@ def _flatten_product(p: Dict[str, Any]) -> Dict[str, Any]:
         "market_totalListings": latest.get("totalListings"),
         "allTimeLow": atl.get("lowestOffer"),
         "allTimeHigh": ath.get("lowestOffer"),
+        # ATH/ATL du FLOOR (lowestOffer) + leur date — deja fournis par le
+        # tracker, on les GARDE desormais (colonnes du catalogue). Gratuit :
+        # aucune requete en plus, c'est la meme reponse.
+        "atl": atl.get("lowestOffer"),
+        "ath": ath.get("lowestOffer"),
+        "atl_date": str(atl.get("timestamp") or "")[:10],
+        "ath_date": str(ath.get("timestamp") or "")[:10],
         "change_1d_pct": change_pct(stats.get("oneDayChange")) if isinstance(stats, dict) else None,
         "change_7d_pct": change_pct(stats.get("sevenDayChange")) if isinstance(stats, dict) else None,
         "change_30d_pct": change_pct(stats.get("thirtyDayChange")) if isinstance(stats, dict) else None,
