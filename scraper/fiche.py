@@ -134,6 +134,13 @@ def _build(colmap: Dict[str, str], row0: int, default_name: str):
           "ws_pers_", "ws_sup_")
     table(T, 15, "quantite", "QUANTITÉ DÉTENUE (cet item)",   HOLD_ORDER,
           "hold_pers_", "hold_sup_")
+    # legende des seuils d'activite (demande Preda) : 1 ligne SAUTEE sous le
+    # tableau PROFIL, phrase fusionnee A->I (jusqu'au tableau ACTIVITE), taille 9,
+    # alignee a DROITE.
+    leg = T + 2 + len(PROFILE_ORDER) + 1
+    put(leg, 0, "Actif ≤7 j · Engagé ≤30 j · Somnolant ≤90 j · Inactif ≤180 j · "
+                "Désinscrit ≤365 j · Fantôme au-delà")
+    legend = (R0 + leg, 0, 9)
     bottom = T + 2 + max(len(PROFILE_ORDER), len(ACTIVITY_ORDER),
                          len(QTY_ORDER), len(HOLD_ORDER))
 
@@ -179,7 +186,7 @@ def _build(colmap: Dict[str, str], row0: int, default_name: str):
     meta = {"banner": (R0, max_c + 1), "kpi_row": R0 + 3, "titles": titles,
             "headers": headers, "zebra": zebra, "numfmt": numfmt,
             "heat_titles": heat_titles, "heat_soft": heat_soft,
-            "heat_ranges": heat_ranges,
+            "heat_ranges": heat_ranges, "legend": legend,
             "dropdown_row": row0 + 1, "nrows": len(grid), "width": max_c + 1,
             "area": (R0, len(grid), 0, max_c + 1)}
     return grid, meta
@@ -280,6 +287,11 @@ def write(sh, ws, row0: int) -> int:
         reqs.append(_bg(sid, r0, 1, c0, nc,
                         {"backgroundColor": FAM[fam][1],
                          "textFormat": {"bold": True}}))
+    # legende des seuils d'activite : taille 9, alignee a droite, fusionnee A->I
+    lr, lc, lnc = meta["legend"]
+    reqs.append(_bg(sid, lr, 1, lc, lnc,
+                    {"textFormat": {"fontSize": 9}, "horizontalAlignment": "RIGHT"}))
+    reqs.append(_merge(sid, lr, lc, lnc))
     for r0, nr, c0, nc in meta["zebra"]:
         for k in range(nr):
             if k % 2 == 1:
