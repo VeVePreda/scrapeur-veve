@@ -618,10 +618,19 @@ def run() -> int:
                               "motif": "avalanche"})
         return 0
 
+    # ═══ LE SUIVI DU COMIC BOOK DAY : TOUJOURS (hors purger/avalanche), MEME
+    # sans drop regulier a debriefer — sinon un jour sans drop le SAUTAIT. L'etat
+    # est sauve JUSTE APRES pour que les ids de ses messages soient persistes :
+    # au run suivant on EDITE au lieu de republier. (Le vrai fix du 7h59/11h35 =
+    # ceci + le push d'etat fiabilise cote discord.yml : un `push || true` seul
+    # perdait l'etat quand un autre workflow avait pousse entre-temps.)
+    comic = suivre_comic_day(sh, state, wh)
+    api.save_state(STATE_PATH, state, wh, THREAD)
+
     if not neufs:
-        api.save_state(STATE_PATH, state, wh, THREAD)
-        print("Retour : rien a debriefer.", flush=True)
-        _log(sheet_id, "OK", {"neufs": 0, "duree": f"{time.time() - t0:.0f}s"})
+        print("Retour : rien a debriefer (comic day traite).", flush=True)
+        _log(sheet_id, "OK", {"neufs": 0, "comic_day": comic,
+                              "duree": f"{time.time() - t0:.0f}s"})
         return 0
 
     # Les journees PT a lire, pour TOUS les drops d'un coup (une seule lecture
@@ -715,15 +724,8 @@ def run() -> int:
 
     state["cles"] = list(dict.fromkeys(state.get("cles", [])))
     api.save_state(STATE_PATH, state, wh, THREAD)
-
-    # ═══ LE SUIVI DU COMIC BOOK DAY : UN message, RECRIT ═══
-    comic = suivre_comic_day(sh, state, wh)
-    # ⚠️ BUG DU 15/07 : suivre_comic_day ECRIT les ids de ses messages dans
-    # l'etat, mais l'etat n'etait sauvegarde qu'AVANT cet appel -> les ids
-    # etaient perdus, et le suivi se REPUBLIAIT a chaque run au lieu d'etre
-    # edite. On re-sauvegarde donc APRES. (La recolte est sacree : ce qu'on
-    # vient d'ecrire doit etre persiste.)
-    api.save_state(STATE_PATH, state, wh, THREAD)
+    # (le suivi comic day a deja tourne plus haut, avant le early-return — `comic`
+    # est deja calcule et repris dans le resume ci-dessous.)
 
     resume = {"neufs": len(neufs), "postes": len(postes),
               "sautes": len(sautes), "comic_day": comic,
