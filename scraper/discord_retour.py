@@ -718,6 +718,12 @@ def run() -> int:
 
     # ═══ LE SUIVI DU COMIC BOOK DAY : UN message, RECRIT ═══
     comic = suivre_comic_day(sh, state, wh)
+    # ⚠️ BUG DU 15/07 : suivre_comic_day ECRIT les ids de ses messages dans
+    # l'etat, mais l'etat n'etait sauvegarde qu'AVANT cet appel -> les ids
+    # etaient perdus, et le suivi se REPUBLIAIT a chaque run au lieu d'etre
+    # edite. On re-sauvegarde donc APRES. (La recolte est sacree : ce qu'on
+    # vient d'ecrire doit etre persiste.)
+    api.save_state(STATE_PATH, state, wh, THREAD)
 
     resume = {"neufs": len(neufs), "postes": len(postes),
               "sautes": len(sautes), "comic_day": comic,
