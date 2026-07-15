@@ -23,6 +23,12 @@ on:
         description: "Etapes (all, ou liste : catalogue,chain,ventes,editions,registre,stats,comics)"
         required: false
         default: "all"
+      enrich_mode:
+        description: "Catalogue : new (rapide, fenetre recente) ou all (backfill COMPLET — peuple ATH/ATL sur TOUS les items)"
+        required: false
+        default: "new"
+        type: choice
+        options: ["new", "all"]
 
 
 permissions:
@@ -59,7 +65,7 @@ jobs:
       - name: 1) Catalogue (cold + Marques)
         if: ${{ contains(env.STEPS, 'all') || contains(env.STEPS, 'catalogue') }}
         env:
-          ENRICH_MODE: new
+          ENRICH_MODE: ${{ github.event.inputs.enrich_mode || 'new' }}
           WINDOW_DAYS: "8"
           REFRESH_DYNAMIC: "true"
         run: python -m scraper.run
