@@ -24,10 +24,14 @@ retiree — demande Preda).
 
 from __future__ import annotations
 
+import os
 from typing import Dict, List
 
 CORNER_TAB = "🎯A-CORNERISATION"
 Q = "'"
+# Item affiche par defaut dans le menu (Preda : « Partners Statue », un graal
+# ancien). Reglable sans toucher au code via STATS_FICHE_DEFAULT.
+DEFAULT_ITEM = os.environ.get("STATS_FICHE_DEFAULT", "Partners Statue")
 
 SCORES = ["Diamond-Hands", "Serious Collector", "Collector", "Trader",
           "Flipper", "Seasoned Flipper", "Aggressive Flipper"]
@@ -85,6 +89,7 @@ def _build(colmap: Dict[str, str], row0: int, default_name: str):
     zebra: List[tuple] = []
     numfmt: List[tuple] = []       # (r0, nr, c0, nc, pattern) — surcharges non entieres
     heat_titles: List[tuple] = []
+    heat_soft: List[tuple] = []
     heat_ranges: List[tuple] = []
 
     def put(r, c, val):
@@ -137,6 +142,10 @@ def _build(colmap: Dict[str, str], row0: int, default_name: str):
         put(top, 0, titre)
         for j, cl in enumerate(clabels):
             put(top + 1, 1 + j, cl)
+        # en-tete (libelles de colonnes) + colonne des libelles de lignes :
+        # teinte LEGERE (demande Preda) pour distinguer sans surcharger.
+        heat_soft.append((R0 + top + 1, 1, 0, 1 + len(clabels)))
+        heat_soft.append((R0 + top + 2, len(rlabels), 0, 1))
         for p, rlab in enumerate(rlabels, start=1):
             r = top + 1 + p
             put(r, 0, rlab)
@@ -163,7 +172,8 @@ def _build(colmap: Dict[str, str], row0: int, default_name: str):
 
     meta = {"banner": (R0, max_c + 1), "kpi_row": R0 + 3, "titles": titles,
             "headers": headers, "zebra": zebra, "numfmt": numfmt,
-            "heat_titles": heat_titles, "heat_ranges": heat_ranges,
+            "heat_titles": heat_titles, "heat_soft": heat_soft,
+            "heat_ranges": heat_ranges,
             "dropdown_row": row0 + 1, "nrows": len(grid), "width": max_c + 1,
             "area": (R0, len(grid), 0, max_c + 1)}
     return grid, meta
@@ -226,10 +236,7 @@ def write(sh, ws, row0: int) -> int:
               f"({', '.join(manque)}) — relancer le ledger. Module non ecrit.",
               flush=True)
         return 0
-    try:
-        default_name = sh.worksheet(CORNER_TAB).acell("B2").value or ""
-    except Exception:
-        default_name = ""
+    default_name = DEFAULT_ITEM
 
     grid, meta = _build(colmap, row0, default_name)
     need = row0 + meta["nrows"] + 4
@@ -277,6 +284,10 @@ def write(sh, ws, row0: int) -> int:
     for r0, c0, nc in meta["heat_titles"]:
         reqs.append(_bg(sid, r0, 1, c0, nc,
                         {"backgroundColor": FAM["heat"][0],
+                         "textFormat": {"bold": True}}))
+    for r0, nr, c0, nc in meta["heat_soft"]:
+        reqs.append(_bg(sid, r0, nr, c0, nc,
+                        {"backgroundColor": FAM["heat"][1],
                          "textFormat": {"bold": True}}))
     for r0, nr, c0, nc in meta["heat_ranges"]:
         reqs.append(_gradient(sid, r0, nr, c0, nc))

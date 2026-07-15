@@ -327,11 +327,15 @@ def habiller(sh, ws, quotidien, n_jours, periode, n_mois, n_annees,
     # 📅 PAR MOIS / PAR ANNEE + 📈 PULSE (memes en-tetes -> memes formats)
     for ancre, n in ((ancres["mois"], n_mois), (ancres["annee"], n_annees)):
         reqs += banniere(sid, ancre, 1, L)
-        reqs += banniere(sid, ancre, 21, 20 + len(vvf))
+        # ⚠️ le PULSE (vvf) est ECRIT en V (col 22) par stats_page (MODULE_COL) :
+        # le tableau A-T, puis U VIDE (separateur), puis vvf des V. La banniere et
+        # le bloc doivent donc demarrer en 22 — sinon ils peignent la colonne U
+        # separatrice (U59/U126 coloriees, defaut signale par Preda 15/07).
+        reqs += banniere(sid, ancre, 22, 21 + len(vvf))
         reqs += bloc(sid, periode, ancre + 2, ancre + 3,
                      ancre + 2 + max(1, n), groupes=groupes)
         reqs += bloc(sid, vvf, ancre + 2, ancre + 3, ancre + 2 + max(1, n),
-                     col1=21)          # colonne T laissee VIDE (demande Preda)
+                     col1=22)          # colonne U laissee VIDE (separateur)
 
     # Les bandeaux des MODULES de droite (💰 tailles · 🩺 sante · 🔥 burns ·
     # 🏪 univers). C'est l'Apps Script qui les posait — en le supprimant, la
@@ -351,7 +355,7 @@ def habiller(sh, ws, quotidien, n_jours, periode, n_mois, n_annees,
             c1 = 1 + i * 11
             reqs.append(_cell(_rng(sid, a + 1, a + 1, c1, c1 + 9),
                               {"textFormat": {"bold": True, "fontSize": 10},
-                               "horizontalAlignment": "CENTER"},
+                               "horizontalAlignment": "LEFT"},
                               "userEnteredFormat(textFormat,"
                               "horizontalAlignment)"))
             reqs += bloc(sid, whales, a + 2, a + 3, a + 2 + n_whales, col1=c1)
