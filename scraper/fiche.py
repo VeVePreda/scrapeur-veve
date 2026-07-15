@@ -95,7 +95,7 @@ def _build(colmap: Dict[str, str], row0: int, default_name: str):
     def put(r, c, val):
         G[(r, c)] = val
 
-    put(0, 0, "🦊 FICHE PAR ITEM — choisis un item dans le menu ▼   "
+    put(0, 0, "🦊 FICHE PAR ITEM     "
               "(données : 🎯A-CORNERISATION, recalculées chaque nuit)")
     put(1, 0, "Item ▼")
     put(1, 1, default_name)
@@ -157,17 +157,23 @@ def _build(colmap: Dict[str, str], row0: int, default_name: str):
         return top + 2 + len(rlabels)
 
     h = bottom + 1
-    h = heatmap(h, "CROISEMENT  PROFIL × ACTIVITÉ  (exemplaires)",
+    h = heatmap(h, "CROISEMENT  PROFIL × ACTIVITÉ",
                 "hm_prof_act", PROFILE_ORDER, ACTIVITY_ORDER) + 1
-    h = heatmap(h, "CROISEMENT  PROFIL × TAILLE DE WALLET  (exemplaires)",
+    h = heatmap(h, "CROISEMENT  PROFIL × TAILLE DE WALLET",
                 "hm_prof_ws", PROFILE_ORDER, QTY_ORDER) + 1
-    h = heatmap(h, "CROISEMENT  ACTIVITÉ × TAILLE DE WALLET  (exemplaires)",
+    h = heatmap(h, "CROISEMENT  ACTIVITÉ × TAILLE DE WALLET",
                 "hm_act_ws", ACTIVITY_ORDER, QTY_ORDER) + 1
 
     max_r = max(r for r, _ in G)
     max_c = max(c for _, c in G)
     grid = [["" for _ in range(max_c + 1)] for _ in range(max_r + 1)]
     for (r, c), v in G.items():
+        # ⚠️ USER_ENTERED : Google convertit « 2-10 », « 6-10 »… en DATES (nº de
+        # serie 46297…). Un libelle qui COMMENCE par un chiffre est force en
+        # TEXTE par une apostrophe de tete (invisible a l'affichage). Les
+        # formules (commencent par "=") ne sont jamais touchees.
+        if isinstance(v, str) and v[:1].isdigit():
+            v = "'" + v
         grid[r][c] = v
 
     meta = {"banner": (R0, max_c + 1), "kpi_row": R0 + 3, "titles": titles,
