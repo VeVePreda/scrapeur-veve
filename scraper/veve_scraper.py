@@ -164,7 +164,9 @@ def _flatten_product(p: Dict[str, Any]) -> Dict[str, Any]:
         # tracker, on les GARDE desormais (colonnes du catalogue). Gratuit :
         # aucune requete en plus, c'est la meme reponse.
         "atl": atl.get("lowestOffer"),
-        "ath": ath.get("lowestOffer"),
+        # ⚠️ ATH aberrant du tracker (1e15 = listing troll/fat-finger) -> vide.
+        "ath": (lambda v: v if isinstance(v, (int, float)) and 0 < v < 1e12
+                else "")(ath.get("lowestOffer")),
         "atl_date": str(atl.get("timestamp") or "")[:10],
         "ath_date": str(ath.get("timestamp") or "")[:10],
         "change_1d_pct": change_pct(stats.get("oneDayChange")) if isinstance(stats, dict) else None,
