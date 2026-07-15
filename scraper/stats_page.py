@@ -56,6 +56,7 @@ from typing import Any, Dict, List
 
 from scraper.sheets import _client, _open_worksheet, append_log
 from scraper import health as _health
+from scraper import fiche as _fiche
 
 STATS_TAB = os.environ.get("STATS_TAB", "📊 STATS")
 OLD_HOME_TAB = "🏠ACCUEIL"          # supprime au 1er run (choix Preda 10/07)
@@ -94,6 +95,8 @@ UNIVERS_TAB = "_MarketUniverse"      # ecrit par scraper/market_universe.py
 # (rangs + profil complet) vit dans 🟣C-PSEUDOS.
 WHALES_TAB = "_Whales"
 WHALES_ROW = int(os.environ.get("STATS_WHALES_ROW", "175"))
+# 🦊 FICHE PAR ITEM (module interactif VeveFox) — sous le classement whales.
+FICHE_ROW = int(os.environ.get("STATS_FICHE_ROW", "205"))
 WHALES_TOP = int(os.environ.get("STATS_WHALES_TOP", "20"))
 WHALE_COLS = ["Rang", "Wallet", "Pseudo", "Critère", "Exemplaires",
               "Collectibles", "Valeur store $", "Valeur floor $", "Score",
@@ -155,6 +158,11 @@ DYN_STATE_TAB = "_DynState"
 BURNS_TAB = "🔥H-BURNS"
 MARKET_REV_TAB = "_MarketRevenue"     # ventes StackR reelles (stackr_sales)
 VEVE_REV_TAB = "_VeveRevenue"         # v15 : flux VeVe PUBLIC (veve_tx)
+
+# Onglets de SERVICE a MASQUER (demande Preda 15/07) — masques, pas supprimes :
+# ils restent LUS par le code (🤖LOGS par health.py, 🔗A-RACCORD par
+# classement.py) mais sortent de la vue. Cf. write_stats (fin).
+HIDE_TABS = ("🤖LOGS", "🔗A-RACCORD")
 
 MINT_F = ["mint_collectible", "mint_comic"]
 MARKET_F = ["market_in_collectible", "market_in_comic"]   # 1 vente = 1 in
@@ -1470,6 +1478,14 @@ def write_stats(sh) -> Dict[str, Any]:
     except Exception as e:
         print(f"habillage warning: {e}", flush=True)
 
+    # 🦊 FICHE PAR ITEM (module interactif VeveFox) — menu deroulant + tables +
+    # heatmaps, tout en FORMULES qui lisent 🎯A-CORNERISATION (ecrit apres
+    # l'habillage : ses formats lui sont propres, l'habillage ne le touche pas).
+    try:
+        _fiche.write(sh, ws, FICHE_ROW)
+    except Exception as e:
+        print(f"fiche warning: {e}", flush=True)
+
     # placer 📊 STATS en 1er onglet + supprimer l'ancien 🏠ACCUEIL (choix Preda)
     try:
         sh.batch_update({"requests": [{"updateSheetProperties": {
@@ -1484,6 +1500,20 @@ def write_stats(sh) -> Dict[str, Any]:
               flush=True)
     except Exception:
         pass
+
+    # MASQUER les onglets de SERVICE (demande Preda 15/07) — pas supprimer :
+    #   * 🤖LOGS reste LU par 🩺 SANTE (health.py) ;
+    #   * 🔗A-RACCORD reste LU par classement.py (amorce des 449 notes).
+    # Un onglet MASQUE reste parfaitement lisible par l'API : on ne fait que le
+    # sortir de la vue de Preda. Idempotent (masquer un onglet deja masque = rien).
+    for tab in HIDE_TABS:
+        try:
+            w = sh.worksheet(tab)
+            sh.batch_update({"requests": [{"updateSheetProperties": {
+                "properties": {"sheetId": w.id, "hidden": True},
+                "fields": "hidden"}}]})
+        except Exception:
+            pass
 
     return {"days": len(daily), "drop_days": len(drops),
             "week_tx": week["tx"],
