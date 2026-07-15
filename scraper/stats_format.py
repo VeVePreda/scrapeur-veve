@@ -186,7 +186,7 @@ def bloc(sid: int, entetes: List[str], ligne_entete: int, ligne1: int,
                 _rng(sid, lg, lg, c_deb, c_fin),
                 {"backgroundColor": GROUPES.get(fam, GRIS),
                  "textFormat": {"bold": True, "fontSize": 10,
-                                "foregroundColor": GRIS_FONCE2},
+                                "foregroundColor": NOIR},
                  "horizontalAlignment": "CENTER",
                  "verticalAlignment": "MIDDLE"},
                 "userEnteredFormat(backgroundColor,textFormat,"
@@ -200,7 +200,7 @@ def bloc(sid: int, entetes: List[str], ligne_entete: int, ligne1: int,
             _rng(sid, ligne_entete, ligne_entete, c, c),
             {"backgroundColor": _entete(fam),
              "textFormat": {"bold": True, "fontSize": 9,
-                            "foregroundColor": GRIS_FONCE2},
+                            "foregroundColor": NOIR},
              "horizontalAlignment": "CENTER",
              "wrapStrategy": "WRAP",
              "verticalAlignment": "MIDDLE"},
@@ -373,14 +373,32 @@ def _envoyer(sh, reqs: List[dict], paquet: int = 60) -> int:
     Un batch_update est ATOMIQUE : une seule requete refusee et TOUT est perdu
     (leçon du 13/07 : un figeage de colonne invalide a annule 275 requetes
     d'habillage parfaitement valides). En paquets, un accident reste local —
-    et on DIT lequel a echoue au lieu de perdre la page en silence."""
+    et on DIT lequel a echoue au lieu de perdre la page en silence.
+
+    ⚠️ 15/07 : les `addBanding` (zebrure) sont EXTRAITS et envoyes EN DERNIER,
+    un par un. Un seul « range already has alternating background colors » suffit
+    a faire refuser tout le paquet de 60 — et il emportait avec lui les FUSIONS
+    et COULEURS du tableau PAR MOIS (qui tombaient dans le meme paquet), alors
+    que PAR ANNEE, tombe dans un autre paquet, passait. Resultat visible : le
+    mois sans ses cases fusionnees. La zebrure est un confort ; la fusion est la
+    structure — un confort ne doit jamais tuer une structure. Les deleteBanding
+    (purger) restent dans `autres` : ils passent AVANT les addBanding isoles."""
+    bandes = [r for r in reqs if "addBanding" in r]
+    autres = [r for r in reqs if "addBanding" not in r]
     ok = 0
-    for i in range(0, len(reqs), paquet):
-        tranche = reqs[i:i + paquet]
+    for i in range(0, len(autres), paquet):
+        tranche = autres[i:i + paquet]
         try:
             sh.batch_update({"requests": tranche})
             ok += len(tranche)
         except Exception as e:
             print(f"    habillage : paquet {i // paquet + 1} refuse ({e}) — "
                   f"les autres passent quand meme.", flush=True)
+    for b in bandes:
+        try:
+            sh.batch_update({"requests": [b]})
+            ok += 1
+        except Exception as e:
+            print(f"    habillage : zebrure ignoree ({e}) — fusions et couleurs "
+                  f"sont deja posees.", flush=True)
     return ok
