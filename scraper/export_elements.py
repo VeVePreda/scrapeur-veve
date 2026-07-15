@@ -30,7 +30,10 @@ from __future__ import annotations
 import csv
 import os
 import sys
+import time
 from typing import Dict, List
+
+from gspread.exceptions import APIError
 
 from scraper.sheets import (COLLECT_TAB, COMICS_TAB, DYN_STATE_TAB,  # noqa: F401
                             _client)
@@ -49,6 +52,26 @@ def _num(x) -> int:
         return int(float(str(x).replace(",", ".").replace(" ", "") or 0))
     except (TypeError, ValueError):
         return 0
+
+
+def _retry(desc: str, fn):
+    """Rejoue une lecture Sheets sur 429 (quota par MINUTE) / 503, backoff
+    GENEREUX. export_elements est le DERNIER step du daily et tourne juste apres
+    stats_page, qui a deja consomme le quota de lecture de la minute -> au lieu
+    de planter tout le step (bug du 15/07 : exit 1 sur `open_by_key`), on attend
+    que la fenetre d'une minute se libere. Le CSV du pont vaut bien 1 min."""
+    for i, d in enumerate((0, 15, 30, 45, 60, 60)):
+        if d:
+            print(f"  {desc} : quota Sheets atteint, pause {d}s "
+                  f"(essai {i}/5)...", flush=True)
+            time.sleep(d)
+        try:
+            return fn()
+        except APIError as e:
+            code = getattr(getattr(e, "response", None), "status_code", None)
+            if code not in (429, 503) or i == 5:
+                raise
+    return fn()
 
 
 def _ancre(vals: List[List[str]], *cols: str) -> int:
@@ -177,14 +200,18 @@ def main() -> int:
     if not sid:
         print("SHEET_ID manquant.", file=sys.stderr)
         return 2
-    sh = _client().open_by_key(sid)
-    comics = _lire(sh.worksheet(COMICS_TAB), "veve_uuid")
-    collect = _lire(sh.worksheet(COLLECT_TAB), "veve_uuid")
+    sh = _retry("ouverture du Sheet", lambda: _client().open_by_key(sid))
+    comics = _retry("lecture 🟢C-COMICS",
+                    lambda: _lire(sh.worksheet(COMICS_TAB), "veve_uuid"))
+    collect = _retry("lecture 🔵C-COLLECTIBLE",
+                     lambda: _lire(sh.worksheet(COLLECT_TAB), "veve_uuid"))
     if not comics or not collect:
         print("⛔ catalogue illisible — on ne touche pas au CSV existant.",
               file=sys.stderr)
         return 3
-    rows = construire(comics, collect, lire_listings(sh), lire_notes(sh))
+    rows = construire(comics, collect,
+                      _retry("lecture _DynState", lambda: lire_listings(sh)),
+                      _retry("lecture 🏆A-CLASSEMENT", lambda: lire_notes(sh)))
     if not rows:
         print("⛔ 0 element — on ne touche pas au CSV existant.",
               file=sys.stderr)
