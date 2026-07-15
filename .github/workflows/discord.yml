@@ -145,4 +145,11 @@ jobs:
           git config user.email "actions@github.com"
           git add data/discord_stats_state.json data/discord_blog_state.json data/discord_drops_state.json data/discord_retour_state.json 2>/dev/null || true
           git diff --cached --quiet || git commit -m "discord: etats (ids des messages, slugs annonces)"
-          git push || true
+          # ⚠️ REBASER + REESSAYER : un `git push || true` seul PERDAIT l'etat quand
+          # un autre workflow (daily, etc.) avait pousse entre les 2 crons -> le run
+          # suivant ne voyait pas les ids du comic day et le REPUBLIAIT (7h59 ET
+          # 11h35). L'etat est sacre, comme pour les collecteurs longs.
+          for i in 1 2 3 4 5; do
+            git pull --rebase --autostash origin main && git push origin main && break
+            sleep $((i * 5))
+          done
