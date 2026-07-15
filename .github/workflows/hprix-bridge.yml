@@ -1,0 +1,78 @@
+name: Pont veille -> H-PRIX (ingest)
+
+# 🌉 LE PONT, cote consommateur. jetonveve (PUBLIC) observe le floor VeVe des
+# collectibles 1x/h et ecrit les CHANGEMENTS dans data/hprix_feed.csv (floor en
+# gems ~ $, MEME unite que 🟠H-PRIX). Ici, cote preda (le seul a avoir l'acces
+# Sheet), on lit ce feed et on l'append dans 🟠H-PRIX via sync_dynamic, en
+# portant l'heure d'OBSERVATION. Un watermark (data/hprix_watermark.txt) evite
+# de retraiter le feed.
+#
+# Cadence HORAIRE, decalee du batch du matin (daily 04:11 / floors 05:41 /
+# comic_prices 06:21) : on ne touche pas _DynState en meme temps qu'eux (sa
+# reecriture n'est pas atomique). Horaire = 1 seul rafraichissement par fenetre
+# => au plus 1 changement par item et par run (l'historique reste fidele).
+
+on:
+  schedule:
+    # :50 chaque heure SAUF 04/05/06 UTC (ou le batch quotidien ecrit _DynState).
+    - cron: "50 0-3,7-23 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: hprix-bridge
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      SHEET_ID: ${{ secrets.SHEET_ID }}
+      HPRIX_FEED_IN: _jetonveve/data/hprix_feed.csv
+    steps:
+      - uses: actions/checkout@v4
+
+      # Le feed vit sur jetonveve, PUBLIC -> pas de token (le GITHUB_TOKEN par
+      # defaut lit les repos publics). S'il echoue ou manque, l'ingest ne fait
+      # rien ce tour (le pont s'eteint tout seul, rien n'est casse).
+      - name: "Feed du pont (CSV public exporte par jetonveve)"
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          repository: fanablefrance/jetonveve
+          path: _jetonveve
+          sparse-checkout: data/hprix_feed.csv
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Ingest du feed dans 🟠H-PRIX
+        run: python -m scraper.hprix_ingest
+
+      # Le watermark n'est ecrit que par CE workflow -> un simple pull --rebase
+      # suffit (pas de conflit possible sur ce fichier).
+      - name: Commit du watermark
+        if: always()
+        run: |
+          [ -f data/hprix_watermark.txt ] || exit 0
+          git config user.name "veve-daily-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/hprix_watermark.txt
+          git diff --cached --quiet && { echo "Watermark inchange."; exit 0; }
+          git commit -m "hprix_bridge: watermark"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && exit 0
+            sleep $((i * 5))
+          done
+          echo "⛔ watermark NON pousse apres 3 essais." >&2
