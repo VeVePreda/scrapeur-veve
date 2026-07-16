@@ -116,6 +116,14 @@ def lire_notes(sh) -> Dict[str, str]:
     CLES = ("series_uuid", "veve_uuid", "uuid")
     try:
         vals = sh.worksheet(CLASSEMENT_TAB).get_all_values()
+    except APIError as e:
+        # quota/minute (429) ou indispo (503) : on LAISSE remonter pour que
+        # _retry rejoue apres backoff, au lieu de rendre {} = 0 note (bug 16/07).
+        code = getattr(getattr(e, "response", None), "status_code", None)
+        if code in (429, 503):
+            raise
+        print(f"  {CLASSEMENT_TAB} illisible : {e}", file=sys.stderr)
+        return {}
     except Exception as e:                                  # noqa: BLE001
         print(f"  {CLASSEMENT_TAB} illisible : {e}", file=sys.stderr)
         return {}
@@ -209,9 +217,18 @@ def main() -> int:
         print("⛔ catalogue illisible — on ne touche pas au CSV existant.",
               file=sys.stderr)
         return 3
+    try:
+        notes = _retry("lecture 🏆A-CLASSEMENT", lambda: lire_notes(sh))
+    except APIError as e:
+        # 429/503 toujours la apres ~3,5 min de backoff : on n'ecrase PAS tout
+        # l'export pour autant — on garde le reste (listings/editions) et on sort
+        # sans note ce tour (les notes reviennent au prochain daily).
+        print(f"  🏆A-CLASSEMENT toujours illisible apres retries : {e} "
+              f"— export sans note ce tour.", file=sys.stderr)
+        notes = {}
     rows = construire(comics, collect,
                       _retry("lecture _DynState", lambda: lire_listings(sh)),
-                      _retry("lecture 🏆A-CLASSEMENT", lambda: lire_notes(sh)))
+                      notes)
     if not rows:
         print("⛔ 0 element — on ne touche pas au CSV existant.",
               file=sys.stderr)
