@@ -400,10 +400,7 @@ def message_comic_day(jour: str, series: List[Dict], ping: bool) -> Dict:
 
     e = {"title": f"📚 VeVe Comic Book Day — {jour}", "color": 0x2ECC71,
          "description": desc[:4000],
-         "footer": {"text": "ⓘ Trié par tirage croissant : les petites séries "
-                            "en haut. Avant le drop, la rareté est le seul "
-                            "signal — le suivi des ventes arrive dans "
-                            "🔍 RETOUR DROP."}}
+         "footer": {"text": "ⓘ Trié par supply"}}
     if IMAGE_COMIC_DAY:
         e["image"] = {"url": IMAGE_COMIC_DAY}
     return {"content": contenu, "embeds": [e],
