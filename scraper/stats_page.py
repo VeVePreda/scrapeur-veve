@@ -1358,7 +1358,7 @@ REL_CATALOGUE = ("https://github.com/fanablefrance/jetonveve/releases/download/"
                  "catalogue")
 FICHE_INDEX_TAB = "_FicheIndex"
 FICHE_MENU_TAB = "_FicheMenu"
-GHOST_COL, GHOST_ROW0 = "AI", 48       # bloc agrégat, sous burns/univers (colonne AI)
+GHOST_COL, GHOST_ROW0 = "AI", 50       # bloc agrégat, sous burns/univers (colonne AI)
 _RAR = {"COMMON": "Common", "UNCOMMON": "Uncommon", "RARE": "Rare",
         "ULTRA_RARE": "Ultra Rare", "SECRET_RARE": "Secret Rare",
         "ARTIST_PROOF": "Artist Proof", "FE": "FE", "FA": "FA"}
@@ -1602,9 +1602,10 @@ def _write_cimetieres(sh):
 
 
 def _write_tops(ws, sh, tr):
-    """TOP 20 cimetieres (par supply fantome) + TOP 20 cornerises (par %, circ>=500)
-    cote a cote sous les whales, avec un menu Type qui trie en direct (QUERY).
-    Retourne la ligne ou poser la fiche (dessous)."""
+    """TOP 20 cimetieres + cornerises cote a cote sous les whales, sous UN
+    bandeau de CATEGORIE colore (menu Trier inclus) signifiant que les deux
+    tables en font partie. Col A = marge, G = separateur, zebrage.
+    Retourne la ligne ou poser la fiche."""
     from gspread.utils import a1_range_to_grid_range as _gr
     _write_cimetieres(sh)
     if ws.row_count < tr + 80:
@@ -1612,7 +1613,7 @@ def _write_tops(ws, sh, tr):
             ws.resize(rows=tr + 80)
         except Exception:
             pass
-    tog = f"$B${tr}"
+    tog = f"$K${tr}"
 
     def _q(order, cond):
         return (f"=IFERROR(QUERY('{CIMET_TAB}'!$A$2:$E;"
@@ -1620,42 +1621,63 @@ def _write_tops(ws, sh, tr):
                 f"IF({tog}=\"Tous\";\"\";\"and B='\"&{tog}&\"' \")&"
                 f'"order by {order} desc limit 20";0);"")')
     _retry429(ws.batch_update, [
-        {"range": f"A{tr}", "values": [["Trier ▼", "Tous"]]},
-        {"range": f"A{tr + 2}", "values": [[
-            "TOP 20 — PLUS GROS CIMETIÈRES (supply fantôme)", "", "", "", "", "",
+        {"range": f"B{tr}", "values": [[
+            "⚰️ CORNÉRISATION — supply fantôme dormante par item",
+            "", "", "", "", "", "", "", "Trier ▼", "Tous"]]},
+        {"range": f"B{tr + 2}", "values": [[
+            "TOP 20 — PLUS GROS CIMETIÈRES (supply fantôme)"]]},
+        {"range": f"H{tr + 2}", "values": [[
             "TOP 20 — PLUS CORNÉRISÉS PAR LES FANTÔMES (circ ≥ 500)"]]},
-        {"range": f"A{tr + 3}", "values": [[
-            "Item", "Type", "Circulant", "Fantôme", "% fant.", "",
+        {"range": f"B{tr + 3}", "values": [[
+            "Item", "Type", "Circulant", "Fantôme", "% fant."]]},
+        {"range": f"H{tr + 3}", "values": [[
             "Item", "Type", "Circulant", "Fantôme", "% fant."]]},
     ], value_input_option="RAW")
     _retry429(ws.batch_update, [
-        {"range": f"A{tr + 4}", "values": [[_q("D", "D>0")]]},
-        {"range": f"G{tr + 4}", "values": [[_q("E", "C>=500")]]},
+        {"range": f"B{tr + 4}", "values": [[_q("D", "D>0")]]},
+        {"range": f"H{tr + 4}", "values": [[_q("E", "C>=500")]]},
     ], value_input_option="USER_ENTERED")
-    reqs = [{"setDataValidation": {"range": _gr(f"B{tr}", ws.id),
-        "rule": {"condition": {"type": "ONE_OF_LIST", "values": [
-            {"userEnteredValue": v} for v in ("Tous", "Collectible", "Comic")]},
-            "showCustomUi": True, "strict": False}}},
-        {"repeatCell": {"range": _gr(f"B{tr}", ws.id),
-            "cell": {"userEnteredFormat": {"backgroundColor":
-                     {"red": 1.0, "green": 0.90, "blue": 0.46}}},
-            "fields": "userEnteredFormat.backgroundColor"}}]
-    reqs.append({"repeatCell": {"range": _gr(f"A{tr + 2}:K{tr + 2}", ws.id),
-        "cell": {"userEnteredFormat": {
-            "backgroundColor": {"red": 0.482, "green": 0.173, "blue": 0.749},
-            "textFormat": {"bold": True,
-                           "foregroundColor": {"red": 1, "green": 1, "blue": 1}}}},
-        "fields": "userEnteredFormat(backgroundColor,textFormat)"}})
-    for a1 in (f"A{tr}", f"A{tr + 3}:K{tr + 3}"):
-        reqs.append({"repeatCell": {"range": _gr(a1, ws.id),
-            "cell": {"userEnteredFormat": {"textFormat": {"bold": True}}},
-            "fields": "userEnteredFormat.textFormat.bold"}})
-    for a1, nf in ((f"C{tr + 4}:D{tr + 23}", "#,##0"), (f"E{tr + 4}:E{tr + 23}", "0.0"),
-                   (f"I{tr + 4}:J{tr + 23}", "#,##0"), (f"K{tr + 4}:K{tr + 23}", "0.0")):
-        reqs.append({"repeatCell": {"range": _gr(a1, ws.id),
-            "cell": {"userEnteredFormat": {"numberFormat":
-                     {"type": "NUMBER", "pattern": nf}}},
-            "fields": "userEnteredFormat.numberFormat"}})
+    PRUNE = {"red": 0.482, "green": 0.173, "blue": 0.749}
+    WHITE = {"red": 1, "green": 1, "blue": 1}
+    LTITLE = {"red": 0.85, "green": 0.80, "blue": 0.93}
+    LHEAD = {"red": 0.91, "green": 0.91, "blue": 0.91}
+    ZEB = {"red": 0.965, "green": 0.955, "blue": 0.99}
+    YEL = {"red": 1.0, "green": 0.90, "blue": 0.46}
+
+    def _f(a1, fmt, fields):
+        return {"repeatCell": {"range": _gr(a1, ws.id),
+                "cell": {"userEnteredFormat": fmt}, "fields": fields}}
+    reqs = [
+        _f(f"B{tr}:L{tr}", {"backgroundColor": PRUNE,
+           "textFormat": {"bold": True, "foregroundColor": WHITE}},
+           "userEnteredFormat(backgroundColor,textFormat)"),
+        _f(f"K{tr}", {"backgroundColor": YEL,
+           "textFormat": {"bold": True, "foregroundColor":
+                          {"red": 0, "green": 0, "blue": 0}}},
+           "userEnteredFormat(backgroundColor,textFormat)"),
+        _f(f"B{tr + 2}:F{tr + 2}", {"backgroundColor": LTITLE,
+           "textFormat": {"bold": True}}, "userEnteredFormat(backgroundColor,textFormat)"),
+        _f(f"H{tr + 2}:L{tr + 2}", {"backgroundColor": LTITLE,
+           "textFormat": {"bold": True}}, "userEnteredFormat(backgroundColor,textFormat)"),
+        _f(f"B{tr + 3}:F{tr + 3}", {"backgroundColor": LHEAD,
+           "textFormat": {"bold": True}}, "userEnteredFormat(backgroundColor,textFormat)"),
+        _f(f"H{tr + 3}:L{tr + 3}", {"backgroundColor": LHEAD,
+           "textFormat": {"bold": True}}, "userEnteredFormat(backgroundColor,textFormat)"),
+        {"setDataValidation": {"range": _gr(f"K{tr}", ws.id),
+            "rule": {"condition": {"type": "ONE_OF_LIST", "values": [
+                {"userEnteredValue": v} for v in ("Tous", "Collectible", "Comic")]},
+                "showCustomUi": True, "strict": False}}},
+    ]
+    for k in range(20):
+        if k % 2 == 1:
+            reqs.append(_f(f"B{tr + 4 + k}:F{tr + 4 + k}", {"backgroundColor": ZEB},
+                        "userEnteredFormat.backgroundColor"))
+            reqs.append(_f(f"H{tr + 4 + k}:L{tr + 4 + k}", {"backgroundColor": ZEB},
+                        "userEnteredFormat.backgroundColor"))
+    for a1, nf in ((f"D{tr + 4}:E{tr + 23}", "#,##0"), (f"F{tr + 4}:F{tr + 23}", "0.0"),
+                   (f"J{tr + 4}:K{tr + 23}", "#,##0"), (f"L{tr + 4}:L{tr + 23}", "0.0")):
+        reqs.append(_f(a1, {"numberFormat": {"type": "NUMBER", "pattern": nf}},
+                    "userEnteredFormat.numberFormat"))
     try:
         _retry429(sh.batch_update, {"requests": reqs})
     except Exception as e:
