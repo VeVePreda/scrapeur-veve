@@ -1534,7 +1534,13 @@ def _write_ghost_block(ws, sh):
     grid, fmt, bold = build_ghost_block(wal, sup, GHOST_ROW0)
     ws.update(range_name=f"{GHOST_COL}{GHOST_ROW0}", values=grid,
               value_input_option="RAW")
-    reqs = []
+    reqs = [{"repeatCell": {
+        "range": _gr(f"AI{GHOST_ROW0 - 2}:AL{GHOST_ROW0 + 22}", ws.id),
+        "cell": {"userEnteredFormat": {
+            "backgroundColor": {"red": 1, "green": 1, "blue": 1},
+            "textFormat": {"bold": False,
+                           "foregroundColor": {"red": 0, "green": 0, "blue": 0}}}},
+        "fields": "userEnteredFormat(backgroundColor,textFormat)"}}]
     RED = {"backgroundColor": {"red": 0.82, "green": 0.18, "blue": 0.18},
            "textFormat": {"bold": True,
                           "foregroundColor": {"red": 1, "green": 1, "blue": 1}}}
@@ -1643,15 +1649,20 @@ def _write_tops(ws, sh, tr):
     LHEAD = {"red": 0.91, "green": 0.91, "blue": 0.91}
     ZEB = {"red": 0.965, "green": 0.955, "blue": 0.99}
     YEL = {"red": 1.0, "green": 0.90, "blue": 0.46}
+    LVIOLET = {"red": 0.80, "green": 0.72, "blue": 0.92}
 
     def _f(a1, fmt, fields):
         return {"repeatCell": {"range": _gr(a1, ws.id),
                 "cell": {"userEnteredFormat": fmt}, "fields": fields}}
     reqs = [
+        # reset du fond (le batch_clear efface les valeurs, PAS les formats ->
+        # sinon violet residuel en A/G des anciennes positions)
+        _f(f"A{tr}:M{tr + 24}", {"backgroundColor": WHITE},
+           "userEnteredFormat.backgroundColor"),
         _f(f"B{tr}:L{tr}", {"backgroundColor": PRUNE,
            "textFormat": {"bold": True, "foregroundColor": WHITE}},
            "userEnteredFormat(backgroundColor,textFormat)"),
-        _f(f"K{tr}", {"backgroundColor": YEL,
+        _f(f"K{tr}", {"backgroundColor": LVIOLET,
            "textFormat": {"bold": True, "foregroundColor":
                           {"red": 0, "green": 0, "blue": 0}}},
            "userEnteredFormat(backgroundColor,textFormat)"),
@@ -1678,6 +1689,12 @@ def _write_tops(ws, sh, tr):
                    (f"J{tr + 4}:K{tr + 23}", "#,##0"), (f"L{tr + 4}:L{tr + 23}", "0.0")):
         reqs.append(_f(a1, {"numberFormat": {"type": "NUMBER", "pattern": nf}},
                     "userEnteredFormat.numberFormat"))
+    for a1 in (f"B{tr + 3}:B{tr + 23}", f"H{tr + 3}:H{tr + 23}"):
+        reqs.append(_f(a1, {"horizontalAlignment": "LEFT"},
+                    "userEnteredFormat.horizontalAlignment"))
+    for a1 in (f"C{tr + 3}:F{tr + 23}", f"I{tr + 3}:L{tr + 23}"):
+        reqs.append(_f(a1, {"horizontalAlignment": "CENTER"},
+                    "userEnteredFormat.horizontalAlignment"))
     try:
         _retry429(sh.batch_update, {"requests": reqs})
     except Exception as e:
