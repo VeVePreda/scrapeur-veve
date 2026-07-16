@@ -24,6 +24,10 @@ BLANC = {'red': 1.0, 'green': 1.0, 'blue': 1.0}
 FOND = BLANC
 FOND_ALT = {'red': 0.9607843137254902, 'green': 0.9294117647058824, 'blue': 0.984313725490196}      # zebrure : le lilas tres pale de l'ancien .gs
 VIOLET = {'red': 0.4823529411764706, 'green': 0.17254901960784313, 'blue': 0.7490196078431373}
+BLEU = {'red': 0.20, 'green': 0.40, 'blue': 0.68}
+VERT = {'red': 0.24, 'green': 0.53, 'blue': 0.33}
+ORANGE = {'red': 0.85, 'green': 0.50, 'blue': 0.16}
+COULEURS = {'prune': VIOLET, 'bleu': BLEU, 'vert': VERT, 'orange': ORANGE}
 OR = {'red': 0.9607843137254902, 'green': 0.7019607843137254, 'blue': 0.00392156862745098}
 GRIS_FONCE2 = {'red': 0.4, 'green': 0.4, 'blue': 0.4}   # le texte des groupes et des en-tetes
 GRIS_TXT = {'red': 0.4, 'green': 0.4, 'blue': 0.4}
@@ -233,11 +237,11 @@ def bloc(sid: int, entetes: List[str], ligne_entete: int, ligne1: int,
     return reqs
 
 
-def banniere(sid: int, ligne: int, c1: int, c2: int) -> List[dict]:
+def banniere(sid: int, ligne: int, c1: int, c2: int, couleur=VIOLET) -> List[dict]:
     """Un bandeau violet : texte BLANC, aligne a GAUCHE (Preda 13/07 — le titre
     d'un bandeau se lit au debut, pas au milieu)."""
     return [_cell(_rng(sid, ligne, ligne, c1, c2),
-                  {"backgroundColor": VIOLET,
+                  {"backgroundColor": couleur,
                    "textFormat": {"bold": True, "foregroundColor": BLANC,
                                   "fontSize": 10},
                    "horizontalAlignment": "LEFT",
@@ -303,7 +307,7 @@ def habiller(sh, ws, quotidien, n_jours, periode, n_mois, n_annees,
 
     # bandeau semaine + KPI (plus de bandeau noir : les 13 lignes du haut sont
     # a Preda, et il ne veut pas de titre de ma part)
-    reqs += banniere(sid, depart, 1, L)
+    reqs += banniere(sid, depart, 1, L, BLEU)
     reqs.append({"mergeCells": {"range": _rng(sid, depart, depart, 1, L),
                                 "mergeType": "MERGE_ROWS"}})
     reqs.append(_cell(_rng(sid, depart + 1, depart + 1, 1, 12),
@@ -326,12 +330,12 @@ def habiller(sh, ws, quotidien, n_jours, periode, n_mois, n_annees,
 
     # 📅 PAR MOIS / PAR ANNEE + 📈 PULSE (memes en-tetes -> memes formats)
     for ancre, n in ((ancres["mois"], n_mois), (ancres["annee"], n_annees)):
-        reqs += banniere(sid, ancre, 1, L)
+        reqs += banniere(sid, ancre, 1, L, BLEU)
         # ⚠️ le PULSE (vvf) est ECRIT en V (col 22) par stats_page (MODULE_COL) :
         # le tableau A-T, puis U VIDE (separateur), puis vvf des V. La banniere et
         # le bloc doivent donc demarrer en 22 — sinon ils peignent la colonne U
         # separatrice (U59/U126 coloriees, defaut signale par Preda 15/07).
-        reqs += banniere(sid, ancre, 22, 21 + len(vvf))
+        reqs += banniere(sid, ancre, 22, 21 + len(vvf), BLEU)
         reqs += bloc(sid, periode, ancre + 2, ancre + 3,
                      ancre + 2 + max(1, n), groupes=groupes)
         reqs += bloc(sid, vvf, ancre + 2, ancre + 3, ancre + 2 + max(1, n),
@@ -341,8 +345,8 @@ def habiller(sh, ws, quotidien, n_jours, periode, n_mois, n_annees,
     # 🏪 univers). C'est l'Apps Script qui les posait — en le supprimant, la
     # 🩺 SANTE avait perdu le sien. Ils reviennent, en violet, texte blanc,
     # alignes a gauche comme les autres.
-    for ligne, c1, c2 in (bandeaux or ()):
-        reqs += banniere(sid, ligne, c1, c2)
+    for ligne, c1, c2, _k in (bandeaux or ()):
+        reqs += banniere(sid, ligne, c1, c2, COULEURS.get(_k, VIOLET))
 
     # ℹ️ NOTES : du texte qui respire, pas un mur
     reqs += notes(sid, ligne_notes, max(1, n_notes), L)

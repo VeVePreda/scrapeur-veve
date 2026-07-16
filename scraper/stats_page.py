@@ -1640,7 +1640,13 @@ def _write_tops(ws, sh, tr):
             "cell": {"userEnteredFormat": {"backgroundColor":
                      {"red": 1.0, "green": 0.90, "blue": 0.46}}},
             "fields": "userEnteredFormat.backgroundColor"}}]
-    for a1 in (f"A{tr}", f"A{tr + 2}:K{tr + 2}", f"A{tr + 3}:K{tr + 3}"):
+    reqs.append({"repeatCell": {"range": _gr(f"A{tr + 2}:K{tr + 2}", ws.id),
+        "cell": {"userEnteredFormat": {
+            "backgroundColor": {"red": 0.482, "green": 0.173, "blue": 0.749},
+            "textFormat": {"bold": True,
+                           "foregroundColor": {"red": 1, "green": 1, "blue": 1}}}},
+        "fields": "userEnteredFormat(backgroundColor,textFormat)"}})
+    for a1 in (f"A{tr}", f"A{tr + 3}:K{tr + 3}"):
         reqs.append({"repeatCell": {"range": _gr(a1, ws.id),
             "cell": {"userEnteredFormat": {"textFormat": {"bold": True}}},
             "fields": "userEnteredFormat.textFormat.bold"}})
@@ -1809,10 +1815,10 @@ def write_stats(sh) -> Dict[str, Any]:
             {"mois": PULSE_ROW, "annee": YEAR_ROW, "whales": WHALES_ROW,
              "depart": START_ROW, "entete": HEADER_ROW},
             bandeaux=[
-                (GROUP_ROW, 22, 32),                    # 💰 V..AF
-                (GROUP_ROW + sante_off, 22, 25),        # 🩺 V..Y
-                (BURNS_ROW, 35, 38),                    # 🔥 AI..AL
-                (UNIVERS_ROW, 35, 38),                  # 🏪 AI..AL
+                (GROUP_ROW, 22, 32, "vert"),            # 💰 V..AF
+                (GROUP_ROW + sante_off, 22, 25, "vert"),  # 🩺 V..Y
+                (BURNS_ROW, 35, 38, "orange"),          # 🔥 AI..AL
+                (UNIVERS_ROW, 35, 38, "orange"),        # 🏪 AI..AL
             ])
         print(f"Habillage : {n_req} requetes (formats deduits des EN-TETES).",
               flush=True)
