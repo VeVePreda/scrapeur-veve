@@ -67,6 +67,7 @@ from typing import Any, Dict, List
 
 from scraper import discord_api as api
 from scraper.sheets import _client, append_log
+from scraper.export_elements import lire_notes    # note de 🏆A-CLASSEMENT (lecture reutilisee)
 
 MODULE = "drops"
 THREAD = os.environ.get("DISCORD_DROPS_THREAD", "1526540247469391952").strip()
@@ -238,6 +239,7 @@ def drops_a_venir(sh, connus: List[str], trace: bool = False) -> List[Dict]:
     """Un drop = une SERIE (les 5 raretes d'un comic sont UNE annonce).
     Seuls les drops de la FENETRE sont candidats : la date fait foi."""
     vus = set(connus or [])
+    notes = lire_notes(sh)                       # {cle -> note} de 🏆A-CLASSEMENT
     aujourdhui, horizon = _fenetre()
     par_serie: Dict[str, Dict] = {}
     illisibles, lointains, comic_day, echantillon = 0, 0, 0, []
@@ -276,6 +278,7 @@ def drops_a_venir(sh, connus: List[str], trace: bool = False) -> List[Dict]:
                 "url": str(r.get("veve_url") or "").strip(),
                 # VeVe-Exclusive : a mentionner dans la carte (demande Preda).
                 "exclusive": str(r.get("veve_exclusive") or "").strip().upper() == "TRUE",
+                "note": notes.get(cle, ""),          # note de classement (si dispo)
                 "ts": ts, "avec_heure": avec_heure, "brut": str(brut)[:30],
                 "lignes": [],
             })
@@ -512,7 +515,10 @@ def texte(d: Dict, ping: bool) -> str:
     p = _prix(d.get("prix"), d["genre"])
     if p:
         format_.append(f"Enter **{p}** 💎")
-    format_.append(f"Min. MCP Priority Bid **{MCP_BID}**")
+    # « Min. MCP Priority Bid » retire (constante, non pertinente) -> a la place,
+    # la NOTE DE CLASSEMENT quand elle existe (le jugement de Preda), sinon rien.
+    if d.get("note"):
+        format_.append(f"Classement : **{d['note']}**")
     lignes.append(" | ".join(format_))
     lignes.append("")
 
@@ -666,6 +672,13 @@ def annoncer_comic_day(sh, state: Dict, wh: str, ping: bool) -> str:
         return "aucun"
     ids = state.setdefault("comic_day", {})
     mid = ids.get(jour)
+    # 🔎 DIAGNOSTIC (Preda a vu un ANCIEN message reutilise/edite au lieu d'un
+    # NEUF le mercredi suivant). En theorie la cle = la date du mercredi, donc un
+    # mercredi neuf ouvre un nouveau post. On TRACE la decision : si un mercredi
+    # neuf ressort « deja poste », le bug (etat / cle) est ici, en clair.
+    print(f"  🔎 Comic Book Day cible={jour} — "
+          f"{'DEJA poste -> edition' if mid else 'nouveau -> post neuf'} "
+          f"(mercredis en etat : {', '.join(sorted(ids)) or 'aucun'})", flush=True)
     payload = message_comic_day(jour, series, ping=(ping and not mid))
     if not wh:
         print(f"\n[SIMULATION]\n{payload['content']}\n"
