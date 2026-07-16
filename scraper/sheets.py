@@ -51,10 +51,10 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 # ---------------------------------------------------------------------------
 # COLD columns kept in each catalogue tab (order = display order).
 COLLECTIBLE_COLD = [
-    "veve_uuid", "name", "category", "edition_type", "rarity", "releaseDate",
+    "veve_uuid", "name", "description", "category", "edition_type", "rarity", "releaseDate",
     "daily_mcp_points", "gemsPerMcp", "veve_series_name", "series_uuid",
     "veve_brand", "brand_uuid", "veve_licensor", "licensor_uuid",
-    "veve_url", "image_url", "tracker_uuid", "description", "special_edition",
+    "veve_url", "image_url", "tracker_uuid", "special_edition",
     "market_fee", "supply", "store_price_gems",
     "first_available_edition", "is_blindbox", "drop_method",
     # ATH/ATL du floor (source : allTimeHighest/Lowest de MyNftTracker, deja
@@ -63,10 +63,10 @@ COLLECTIBLE_COLD = [
     "atl", "atl_date", "ath", "ath_date",
 ]
 COMICS_COLD = [
-    "veve_uuid", "name", "category", "edition_type", "rarity", "releaseDate",
+    "veve_uuid", "name", "description", "category", "edition_type", "rarity", "releaseDate",
     "daily_mcp_points", "noMarketListing", "gemsPerMcp", "veve_series_name",
     "series_uuid", "veve_brand", "brand_uuid", "veve_licensor", "licensor_uuid",
-    "veve_url", "image_url", "tracker_uuid", "description", "drop_method",
+    "veve_url", "image_url", "tracker_uuid", "drop_method",
     "market_fee", "supply", "supply_rarete", "store_price_gems",
     "veve_exclusive", "first_available_edition", "start_year",
     "atl", "atl_date", "ath", "ath_date",
