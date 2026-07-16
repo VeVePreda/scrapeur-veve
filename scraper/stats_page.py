@@ -205,6 +205,20 @@ def _records(sh, tab) -> List[Dict[str, Any]]:
         return []
 
 
+def _records_pulse(sh, tries: int = 4):
+    """Lecture ROBUSTE de _MonthlyPulse. _records avale les exceptions et renvoie
+    [] : un simple hoquet de l'API Google effacait alors les blocs 📅 PAR MOIS/
+    ANNÉE de la page (incident 16/07). On reessaie avant d'abandonner ; le vrai
+    pulse compte des dizaines de lignes, [] = quasi toujours un transitoire."""
+    for i in range(tries):
+        recs = _records(sh, PULSE_TAB)
+        if recs:
+            return recs
+        if i + 1 < tries:
+            time.sleep(2 * (i + 1))
+    return []
+
+
 def read_store_prices(sh) -> Dict[str, float]:
     out: Dict[str, float] = {}
     for r in _records(sh, DYN_STATE_TAB):
@@ -1378,7 +1392,21 @@ def write_stats(sh) -> Dict[str, Any]:
     ws = _open_worksheet(sh, STATS_TAB, cols=44)   # AI..AL = 2e colonne modules
     # ⚠️ PAS de ws.clear() : il effacerait les 13 lignes de Preda.
     # On ne nettoie QUE la zone qui nous appartient.
-    ws.batch_clear([f"A{START_ROW}:AZ{ws.row_count}"])
+    # 📅 PULSE : lecture ROBUSTE (retries) AVANT le batch_clear. Un hoquet de
+    # l'API Google renvoyait [] -> build_pulse vide -> les blocs mois/annee
+    # etaient EFFACES puis PAS repeints (incident 16/07).
+    monthly_g, vvf_g, annual_g, vvfy_g = build_pulse_section(
+        _records_pulse(sh), omi, omi_nft, omi_gem, market_rev, drops, mkt_rates)
+    # GARDE-FOU "on ne detruit pas ce qu'on ne peut pas remplacer" : si le pulse
+    # est introuvable (lecture vide meme apres retries), le batch_clear EPARGNE
+    # les rangs mois+annee (PULSE_ROW..NOTES_ROW-1) -> ils restent affiches.
+    if monthly_g:
+        ws.batch_clear([f"A{START_ROW}:AZ{ws.row_count}"])
+    else:
+        ws.batch_clear([f"A{START_ROW}:AZ{PULSE_ROW - 1}",
+                        f"A{NOTES_ROW}:AZ{ws.row_count}"])
+        print("⚠️ pulse _MonthlyPulse illisible — blocs 📅 PAR MOIS/ANNÉE "
+              "PRESERVES (non effaces).", flush=True)
     ws.update(range_name=f"A{START_ROW}", values=table,
               value_input_option="RAW")
     ws.update(range_name=f"{MODULE_COL}{GROUP_ROW}", values=modules,
@@ -1386,15 +1414,10 @@ def write_stats(sh) -> Dict[str, Any]:
     ws.update(range_name=f"A{NOTES_ROW}", values=notes,
               value_input_option="RAW")
     # ---- sections v14 : alignees par periode ----
-    # rangée PULSE_ROW : 📅 PAR MOIS (A-R)   | 📈 PULSE mois  (T-AC)
-    # rangée YEAR_ROW  : 📅 PAR ANNÉE (A-R)  | 📈 PULSE année (T-AC)
     VIOLET = {"backgroundColor": {"red": 0.482, "green": 0.173, "blue": 0.749},
               "textFormat": {"bold": True, "foregroundColor":
                              {"red": 1, "green": 1, "blue": 1}}}
     BOLD = {"textFormat": {"bold": True}}
-    monthly_g, vvf_g, annual_g, vvfy_g = build_pulse_section(
-        _records(sh, PULSE_TAB), omi, omi_nft, omi_gem, market_rev, drops,
-        mkt_rates)
     if monthly_g:
         ws.update(range_name=f"A{PULSE_ROW}", values=monthly_g,
                   value_input_option="RAW")
