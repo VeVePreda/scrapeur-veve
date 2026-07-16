@@ -89,7 +89,7 @@ def _num(x: str):
 
 # ═══ PAGE 🎯 CORNÉRISATION (agrege, 16/07) : wallets par profil d'activite +
 # supply potentiellement perdue sur les comptes fantomes. Onglet VISIBLE dedie ;
-# la table 111-col 🎯A-CORNERISATION (source de la fiche 🦊) reste, cachee.
+# la table 111-col 🎯A-CORNERISATION (source de la fiche 🦊) reste (cachee a la main).
 CORNER_PAGE_TAB = "\U0001F3AF CORNÉRISATION"
 _ACT_ORDER = ["Actif", "Engage", "Somnolant", "Inactif", "Desinscrit",
               "Fantome", "Non classe"]
@@ -117,10 +117,13 @@ def _sp(n):
     return f"{n:,}".replace(",", " ")
 
 
-def build_corner_page(wallets_rows, supply_rows, corner_rows, meta_d,
+def build_corner_page(wallets_rows, supply_rows, corner_rows, name_map, meta_d,
                       top_n=20, min_circ=500):
-    """Retourne (grid, fmts, bolds). grid = lignes RAW ; fmts = (a1, pattern) ;
-    bolds = rangs 1-based a mettre en gras. Logique PURE (testee hors ligne)."""
+    """Retourne (grid, fmts, bolds). Logique PURE (testee hors ligne).
+    corner_rows = corner_items.csv de la Release (data, sans en-tete), schema :
+      0 uuid, 1 category, 2 circulating, 3 holders, 4 burned, 5 stock,
+      6 ghost_supply, 7 ghost_wallets, 8 pct_ghost, 9 gini, 10 top1, 11 top10.
+    name_map = {uuid: nom} depuis corner_full.csv.gz (meme run)."""
     wal = {r[0]: _i(r[1]) for r in wallets_rows if r and r[0]}
     sup = {r[0]: (_i(r[1]), _i(r[2]), _f(r[3])) for r in supply_rows if r and r[0]}
     tot_wal = sum(wal.values()) or 1
@@ -170,33 +173,35 @@ def build_corner_page(wallets_rows, supply_rows, corner_rows, meta_d,
     fmts.append((f"C{s1}:C{e1 + 1}", "0.0"))
     fmts.append((f"D{s1}:D{e1}", "#,##0"))
     row("")
-    items = [(r[1], r[3], r[4], _i(r[5]), _i(r[9]), _f(r[11]))
-             for r in corner_rows if len(r) >= 12]
+    items = []
+    for r in corner_rows:
+        if len(r) < 9:
+            continue
+        items.append((name_map.get(r[0], r[0]), r[1], _i(r[2]), _i(r[6]), _f(r[8])))
 
     def _tops(title, data):
-        bolds.append(row(title, "", "", "", "", ""))
-        bolds.append(row("Item", "Série", "Type", "Circulant", "Fantôme", "% fantôme"))
+        bolds.append(row(title, "", "", "", ""))
+        bolds.append(row("Item", "Type", "Circulant", "Fantôme", "% fantôme"))
         s2 = len(g) + 1
-        for nm, ser, cat, ci, gsi, pg in data:
-            row(nm, ser, cat, ci, gsi, round(pg, 1))
+        for nm, cat, ci, gsi, pg in data:
+            row(nm, cat, ci, gsi, round(pg, 1))
         e2 = len(g)
         if e2 >= s2:
-            fmts.append((f"D{s2}:E{e2}", "#,##0"))
-            fmts.append((f"F{s2}:F{e2}", "0.0"))
+            fmts.append((f"C{s2}:D{e2}", "#,##0"))
+            fmts.append((f"E{s2}:E{e2}", "0.0"))
         row("")
 
     _tops(f"TOP {top_n} — PLUS GROS CIMETIÈRES (supply fantôme absolue)",
-          sorted(items, key=lambda x: x[4], reverse=True)[:top_n])
+          sorted(items, key=lambda x: x[3], reverse=True)[:top_n])
     _tops(f"TOP {top_n} — PLUS CORNÉRISÉS PAR LES FANTÔMES "
           f"(% fantôme, circulant ≥ {min_circ})",
-          sorted([x for x in items if x[3] >= min_circ],
-                 key=lambda x: x[5], reverse=True)[:top_n])
+          sorted([x for x in items if x[2] >= min_circ],
+                 key=lambda x: x[4], reverse=True)[:top_n])
     return g, fmts, bolds
 
 
 def _write_corner_page(sh, grid, fmts, bolds):
-    """Ecrit l'onglet visible 🎯 CORNÉRISATION + cache la table detail 111-col.
-    Tout le formatage part en UN batch_update (evite les 429)."""
+    """Ecrit l'onglet visible 🎯 CORNÉRISATION. Formatage en UN batch_update."""
     from gspread.utils import a1_range_to_grid_range as _gr
     ws = _open_worksheet(sh, CORNER_PAGE_TAB, cols=8)
     ws.clear()
@@ -342,10 +347,11 @@ def main() -> int:
 
     if do("cornerpage"):
         try:
+            name_map = {r[0]: r[1] for r in corner[1:] if len(r) > 1}
             grid, fmts, bolds = build_corner_page(
                 _rows("wallets_par_profil.csv")[1:],
                 _rows("supply_par_profil.csv")[1:],
-                _rows("corner_items.csv")[1:], meta_d)
+                _rows("corner_items.csv")[1:], name_map, meta_d)
             _write_corner_page(sh, grid, fmts, bolds)
             print(f"page 🎯 CORNÉRISATION : {len(grid)} lignes ecrites.", flush=True)
         except Exception as e:
