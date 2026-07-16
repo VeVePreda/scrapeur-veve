@@ -274,13 +274,18 @@ def drops_a_venir(sh, connus: List[str], trace: bool = False) -> List[Dict]:
                 "prix": r.get("store_price_gems"),
                 "image": str(r.get("image_url") or "").strip(),
                 "url": str(r.get("veve_url") or "").strip(),
+                # VeVe-Exclusive : a mentionner dans la carte (demande Preda).
+                "exclusive": str(r.get("veve_exclusive") or "").strip().upper() == "TRUE",
                 "ts": ts, "avec_heure": avec_heure, "brut": str(brut)[:30],
                 "lignes": [],
             })
             d["lignes"].append({
                 "rarete": str(r.get("rarity") or "").strip().upper(),
                 "variante": str(r.get("edition_type") or "").strip(),
-                "supply": _n(r.get("supply")),
+                # Supply PAR RARETE (releaseAmount du tracker) -> leur somme = le
+                # vrai total. `supply` (comic-level, recopie) reste le repli
+                # collectibles.
+                "supply": _n(r.get("supply_rarete") or r.get("supply")),
                 # l'uuid de l'ELEMENT (≠ series_uuid) : c'est lui qui ouvre la
                 # page d'un craft.
                 "uuid": str(r.get("veve_uuid") or "").strip(),
@@ -358,7 +363,7 @@ def comic_day_a_venir(sh):
             "nom": str(r.get("veve_series_name") or r.get("name") or ""),
             "prix": r.get("store_price_gems"), "total": 0,
         })
-        d["total"] += _n(r.get("supply"))
+        d["total"] += _n(r.get("supply_rarete") or r.get("supply"))
         if not d["prix"] and r.get("store_price_gems"):
             d["prix"] = r["store_price_gems"]
 
@@ -487,14 +492,18 @@ def texte(d: Dict, ping: bool) -> str:
 
     for i, l in enumerate(d["lignes"]):
         nom = NOM_RARETE.get(l["rarete"], l["rarete"].title() or "—")
-        variante = l["variante"] or "—"
-        txt = f"**{nom}** | {variante} | **{l['supply']:,} Editions**"
+        # ⚠️ Le n° d'issue (edition_type, ex. « 1 ») est RETIRE : il n'apporte
+        # rien. Le NOM DE COVER (Classic Cover, Vintage Variant…) prendra sa
+        # place quand VeVe nous le donnera — il n'est pas dans le tracker.
+        txt = f"**{nom}** | **{l['supply']:,} Editions**"
         # La DERNIERE rarete (la plus rare) est soulignee : c'est elle qu'on
         # cherche des yeux.
         lignes.append(f"__{txt}__" if i == len(d["lignes"]) - 1 else txt)
 
     label = "Total Comic Editions" if d["genre"] == "comic" else "Total Editions"
     lignes.append(f"**{label}: {d['total']:,}**")
+    if d.get("exclusive"):
+        lignes.append("💎 **VeVe-Exclusive**")
     lignes.append("")
 
     format_ = []

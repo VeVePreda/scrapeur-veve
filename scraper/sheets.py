@@ -67,7 +67,7 @@ COMICS_COLD = [
     "daily_mcp_points", "noMarketListing", "gemsPerMcp", "veve_series_name",
     "series_uuid", "veve_brand", "brand_uuid", "veve_licensor", "licensor_uuid",
     "veve_url", "image_url", "tracker_uuid", "description", "drop_method",
-    "market_fee", "supply", "store_price_gems",
+    "market_fee", "supply", "supply_rarete", "store_price_gems",
     "veve_exclusive", "first_available_edition", "start_year",
     "atl", "atl_date", "ath", "ath_date",
 ]
@@ -92,7 +92,7 @@ COMICS_COLD = [
 # des colonnes froides dediees ; DROP_COLUMNS continue de jeter les champs bruts
 # (`rarity_editions`, `veve_store_price`) qui, eux, appartiennent a 🟠H-PRIX.
 # ---------------------------------------------------------------------------
-NEW_COLD_COLUMNS = ["supply", "store_price_gems", "veve_exclusive"]
+NEW_COLD_COLUMNS = ["supply", "supply_rarete", "store_price_gems", "veve_exclusive"]
 # Operational bookkeeping columns appended after the cold columns (needed by the
 # pipeline: new-drop detection, ordering, enrichment tracking).
 BOOKKEEPING = ["veve_enriched_at", "first_seen", "last_seen"]
@@ -320,6 +320,12 @@ def _fill_new_cold(rec: Dict[str, Any]) -> None:
         rec["supply"] = rec.get("rarity_editions") or ""
         if not rec["supply"] and not is_comic:
             rec["supply"] = rec.get("releaseAmount") or ""
+    if not rec.get("supply_rarete"):
+        # Supply PAR RARETE (le VRAI tirage de la ligne, via le tracker) : c'est
+        # justement le `releaseAmount` que `supply` s'interdit d'utiliser (il
+        # melangerait avec le total serie). Colonne dediee -> la carte de drop
+        # montre le tirage de chaque rarete, et leur SOMME = le vrai total comic.
+        rec["supply_rarete"] = rec.get("releaseAmount") or ""
     if not rec.get("store_price_gems"):
         prix = rec.get("veve_store_price") or rec.get("storePrice") or ""
         # ⚠️ COMICS : VeVe melange DEUX echelles dans `storePrice`. Les vieux comics
