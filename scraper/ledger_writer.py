@@ -40,7 +40,7 @@ from scraper.ledger import (CORNER_HEADER, CORNER_TAB, PULSE_HEADER,
                             _open_with_retry, _read_pseudos, _save_profiles,
                             _write, _write_pulse, _write_reveils,
                             _write_size_history, _write_whales_flat)
-from scraper.sheets import append_log
+from scraper.sheets import _open_worksheet, append_log
 from scraper import sheet_format as _fmt
 
 BASE = os.environ.get(
@@ -85,6 +85,156 @@ def _num(x: str):
         return float(x)
     except ValueError:
         return x
+
+
+# ═══ PAGE 🎯 CORNÉRISATION (agrege, 16/07) : wallets par profil d'activite +
+# supply potentiellement perdue sur les comptes fantomes. Onglet VISIBLE dedie ;
+# la table 111-col 🎯A-CORNERISATION (source de la fiche 🦊) reste, cachee.
+CORNER_PAGE_TAB = "\U0001F3AF CORNÉRISATION"
+_ACT_ORDER = ["Actif", "Engage", "Somnolant", "Inactif", "Desinscrit",
+              "Fantome", "Non classe"]
+_ACT_LABEL = {"Actif": "Actif (≤ 7 j)", "Engage": "Engagé (≤ 30 j)",
+              "Somnolant": "Somnolant (≤ 90 j)", "Inactif": "Inactif (≤ 180 j)",
+              "Desinscrit": "Désinscrit (≤ 365 j)", "Fantome": "Fantôme (> 365 j)",
+              "Non classe": "Non classé"}
+
+
+def _i(x):
+    try:
+        return int(float(x))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _f(x):
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _sp(n):
+    return f"{n:,}".replace(",", " ")
+
+
+def build_corner_page(wallets_rows, supply_rows, corner_rows, meta_d,
+                      top_n=20, min_circ=500):
+    """Retourne (grid, fmts, bolds). grid = lignes RAW ; fmts = (a1, pattern) ;
+    bolds = rangs 1-based a mettre en gras. Logique PURE (testee hors ligne)."""
+    wal = {r[0]: _i(r[1]) for r in wallets_rows if r and r[0]}
+    sup = {r[0]: (_i(r[1]), _i(r[2]), _f(r[3])) for r in supply_rows if r and r[0]}
+    tot_wal = sum(wal.values()) or 1
+    tot_sup = sum(v[0] for v in sup.values()) or 1
+    gs, gh, _ = sup.get("Fantome", (0, 0, 0))
+    ds, _, _ = sup.get("Desinscrit", (0, 0, 0))
+    ghost_pct = 100.0 * gs / tot_sup
+    laps_pct = 100.0 * (gs + ds) / tot_sup
+    rd = meta_d.get("run_date", "")
+    g, fmts, bolds = [], [], []
+
+    def row(*cells):
+        g.append(list(cells))
+        return len(g)
+
+    bolds.append(row("\U0001F3AF CORNÉRISATION — SUPPLY IMMOBILISÉE & PROFILS D'ACTIVITÉ"))
+    row(f"Source : run {rd} · {_sp(tot_wal)} wallets profilés · circulant {_sp(tot_sup)} exemplaires")
+    row("")
+    bolds.append(row("⚰️ SUPPLY POTENTIELLEMENT PERDUE"))
+    bolds.append(row(f"{_sp(gs)} exemplaires", f"{ghost_pct:.1f} % du circulant",
+                     f"sur {_sp(gh)} comptes FANTÔMES (muets > 365 j)"))
+    row(f"+ Désinscrits : {_sp(gs + ds)} ex", f"{laps_pct:.1f} % (muets > 180 j)")
+    row("« Potentiellement » : garde custodiale VeVe, un compte peut revenir "
+        "— jamais une supply détruite (le burn est compté ailleurs).")
+    row("")
+    bolds.append(row("WALLETS PAR PROFIL D'ACTIVITÉ", "", ""))
+    bolds.append(row("Profil", "Wallets", "% du total"))
+    s0 = len(g) + 1
+    for k in _ACT_ORDER:
+        if k in wal:
+            row(_ACT_LABEL[k], wal[k], round(100.0 * wal[k] / tot_wal, 1))
+    e0 = len(g)
+    bolds.append(row("TOTAL", tot_wal, 100.0))
+    fmts.append((f"B{s0}:B{e0 + 1}", "#,##0"))
+    fmts.append((f"C{s0}:C{e0 + 1}", "0.0"))
+    row("")
+    bolds.append(row("SUPPLY DÉTENUE PAR PROFIL DU DÉTENTEUR", "", "", ""))
+    bolds.append(row("Profil", "Exemplaires", "% circulant", "Détenteurs"))
+    s1 = len(g) + 1
+    for k in _ACT_ORDER:
+        if k in sup:
+            sv, hv, _ = sup[k]
+            row(_ACT_LABEL[k], sv, round(100.0 * sv / tot_sup, 1), hv)
+    e1 = len(g)
+    bolds.append(row("TOTAL", tot_sup, 100.0, ""))
+    fmts.append((f"B{s1}:B{e1 + 1}", "#,##0"))
+    fmts.append((f"C{s1}:C{e1 + 1}", "0.0"))
+    fmts.append((f"D{s1}:D{e1}", "#,##0"))
+    row("")
+    items = [(r[1], r[3], r[4], _i(r[5]), _i(r[9]), _f(r[11]))
+             for r in corner_rows if len(r) >= 12]
+
+    def _tops(title, data):
+        bolds.append(row(title, "", "", "", "", ""))
+        bolds.append(row("Item", "Série", "Type", "Circulant", "Fantôme", "% fantôme"))
+        s2 = len(g) + 1
+        for nm, ser, cat, ci, gsi, pg in data:
+            row(nm, ser, cat, ci, gsi, round(pg, 1))
+        e2 = len(g)
+        if e2 >= s2:
+            fmts.append((f"D{s2}:E{e2}", "#,##0"))
+            fmts.append((f"F{s2}:F{e2}", "0.0"))
+        row("")
+
+    _tops(f"TOP {top_n} — PLUS GROS CIMETIÈRES (supply fantôme absolue)",
+          sorted(items, key=lambda x: x[4], reverse=True)[:top_n])
+    _tops(f"TOP {top_n} — PLUS CORNÉRISÉS PAR LES FANTÔMES "
+          f"(% fantôme, circulant ≥ {min_circ})",
+          sorted([x for x in items if x[3] >= min_circ],
+                 key=lambda x: x[5], reverse=True)[:top_n])
+    return g, fmts, bolds
+
+
+def _write_corner_page(sh, grid, fmts, bolds):
+    """Ecrit l'onglet visible 🎯 CORNÉRISATION + cache la table detail 111-col.
+    Tout le formatage part en UN batch_update (evite les 429)."""
+    from gspread.utils import a1_range_to_grid_range as _gr
+    ws = _open_worksheet(sh, CORNER_PAGE_TAB, cols=8)
+    ws.clear()
+    ws.update(range_name="A1", values=grid, value_input_option="RAW")
+    reqs = []
+    for a1, nf in fmts:
+        reqs.append({"repeatCell": {"range": _gr(a1, ws.id),
+            "cell": {"userEnteredFormat": {"numberFormat":
+                     {"type": "NUMBER", "pattern": nf}}},
+            "fields": "userEnteredFormat.numberFormat"}})
+    for r in bolds:
+        reqs.append({"repeatCell": {"range": _gr(f"A{r}:H{r}", ws.id),
+            "cell": {"userEnteredFormat": {"textFormat": {"bold": True}}},
+            "fields": "userEnteredFormat.textFormat.bold"}})
+    reqs.append({"repeatCell": {"range": _gr("A1", ws.id),
+        "cell": {"userEnteredFormat": {"textFormat": {"bold": True, "fontSize": 13}}},
+        "fields": "userEnteredFormat.textFormat"}})
+    reqs.append({"repeatCell": {"range": _gr("A4:C4", ws.id),
+        "cell": {"userEnteredFormat": {
+            "backgroundColor": {"red": 0.82, "green": 0.18, "blue": 0.18},
+            "textFormat": {"bold": True,
+                           "foregroundColor": {"red": 1, "green": 1, "blue": 1}}}},
+        "fields": "userEnteredFormat(backgroundColor,textFormat)"}})
+    reqs.append({"repeatCell": {"range": _gr("A5:C5", ws.id),
+        "cell": {"userEnteredFormat": {"textFormat": {"bold": True, "fontSize": 12}}},
+        "fields": "userEnteredFormat.textFormat"}})
+    try:
+        sh.batch_update({"requests": reqs})
+    except Exception as e:
+        print(f"corner page format warning: {e}", flush=True)
+    if os.environ.get("CORNER_HIDE_DETAIL", "false").lower() == "true":
+        try:
+            d = sh.worksheet(CORNER_TAB)
+            sh.batch_update({"requests": [{"updateSheetProperties": {
+                "properties": {"sheetId": d.id, "hidden": True},
+                "fields": "hidden"}}]})
+        except Exception:
+            pass
 
 
 def main() -> int:
@@ -189,6 +339,17 @@ def main() -> int:
             _write_reveils(sh, reveils)
         except Exception as e:
             print(f"pulse warning: {e}", flush=True)
+
+    if do("cornerpage"):
+        try:
+            grid, fmts, bolds = build_corner_page(
+                _rows("wallets_par_profil.csv")[1:],
+                _rows("supply_par_profil.csv")[1:],
+                _rows("corner_items.csv")[1:], meta_d)
+            _write_corner_page(sh, grid, fmts, bolds)
+            print(f"page 🎯 CORNÉRISATION : {len(grid)} lignes ecrites.", flush=True)
+        except Exception as e:
+            print(f"corner page warning: {e}", flush=True)
 
     try:
         from scraper.stackr import PSEUDOS_HEADER
