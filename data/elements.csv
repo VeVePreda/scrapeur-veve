@@ -397,7 +397,7 @@ fc78ca94-4db6-40bb-841c-92f516444be6,bc3791b8-d87e-4abf-a3c2-2f5cd9158f42,Avatar
 59a9e7f2-af54-4414-b1a7-7ce13c55eba9,8a37f888-3189-41ef-8c29-3c48a35bae1f,Avatar - Sokka,collectible,SECRET_RARE,FA,205,11,4,,Avatar the Last Airbender Collection,Paramount Pictures,81,2026-04-26,150,2026-04-27
 bcc4cd79-d35d-432d-a96a-f3b4f1ed8c5c,38de29d8-0ffb-4b58-8015-3678e003a4fd,Collectors at Heart,collectible,SECRET_RARE,CE,205,6,4,,Metaverse Lyfe,Roth Rind Productions,35,2025-11-15,500,2025-11-16
 eaff1411-4a8b-40b7-9e26-5d45cd8e409d,9ed7f8a8-fadd-41ec-be1e-2204179b2dad,L.O.L. SURPRISE! O.M.G. Series 1,collectible,SECRET_RARE,FA,205,21,4,,L.O.L. SURPRISE! O.M.G.,MGA,18,2026-06-03,1390,2025-08-21
-a738176f-3b62-4024-bcaf-222086173831,14e71c73-2db0-43b6-8e7e-8e48c64e73e7,MOUSE - Season One,collectible,SECRET_RARE,FE,205,6,,,Metaverse Lyfe,Roth Rind Productions,0,2026-07-09,,2026-07-09
+a738176f-3b62-4024-bcaf-222086173831,14e71c73-2db0-43b6-8e7e-8e48c64e73e7,MOUSE - Season One,collectible,SECRET_RARE,FE,205,6,,,Metaverse Lyfe,Roth Rind Productions,60,2026-07-16,300,2026-07-16
 41dfbf28-b2b6-4c12-bf5e-64f18d19ab6b,e6f93ccb-6c23-45ab-8649-fb5bb60f9aa2,Action Classicism in Delusionville,collectible,SECRET_RARE,CE,210,6,2,,Ron English’s Popaganda,Ron English,5299,2025-10-29,999999999,2026-01-03
 facd0219-4b19-404b-bbce-d69ef1478ce1,ecb255e0-ec61-46e0-aa80-77be09b7533a,Spider-Man Action,collectible,SECRET_RARE,,210,11,9,,Marvel Mightys,Marvel,150,2026-05-08,475,2026-03-21
 cce3a323-94cb-44e3-b87b-c37cc9a34429,e28c1d43-955d-4513-80cd-a39aa4ebf073,Thor - Action,collectible,SECRET_RARE,,210,11,4,,Marvel Mightys,Marvel,75,2026-04-19,189,2026-04-29
@@ -3174,11 +3174,11 @@ ea681f19-397b-42f1-8570-173985bed0f2,8f4b4099-08fb-478e-8414-64b6ddccff9f,Altere
 5048334e-17e8-47b0-9af9-eb67ba9febac,4f6446c3-abd9-4e27-9ca9-5127d15174e9,Altered States: Warlords #1 (2026),comic,RARE,1,1000,11,0,,Altered States: Warlords,Dynamite Entertainment,1499,2026-06-15,1499,2026-06-15
 4b74cf57-d30a-416a-9a66-c88fa7570e73,4f6446c3-abd9-4e27-9ca9-5127d15174e9,Altered States: Warlords #1 (2026),comic,ULTRA_RARE,1,1000,11,0,,Altered States: Warlords,Dynamite Entertainment,798,2026-06-10,798,2026-06-10
 b79f1d78-167e-4776-8406-a33d09684fc6,4f6446c3-abd9-4e27-9ca9-5127d15174e9,Altered States: Warlords #1 (2026),comic,SECRET_RARE,1,1000,11,0,,Altered States: Warlords,Dynamite Entertainment,798,2026-06-10,798,2026-06-10
-9d8a3478-00e6-413a-87fb-cae0501ced3b,ca7babb0-c2c8-4455-8192-b17356fcdbb6,Altered States: Warlords #2 (2026),comic,COMMON,2,1000,11,0,,Altered States: Warlords,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-8c90e7f2-a390-4c13-986a-1daec0ba8a7e,ca7babb0-c2c8-4455-8192-b17356fcdbb6,Altered States: Warlords #2 (2026),comic,UNCOMMON,2,1000,11,0,,Altered States: Warlords,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-12d32dc2-8831-472f-bbfc-c8399c053aed,ca7babb0-c2c8-4455-8192-b17356fcdbb6,Altered States: Warlords #2 (2026),comic,RARE,2,1000,11,0,,Altered States: Warlords,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-37c95821-8eb2-426b-a71a-423481d0beb9,ca7babb0-c2c8-4455-8192-b17356fcdbb6,Altered States: Warlords #2 (2026),comic,ULTRA_RARE,2,1000,11,0,,Altered States: Warlords,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-ae6dc7a9-c5ae-4cbc-9f03-49b605a51072,ca7babb0-c2c8-4455-8192-b17356fcdbb6,Altered States: Warlords #2 (2026),comic,SECRET_RARE,2,1000,11,0,,Altered States: Warlords,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
+9d8a3478-00e6-413a-87fb-cae0501ced3b,ca7babb0-c2c8-4455-8192-b17356fcdbb6,Altered States: Warlords #2 (2026),comic,COMMON,2,1000,11,0,,Altered States: Warlords,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+8c90e7f2-a390-4c13-986a-1daec0ba8a7e,ca7babb0-c2c8-4455-8192-b17356fcdbb6,Altered States: Warlords #2 (2026),comic,UNCOMMON,2,1000,11,0,,Altered States: Warlords,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+12d32dc2-8831-472f-bbfc-c8399c053aed,ca7babb0-c2c8-4455-8192-b17356fcdbb6,Altered States: Warlords #2 (2026),comic,RARE,2,1000,11,0,,Altered States: Warlords,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+37c95821-8eb2-426b-a71a-423481d0beb9,ca7babb0-c2c8-4455-8192-b17356fcdbb6,Altered States: Warlords #2 (2026),comic,ULTRA_RARE,2,1000,11,0,,Altered States: Warlords,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+ae6dc7a9-c5ae-4cbc-9f03-49b605a51072,ca7babb0-c2c8-4455-8192-b17356fcdbb6,Altered States: Warlords #2 (2026),comic,SECRET_RARE,2,1000,11,0,,Altered States: Warlords,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
 e64c2435-5801-4951-b2db-78134a3d24dc,b7bdfa1f-1a2f-4e0e-8c9b-1dc47e647a05,Amadeus Cho 20th Anniversary Special #1 (2025),comic,COMMON,1,1000,11,0,,Amadeus Cho 20th Anniversary Special,Marvel,10,2026-02-24,1899,2025-05-07
 1b91c8ff-bbad-4f02-9ff1-12ac2d4ddec0,b7bdfa1f-1a2f-4e0e-8c9b-1dc47e647a05,Amadeus Cho 20th Anniversary Special #1 (2025),comic,RARE,1,1000,11,0,,Amadeus Cho 20th Anniversary Special,Marvel,898,2025-05-07,898,2025-05-07
 4ab947d3-93db-4a19-a56d-e806f80f06cf,b7bdfa1f-1a2f-4e0e-8c9b-1dc47e647a05,Amadeus Cho 20th Anniversary Special #1 (2025),comic,SECRET_RARE,1,1000,11,0,,Amadeus Cho 20th Anniversary Special,Marvel,898,2025-05-07,898,2025-05-07
@@ -4099,11 +4099,11 @@ d7651f2e-653c-4015-9a88-99fb0ef84476,77da0188-6534-4c54-907b-53d811ab7111,Ben 10
 db94c49f-9032-4bbe-bf50-918de4255f30,77da0188-6534-4c54-907b-53d811ab7111,Ben 10 #2 (2026),comic,RARE,2,1000,11,0,,Ben 10,Dynamite Entertainment,798,2026-06-10,798,2026-06-10
 242e7aca-bd41-47c2-af34-3814e809eb59,77da0188-6534-4c54-907b-53d811ab7111,Ben 10 #2 (2026),comic,ULTRA_RARE,2,1000,11,0,,Ben 10,Dynamite Entertainment,798,2026-06-10,798,2026-06-10
 b5963ff3-f970-4777-9d1e-1f82445ef34d,77da0188-6534-4c54-907b-53d811ab7111,Ben 10 #2 (2026),comic,SECRET_RARE,2,1000,11,0,,Ben 10,Dynamite Entertainment,798,2026-06-10,798,2026-06-10
-ccb8756e-a102-460f-b4ac-4701c3e227b1,64e49772-6edf-46e7-9c49-b1bfedf4c57a,Ben 10 #3 (2026),comic,COMMON,3,1000,11,0,,Ben 10,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-1d364bfa-c130-4329-8e96-641055bec705,64e49772-6edf-46e7-9c49-b1bfedf4c57a,Ben 10 #3 (2026),comic,UNCOMMON,3,1000,11,0,,Ben 10,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-34f9152a-4edd-4b44-afc5-5699a32875da,64e49772-6edf-46e7-9c49-b1bfedf4c57a,Ben 10 #3 (2026),comic,RARE,3,1000,11,0,,Ben 10,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-7acc95a0-0136-4f85-ba99-67ac6e9e56d0,64e49772-6edf-46e7-9c49-b1bfedf4c57a,Ben 10 #3 (2026),comic,ULTRA_RARE,3,1000,11,0,,Ben 10,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-85c2bb03-cde0-45c2-9696-38a1828c228c,64e49772-6edf-46e7-9c49-b1bfedf4c57a,Ben 10 #3 (2026),comic,SECRET_RARE,3,1000,11,0,,Ben 10,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
+ccb8756e-a102-460f-b4ac-4701c3e227b1,64e49772-6edf-46e7-9c49-b1bfedf4c57a,Ben 10 #3 (2026),comic,COMMON,3,1000,11,0,,Ben 10,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+1d364bfa-c130-4329-8e96-641055bec705,64e49772-6edf-46e7-9c49-b1bfedf4c57a,Ben 10 #3 (2026),comic,UNCOMMON,3,1000,11,0,,Ben 10,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+34f9152a-4edd-4b44-afc5-5699a32875da,64e49772-6edf-46e7-9c49-b1bfedf4c57a,Ben 10 #3 (2026),comic,RARE,3,1000,11,0,,Ben 10,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+7acc95a0-0136-4f85-ba99-67ac6e9e56d0,64e49772-6edf-46e7-9c49-b1bfedf4c57a,Ben 10 #3 (2026),comic,ULTRA_RARE,3,1000,11,0,,Ben 10,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+85c2bb03-cde0-45c2-9696-38a1828c228c,64e49772-6edf-46e7-9c49-b1bfedf4c57a,Ben 10 #3 (2026),comic,SECRET_RARE,3,1000,11,0,,Ben 10,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
 cb73a023-c2ca-4f1d-9211-234acecd364d,c29f3854-4535-4b96-a83c-4714e3ab1b7e,Bettie Page #1 (2017),comic,COMMON,1,1000,11,0,,Bettie Page Vol. 1,Dynamite Entertainment,2,2025-11-10,1111,2025-04-11
 26a16031-21a7-4906-93ec-98e172e224fe,c29f3854-4535-4b96-a83c-4714e3ab1b7e,Bettie Page #1 (2017),comic,UNCOMMON,1,1000,11,0,,Bettie Page Vol. 1,Dynamite Entertainment,205,2025-11-04,22,2026-06-25
 4c616032-6a3a-4283-9dd6-2b797eb9781d,c29f3854-4535-4b96-a83c-4714e3ab1b7e,Bettie Page #1 (2017),comic,RARE,1,1000,11,0,,Bettie Page Vol. 1,Dynamite Entertainment,245,2025-09-02,25,2025-04-12
@@ -4179,11 +4179,11 @@ e51619d2-5e4f-47ac-b600-c607c6c95af8,010619de-c4ba-4c3f-bd8b-d1c13626fe74,Bettie
 a2b8cb56-9a66-4829-b053-6f2566bf621a,c7cfcc97-c210-4292-b00f-ba1f8fec757c,Bettie Page: Unbound #2 (2019),comic,RARE,2,1000,11,0,,Bettie Page: Unbound,Dynamite Entertainment,798,2026-06-17,798,2026-06-17
 b80e20f3-9f86-4309-bdfe-cc2dc2ad840d,c7cfcc97-c210-4292-b00f-ba1f8fec757c,Bettie Page: Unbound #2 (2019),comic,ULTRA_RARE,2,1000,11,0,,Bettie Page: Unbound,Dynamite Entertainment,798,2026-06-17,798,2026-06-17
 71f2214f-5a5c-46e0-9225-bf01e55ea476,c7cfcc97-c210-4292-b00f-ba1f8fec757c,Bettie Page: Unbound #2 (2019),comic,SECRET_RARE,2,1000,11,0,,Bettie Page: Unbound,Dynamite Entertainment,798,2026-06-17,798,2026-06-17
-ba59ccbc-0d07-4cd7-8aee-662109d8b96d,6e607bbf-e7d9-48af-96db-1086beffed5c,Bettie Page: Unbound #3 (2019),comic,COMMON,3,1000,11,0,,Bettie Page: Unbound,Dynamite Entertainment,"3,95",2026-07-09,"7,98",2026-07-08
-4ca7149b-d0b0-4077-bb9e-7fd12cf1da25,6e607bbf-e7d9-48af-96db-1086beffed5c,Bettie Page: Unbound #3 (2019),comic,UNCOMMON,3,1000,11,0,,Bettie Page: Unbound,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-77e086a1-05a6-450c-892e-3bbde0271e30,6e607bbf-e7d9-48af-96db-1086beffed5c,Bettie Page: Unbound #3 (2019),comic,RARE,3,1000,11,0,,Bettie Page: Unbound,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-272684de-31f4-463b-a70d-8c85179a2ad7,6e607bbf-e7d9-48af-96db-1086beffed5c,Bettie Page: Unbound #3 (2019),comic,ULTRA_RARE,3,1000,11,0,,Bettie Page: Unbound,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-758429dc-7391-4fdd-aae8-fa3af0d54ef7,6e607bbf-e7d9-48af-96db-1086beffed5c,Bettie Page: Unbound #3 (2019),comic,SECRET_RARE,3,1000,11,0,,Bettie Page: Unbound,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
+ba59ccbc-0d07-4cd7-8aee-662109d8b96d,6e607bbf-e7d9-48af-96db-1086beffed5c,Bettie Page: Unbound #3 (2019),comic,COMMON,3,1000,11,0,,Bettie Page: Unbound,Dynamite Entertainment,395,2026-07-09,798,2026-07-08
+4ca7149b-d0b0-4077-bb9e-7fd12cf1da25,6e607bbf-e7d9-48af-96db-1086beffed5c,Bettie Page: Unbound #3 (2019),comic,UNCOMMON,3,1000,11,0,,Bettie Page: Unbound,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+77e086a1-05a6-450c-892e-3bbde0271e30,6e607bbf-e7d9-48af-96db-1086beffed5c,Bettie Page: Unbound #3 (2019),comic,RARE,3,1000,11,0,,Bettie Page: Unbound,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+272684de-31f4-463b-a70d-8c85179a2ad7,6e607bbf-e7d9-48af-96db-1086beffed5c,Bettie Page: Unbound #3 (2019),comic,ULTRA_RARE,3,1000,11,0,,Bettie Page: Unbound,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+758429dc-7391-4fdd-aae8-fa3af0d54ef7,6e607bbf-e7d9-48af-96db-1086beffed5c,Bettie Page: Unbound #3 (2019),comic,SECRET_RARE,3,1000,11,0,,Bettie Page: Unbound,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
 2bbd8566-1a42-4737-9891-5cdbf12140a8,5d6c4789-fca6-4383-87b0-602607e751d3,Beware the Witch's Shadow #1 (2019),comic,COMMON,1,1000,11,0,,Beware the Witch's Shadow,American Mythology,2,2026-05-04,798,2025-12-23
 a8f11118-b2eb-4ce8-9ccb-efd22c63f8ae,5d6c4789-fca6-4383-87b0-602607e751d3,Beware the Witch's Shadow #1 (2019),comic,UNCOMMON,1,1000,11,0,,Beware the Witch's Shadow,American Mythology,25,2026-03-03,899,2025-12-24
 282c4983-04f7-4bcc-bac1-04a5da7ea2c2,5d6c4789-fca6-4383-87b0-602607e751d3,Beware the Witch's Shadow #1 (2019),comic,ULTRA_RARE,1,1000,11,0,,Beware the Witch's Shadow,American Mythology,798,2026-04-25,36,2026-02-26
@@ -4604,9 +4604,9 @@ e8ea7ad0-651b-4235-b4e7-c35626e2445f,55d7c7bf-ed60-4d73-9ffa-c2becc2b0c26,Captai
 1040f8fa-2ce4-4995-b4ea-9dca4e9f6630,3094ef66-4b5e-4ca4-851f-773c35ea4400,Captain America & Volstagg #1 (2025),comic,COMMON,1,1000,11,0,,Captain America & Volstagg,Marvel,271,2025-03-08,798,2025-02-26
 72b19367-ece5-4aad-9815-c47c21b686d5,3094ef66-4b5e-4ca4-851f-773c35ea4400,Captain America & Volstagg #1 (2025),comic,ULTRA_RARE,1,1000,11,1,,Captain America & Volstagg,Marvel,29,2025-02-26,29,2025-02-26
 b548c6e1-7a99-4061-8c48-e70ca9a4433b,3094ef66-4b5e-4ca4-851f-773c35ea4400,Captain America & Volstagg #1 (2025),comic,SECRET_RARE,1,1000,11,1,,Captain America & Volstagg,Marvel,299,2025-02-26,299,2025-02-26
-114ca406-6315-47fe-a15b-63b278f26274,f2efc6e3-ada5-43a0-8e7d-6fae8b230450,Captain America Comics #7 (1941),comic,COMMON,7,1000,100,0,AA,Captain America Comics,Marvel,24,2026-07-09,"29,99",2026-07-10
+114ca406-6315-47fe-a15b-63b278f26274,f2efc6e3-ada5-43a0-8e7d-6fae8b230450,Captain America Comics #7 (1941),comic,COMMON,7,1000,100,0,AA,Captain America Comics,Marvel,"25,89",2026-07-09,"29,99",2026-07-10
 8e553d98-d05f-4856-acec-8696b33e11f9,f2efc6e3-ada5-43a0-8e7d-6fae8b230450,Captain America Comics #7 (1941),comic,UNCOMMON,7,1000,100,0,AA,Captain America Comics,Marvel,11,2026-07-09,"14,99",2026-07-09
-90ddfb08-17a4-4aac-be1f-5f30c4afbe26,f2efc6e3-ada5-43a0-8e7d-6fae8b230450,Captain America Comics #7 (1941),comic,RARE,7,1000,100,0,AA,Captain America Comics,Marvel,"12,99",2026-07-09,"16,9",2026-07-11
+90ddfb08-17a4-4aac-be1f-5f30c4afbe26,f2efc6e3-ada5-43a0-8e7d-6fae8b230450,Captain America Comics #7 (1941),comic,RARE,7,1000,100,0,AA,Captain America Comics,Marvel,"12,99",2026-07-16,"16,9",2026-07-11
 79193898-4fb7-4dd1-9bc1-3aeb4630b306,f2efc6e3-ada5-43a0-8e7d-6fae8b230450,Captain America Comics #7 (1941),comic,ULTRA_RARE,7,1000,100,0,AA,Captain America Comics,Marvel,30,2026-07-13,77,2026-07-11
 caa42fb7-4e75-4b87-8936-af0b5239b0ce,f2efc6e3-ada5-43a0-8e7d-6fae8b230450,Captain America Comics #7 (1941),comic,SECRET_RARE,7,1000,100,0,AA,Captain America Comics,Marvel,380,2026-07-09,550,2026-07-09
 5e36e916-b04b-4309-b463-7d1f1e81f247,a00868de-e993-4c67-8e52-0b0d82e44933,Captain America Vol. 12 #1 (2025),comic,COMMON,1,1000,11,0,,Captain America Vol. 12,Marvel,397,2025-07-03,25,2025-11-13
@@ -4962,10 +4962,10 @@ ca95e615-a5f0-4375-b15e-1bad7ca3bba9,bcfe25a2-b58a-4d14-88e6-98334126d225,Cyclop
 a771436d-066f-4b83-b49b-13a03002a2c9,d7b37fc4-1cf7-4bbb-8f2d-04496d2776ec,D.O.A. Inc LLC #1 (2024),comic,RARE,1,1000,11,0,,D.O.A. Inc LLC,American Mythology,798,2025-07-22,798,2025-07-22
 f47227a4-75ce-4e6c-907f-2c14cd2a92e5,d7b37fc4-1cf7-4bbb-8f2d-04496d2776ec,D.O.A. Inc LLC #1 (2024),comic,ULTRA_RARE,1,1000,11,0,,D.O.A. Inc LLC,American Mythology,798,2025-07-22,798,2025-07-22
 9aa52a8e-103e-4570-8476-a0f539a46d75,d7b37fc4-1cf7-4bbb-8f2d-04496d2776ec,D.O.A. Inc LLC #1 (2024),comic,SECRET_RARE,1,1000,11,0,,D.O.A. Inc LLC,American Mythology,798,2025-07-22,798,2025-07-22
-abffb40c-1c2a-44ae-b446-87d1cc7beefc,72455516-aae2-4d97-bb1f-53ac8b270c1f,DINGOLIATH #1 (2026),comic,COMMON,1,1000,11,0,,DINGOLIATH,Bad Idea,"8,98",2026-07-08,"8,98",2026-07-08
-a76054b8-849c-44ce-95a1-e4c8f40f44a8,72455516-aae2-4d97-bb1f-53ac8b270c1f,DINGOLIATH #1 (2026),comic,UNCOMMON,1,1000,11,0,,DINGOLIATH,Bad Idea,"8,98",2026-07-08,"8,98",2026-07-08
-fc525582-6187-4c5e-9bb3-db6bc5d5f8b0,72455516-aae2-4d97-bb1f-53ac8b270c1f,DINGOLIATH #1 (2026),comic,RARE,1,1000,11,0,,DINGOLIATH,Bad Idea,"8,98",2026-07-11,13,2026-07-13
-3c94be7b-a3f2-4372-9c54-05492e8e99fd,72455516-aae2-4d97-bb1f-53ac8b270c1f,DINGOLIATH #1 (2026),comic,ULTRA_RARE,1,1000,11,0,,DINGOLIATH,Bad Idea,"8,98",2026-07-08,"8,98",2026-07-08
+abffb40c-1c2a-44ae-b446-87d1cc7beefc,72455516-aae2-4d97-bb1f-53ac8b270c1f,DINGOLIATH #1 (2026),comic,COMMON,1,1000,11,0,,DINGOLIATH,Bad Idea,898,2026-07-08,898,2026-07-08
+a76054b8-849c-44ce-95a1-e4c8f40f44a8,72455516-aae2-4d97-bb1f-53ac8b270c1f,DINGOLIATH #1 (2026),comic,UNCOMMON,1,1000,11,0,,DINGOLIATH,Bad Idea,898,2026-07-08,898,2026-07-08
+fc525582-6187-4c5e-9bb3-db6bc5d5f8b0,72455516-aae2-4d97-bb1f-53ac8b270c1f,DINGOLIATH #1 (2026),comic,RARE,1,1000,11,0,,DINGOLIATH,Bad Idea,898,2026-07-11,13,2026-07-13
+3c94be7b-a3f2-4372-9c54-05492e8e99fd,72455516-aae2-4d97-bb1f-53ac8b270c1f,DINGOLIATH #1 (2026),comic,ULTRA_RARE,1,1000,11,0,,DINGOLIATH,Bad Idea,898,2026-07-08,898,2026-07-08
 0757cf21-3ac2-4617-b455-45d86f983275,72455516-aae2-4d97-bb1f-53ac8b270c1f,DINGOLIATH #1 (2026),comic,SECRET_RARE,1,1000,11,0,,DINGOLIATH,Bad Idea,500,2026-07-13,500,2026-07-13
 a4231cb1-d8c4-4294-82ef-871855b4a8f3,095301e1-99ec-4655-a620-530ae44c1d1f,DOOM 2099 #1 (1993),comic,COMMON,1,1000,100,0,CCC,DOOM 2099,Marvel,199,2026-07-04,15,2026-02-10
 75ccd14d-4947-497c-b5a3-8efeb7b52d89,095301e1-99ec-4655-a620-530ae44c1d1f,DOOM 2099 #1 (1993),comic,UNCOMMON,1,1000,100,0,CCC,DOOM 2099,Marvel,199,2026-03-05,15,2026-02-10
@@ -5687,9 +5687,9 @@ b94f3bd4-d4cd-4b6b-92fa-69998fde4198,bed2a81c-474b-430c-8592-f2a85c32fede,Dracul
 3587ddfe-59a2-4a1d-833b-0cda94e2351f,6e8b490e-4c53-4c40-b809-9a7c9af4063b,Dracula: Blood Hunt #2  (2024),comic,SECRET_RARE,2,1000,11,1,,Dracula: Blood Hunt,Marvel,12999,2024-06-19,14999,2024-06-19
 d752080e-ec6d-4d7a-aabd-f3c11ea44ea1,be2f3c87-d912-44bc-9819-a8a7718520de,Dracula: Blood Hunt #3  (2024),comic,COMMON,3,1000,11,0,,Dracula: Blood Hunt,Marvel,3,2025-10-26,50,2024-12-25
 ac783edd-730e-4423-82fd-494b786f4aa1,be2f3c87-d912-44bc-9819-a8a7718520de,Dracula: Blood Hunt #3  (2024),comic,SECRET_RARE,3,1000,11,0,,Dracula: Blood Hunt,Marvel,698,2024-07-17,698,2024-07-17
-b0301030-8860-4c0b-9728-34c03886b75b,f0c72d74-4b47-44f4-87ec-70de695ccf6a,Dragonseed #1 (2018),comic,COMMON,1,1000,11,0,,Dragonseed,Humanoids,"8,94",2026-07-08,"8,94",2026-07-08
-9df8e778-5a81-4ad2-a147-354f506db65f,73d53ce5-1c26-42b4-87ef-05a325ba1f98,Dragonseed #2 (2017),comic,COMMON,2,1000,11,0,,Dragonseed,Humanoids,"8,94",2026-07-08,"8,94",2026-07-08
-54c2abc5-9d4c-4964-92f0-0df6b508e1fa,b9085896-a107-4d77-a594-120d7f00a5f1,Dragonseed #3 (2018),comic,COMMON,3,1000,11,0,,Dragonseed,Humanoids,"8,94",2026-07-08,"8,94",2026-07-08
+b0301030-8860-4c0b-9728-34c03886b75b,f0c72d74-4b47-44f4-87ec-70de695ccf6a,Dragonseed #1 (2018),comic,COMMON,1,1000,11,0,,Dragonseed,Humanoids,894,2026-07-08,894,2026-07-08
+9df8e778-5a81-4ad2-a147-354f506db65f,73d53ce5-1c26-42b4-87ef-05a325ba1f98,Dragonseed #2 (2017),comic,COMMON,2,1000,11,0,,Dragonseed,Humanoids,894,2026-07-08,894,2026-07-08
+54c2abc5-9d4c-4964-92f0-0df6b508e1fa,b9085896-a107-4d77-a594-120d7f00a5f1,Dragonseed #3 (2018),comic,COMMON,3,1000,11,0,,Dragonseed,Humanoids,894,2026-07-08,894,2026-07-08
 63874817-2282-4a33-9a01-022fd78d6b29,8ca6b7f6-75b8-4596-b8f6-b847c93663d1,Dreadful Dreamscapes #1 (2019),comic,COMMON,1,1000,11,0,,Dreadful Dreamscapes,American Mythology,8,2026-01-31,8,2026-01-31
 45b3e703-8c34-4dea-a2d3-16a504de7909,8ca6b7f6-75b8-4596-b8f6-b847c93663d1,Dreadful Dreamscapes #1 (2019),comic,UNCOMMON,1,1000,11,0,,Dreadful Dreamscapes,American Mythology,798,2025-11-25,798,2025-11-25
 52ca4f76-124f-4862-b1b4-2536dbd7adba,8ca6b7f6-75b8-4596-b8f6-b847c93663d1,Dreadful Dreamscapes #1 (2019),comic,ULTRA_RARE,1,1000,11,0,,Dreadful Dreamscapes,American Mythology,798,2025-11-25,798,2025-11-25
@@ -5793,13 +5793,13 @@ bc27de2e-6c6e-42d4-8c2f-a22ae58a5e22,3f627f6c-5327-4b8c-b9eb-87ec1c29ab52,Edge o
 8f5706a1-8295-41d7-b704-af4f61dd7cd7,40295081-8343-4921-baf4-7e404b8a3be4,Edge of Venomverse #1 (2025),comic,COMMON,1,1000,11,0,,Edge of Venomverse,Marvel,69,2025-09-13,998,2025-09-10
 63db589d-03a8-4d7c-9f11-09a298ff33c9,40295081-8343-4921-baf4-7e404b8a3be4,Edge of Venomverse #1 (2025),comic,SECRET_RARE,1,1000,11,0,,Edge of Venomverse,Marvel,3000,2025-09-12,3000,2025-09-12
 c038bed5-1686-4cf3-999f-f865dc1a4203,92277dfb-e4a1-4d2f-8139-658a89341cda,Eight Limbs # (2023),comic,COMMON,,1000,11,0,,Eight Limbs,Humanoids,1598,2025-08-07,1598,2025-08-07
-a3d95fc0-a02d-42f8-b73e-4da639c987d4,b42ddf2a-c826-4aaa-9b24-e916c4d55121,El Niño #1 (2014),comic,COMMON,1,1000,11,0,,El Niño,Humanoids,"8,94",2026-07-08,"8,94",2026-07-08
-8f9cf062-a3ae-4544-947c-ae7a2136107a,b7db4f16-524d-4cc2-87ef-9a7568634671,El Niño #2 (2014),comic,COMMON,2,1000,11,0,,El Niño,Humanoids,"8,94",2026-07-08,"8,94",2026-07-08
+a3d95fc0-a02d-42f8-b73e-4da639c987d4,b42ddf2a-c826-4aaa-9b24-e916c4d55121,El Niño #1 (2014),comic,COMMON,1,1000,11,0,,El Niño,Humanoids,894,2026-07-08,894,2026-07-08
+8f9cf062-a3ae-4544-947c-ae7a2136107a,b7db4f16-524d-4cc2-87ef-9a7568634671,El Niño #2 (2014),comic,COMMON,2,1000,11,0,,El Niño,Humanoids,894,2026-07-08,894,2026-07-08
 3a3164da-785f-4254-bdce-db3bd7587409,3d1e659e-09b7-4a15-8720-8ff9af469f74,El Niño #3 (2014),comic,COMMON,3,1000,11,0,,El Niño,Humanoids,"8,94",2026-07-08,"8,94",2026-07-08
 1dd12b09-8a36-487c-9250-bffae54b625d,041998fa-f1fe-4447-a5bd-341f56699e2c,El Niño #4 (2014),comic,COMMON,4,1000,11,0,,El Niño,Humanoids,"8,94",2026-07-08,"8,94",2026-07-08
 cdd5cfdc-7d93-4ff2-abd6-0f04ff1f02bb,3967a002-9a16-485d-96f0-bf5dcf776aad,El Niño #5 (2014),comic,COMMON,5,1000,11,0,,El Niño,Humanoids,"8,94",2026-07-08,"8,94",2026-07-08
-6a101c47-8c71-49ed-a40b-1edf1bfbcdce,89d8194a-e341-4fbc-8300-d3cd8a91056c,El Niño #6 (2014),comic,COMMON,6,1000,11,0,,El Niño,Humanoids,"8,94",2026-07-08,"8,94",2026-07-08
-ad7936d6-27e5-40d6-80e0-61a1f4b974d6,e4ac8bb4-db57-451e-991a-f53c413000e5,El Niño #7 (2014),comic,COMMON,7,1000,11,0,,El Niño,Humanoids,"8,94",2026-07-08,"8,94",2026-07-08
+6a101c47-8c71-49ed-a40b-1edf1bfbcdce,89d8194a-e341-4fbc-8300-d3cd8a91056c,El Niño #6 (2014),comic,COMMON,6,1000,11,0,,El Niño,Humanoids,894,2026-07-08,894,2026-07-08
+ad7936d6-27e5-40d6-80e0-61a1f4b974d6,e4ac8bb4-db57-451e-991a-f53c413000e5,El Niño #7 (2014),comic,COMMON,7,1000,11,0,,El Niño,Humanoids,894,2026-07-08,894,2026-07-08
 929e0e53-b8d9-4c59-bd86-0bad61748757,6b6f6a35-a762-4aeb-83b8-f64e5d976b12,Elle(s) #1 (2022),comic,COMMON,1,1000,11,0,,Elle(s),ABLAZE Publishing,798,2025-08-21,798,2025-08-21
 309bd4bd-7c4f-48ea-9119-10a661d783c7,6b6f6a35-a762-4aeb-83b8-f64e5d976b12,Elle(s) #1 (2022),comic,UNCOMMON,1,1000,11,0,,Elle(s),ABLAZE Publishing,85,2025-10-26,85,2025-10-26
 ab4c0475-d59e-44b2-a231-109e3c53e948,6b6f6a35-a762-4aeb-83b8-f64e5d976b12,Elle(s) #1 (2022),comic,RARE,1,1000,11,0,,Elle(s),ABLAZE Publishing,798,2025-08-21,11,2025-08-22
@@ -6724,9 +6724,9 @@ fc5b58c3-7462-42b2-ab82-32e227f9516d,fd8bfb53-673a-47ee-bb49-12d9173e33fe,Green 
 6d8188bf-b4f5-41d9-8ca1-2974a13a53ca,fb32ff68-197c-4c51-8d57-01a530fa2678,Green Hornet Year One #10 (2011),comic,COMMON,10,1000,11,0,,Green Hornet Year One,Dynamite Entertainment,798,2026-06-24,798,2026-06-24
 d76e573b-70ea-42a6-8cc8-ebde94f9c70d,fb32ff68-197c-4c51-8d57-01a530fa2678,Green Hornet Year One #10 (2011),comic,RARE,10,1000,11,0,,Green Hornet Year One,Dynamite Entertainment,798,2026-06-24,798,2026-06-24
 453c1922-e73f-4bfc-8dbb-1d464499c188,fb32ff68-197c-4c51-8d57-01a530fa2678,Green Hornet Year One #10 (2011),comic,SECRET_RARE,10,1000,11,0,,Green Hornet Year One,Dynamite Entertainment,798,2026-06-24,798,2026-06-24
-1538cd98-e42a-4fac-a14e-3e630eca4b31,bf046cd3-1cc5-4d0a-b058-8e0d2d95ba7e,Green Hornet Year One #11 (2011),comic,COMMON,11,1000,11,0,,Green Hornet Year One,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-58351e1a-630c-4954-a956-8a595bcde868,bf046cd3-1cc5-4d0a-b058-8e0d2d95ba7e,Green Hornet Year One #11 (2011),comic,RARE,11,1000,11,0,,Green Hornet Year One,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-a843c589-81ed-4188-b2a5-f6a2338109af,bf046cd3-1cc5-4d0a-b058-8e0d2d95ba7e,Green Hornet Year One #11 (2011),comic,SECRET_RARE,11,1000,11,0,,Green Hornet Year One,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
+1538cd98-e42a-4fac-a14e-3e630eca4b31,bf046cd3-1cc5-4d0a-b058-8e0d2d95ba7e,Green Hornet Year One #11 (2011),comic,COMMON,11,1000,11,0,,Green Hornet Year One,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+58351e1a-630c-4954-a956-8a595bcde868,bf046cd3-1cc5-4d0a-b058-8e0d2d95ba7e,Green Hornet Year One #11 (2011),comic,RARE,11,1000,11,0,,Green Hornet Year One,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+a843c589-81ed-4188-b2a5-f6a2338109af,bf046cd3-1cc5-4d0a-b058-8e0d2d95ba7e,Green Hornet Year One #11 (2011),comic,SECRET_RARE,11,1000,11,0,,Green Hornet Year One,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
 bc01e15c-08dd-483c-90cb-49614facc5e1,3ccacaad-e1ab-4720-a288-49befd9ee801,Green Hornet Year One #3 (2010),comic,COMMON,3,1000,11,0,,Green Hornet Year One,Dynamite Entertainment,798,2026-03-11,798,2026-03-11
 f870d1f8-f098-40f4-8135-efbde31f38cc,3ccacaad-e1ab-4720-a288-49befd9ee801,Green Hornet Year One #3 (2010),comic,RARE,3,1000,11,0,,Green Hornet Year One,Dynamite Entertainment,798,2026-03-11,798,2026-03-11
 840080c0-0ea5-4d94-87c6-7dc85f1a7950,3ccacaad-e1ab-4720-a288-49befd9ee801,Green Hornet Year One #3 (2010),comic,SECRET_RARE,3,1000,11,0,,Green Hornet Year One,Dynamite Entertainment,798,2026-03-11,798,2026-03-11
@@ -6858,11 +6858,11 @@ c54f8079-24e2-43a1-99bb-b97c31e3554c,ff15b06e-8b65-41b8-8b79-b86966ed2107,"HANK 
 4e338c02-53ea-4715-b893-778d0b05a88d,ff15b06e-8b65-41b8-8b79-b86966ed2107,"HANK HOWARD, PIZZA DETECTIVE: A SLICE OF LIFE #2 (2026)",comic,UNCOMMON,2,1000,11,0,,"HANK HOWARD, PIZZA DETECTIVE: A SLICE OF LIFE",Bad Idea,898,2026-06-10,898,2026-06-10
 4d77de22-9e5e-4d62-be9f-aab38a452d62,ff15b06e-8b65-41b8-8b79-b86966ed2107,"HANK HOWARD, PIZZA DETECTIVE: A SLICE OF LIFE #2 (2026)",comic,ULTRA_RARE,2,1000,11,0,,"HANK HOWARD, PIZZA DETECTIVE: A SLICE OF LIFE",Bad Idea,898,2026-06-10,898,2026-06-10
 991eaa13-8ef9-453c-8569-52e75dfd21b7,ff15b06e-8b65-41b8-8b79-b86966ed2107,"HANK HOWARD, PIZZA DETECTIVE: A SLICE OF LIFE #2 (2026)",comic,SECRET_RARE,2,1000,11,0,,"HANK HOWARD, PIZZA DETECTIVE: A SLICE OF LIFE",Bad Idea,898,2026-06-10,898,2026-06-10
-7e2fed8b-71c0-43fd-a9f3-b321dc201356,b94fb541-a091-470e-af44-787713a626af,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB #1 (2026)",comic,COMMON,1,1000,11,0,,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB",Bad Idea,"8,98",2026-07-08,"8,98",2026-07-08
-4a5bd5b0-5814-43a1-879a-0eb957528fcb,b94fb541-a091-470e-af44-787713a626af,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB #1 (2026)",comic,UNCOMMON,1,1000,11,0,,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB",Bad Idea,"8,98",2026-07-08,"8,98",2026-07-08
+7e2fed8b-71c0-43fd-a9f3-b321dc201356,b94fb541-a091-470e-af44-787713a626af,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB #1 (2026)",comic,COMMON,1,1000,11,0,,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB",Bad Idea,898,2026-07-08,898,2026-07-08
+4a5bd5b0-5814-43a1-879a-0eb957528fcb,b94fb541-a091-470e-af44-787713a626af,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB #1 (2026)",comic,UNCOMMON,1,1000,11,0,,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB",Bad Idea,898,2026-07-08,898,2026-07-08
 ec836426-cec7-4de9-bb62-1671cc260515,b94fb541-a091-470e-af44-787713a626af,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB #1 (2026)",comic,RARE,1,1000,11,0,,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB",Bad Idea,10,2026-07-09,10,2026-07-09
-5763b130-7b33-4e85-8e5a-d4090c6154f9,b94fb541-a091-470e-af44-787713a626af,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB #1 (2026)",comic,ULTRA_RARE,1,1000,11,0,,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB",Bad Idea,"8,98",2026-07-08,"8,98",2026-07-08
-fdd6ea42-ed66-457a-bfb5-7e8f82fbc8a2,b94fb541-a091-470e-af44-787713a626af,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB #1 (2026)",comic,SECRET_RARE,1,1000,11,0,,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB",Bad Idea,"8,98",2026-07-08,"8,98",2026-07-08
+5763b130-7b33-4e85-8e5a-d4090c6154f9,b94fb541-a091-470e-af44-787713a626af,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB #1 (2026)",comic,ULTRA_RARE,1,1000,11,0,,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB",Bad Idea,898,2026-07-08,898,2026-07-08
+fdd6ea42-ed66-457a-bfb5-7e8f82fbc8a2,b94fb541-a091-470e-af44-787713a626af,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB #1 (2026)",comic,SECRET_RARE,1,1000,11,0,,"HANK HOWARD, PIZZA DETECTIVE: THE INSIDE JOB",Bad Idea,898,2026-07-08,898,2026-07-08
 2fb35aa7-ab2f-462a-8843-09235a32d9e3,907f5439-6c37-423c-be6f-adda3462e7ba,"HANK HOWARD, PIZZA DETECTIVE: THE TWO HOLLYWOODS #1 (2026)",comic,COMMON,1,1000,11,0,,"HANK HOWARD, PIZZA DETECTIVE: THE TWO HOLLYWOODS",Bad Idea,109,2026-02-07,10,2026-01-30
 5d524251-6486-4e6b-89f0-d830b112ae38,907f5439-6c37-423c-be6f-adda3462e7ba,"HANK HOWARD, PIZZA DETECTIVE: THE TWO HOLLYWOODS #1 (2026)",comic,UNCOMMON,1,1000,11,0,,"HANK HOWARD, PIZZA DETECTIVE: THE TWO HOLLYWOODS",Bad Idea,111,2026-02-13,1499,2026-01-31
 7a76f1c7-4dd6-4ba0-b209-cd7dbd6be315,907f5439-6c37-423c-be6f-adda3462e7ba,"HANK HOWARD, PIZZA DETECTIVE: THE TWO HOLLYWOODS #1 (2026)",comic,ULTRA_RARE,1,1000,11,0,,"HANK HOWARD, PIZZA DETECTIVE: THE TWO HOLLYWOODS",Bad Idea,5,2026-02-25,55,2026-01-29
@@ -10506,7 +10506,7 @@ c28f3ac3-ddcf-4a32-b516-0b82d62813e4,56ccd387-b613-4eb4-a328-5e6207377bcf,Scary 
 a561732e-ac2e-4cf2-86c0-949b99d0f995,56ccd387-b613-4eb4-a328-5e6207377bcf,Scary Christmas Vol. 2 #1 (2024),comic,ULTRA_RARE,1,1000,11,0,,Scary Christmas Vol. 2,American Mythology,798,2025-12-24,49,2025-12-25
 80afe784-fab0-4be6-9da0-3e28d11e3c8c,56ccd387-b613-4eb4-a328-5e6207377bcf,Scary Christmas Vol. 2 #1 (2024),comic,SECRET_RARE,1,1000,11,0,,Scary Christmas Vol. 2,American Mythology,798,2025-12-24,40,2026-06-22
 498538cb-af6d-4f5c-9add-4e9043ef8d9e,b88dfabe-80af-4632-9248-c53ef3bc0960,Secret Wars II Vol. 1 #1 (1985),comic,COMMON,1,1000,100,0,,Secret Wars II Vol. 1,Marvel,2,2026-07-15,"6,99",2026-07-15
-42252b73-3528-4a05-bf39-9f601ae39064,b88dfabe-80af-4632-9248-c53ef3bc0960,Secret Wars II Vol. 1 #1 (1985),comic,UNCOMMON,1,1000,100,0,,Secret Wars II Vol. 1,Marvel,"2,5",2026-07-15,"6,99",2026-07-15
+42252b73-3528-4a05-bf39-9f601ae39064,b88dfabe-80af-4632-9248-c53ef3bc0960,Secret Wars II Vol. 1 #1 (1985),comic,UNCOMMON,1,1000,100,0,,Secret Wars II Vol. 1,Marvel,"2,2",2026-07-16,"6,99",2026-07-15
 b800a5c2-6059-4de5-9fd5-9f8bf2533ef8,b88dfabe-80af-4632-9248-c53ef3bc0960,Secret Wars II Vol. 1 #1 (1985),comic,RARE,1,1000,100,0,,Secret Wars II Vol. 1,Marvel,"2,8",2026-07-16,"6,99",2026-07-15
 0684041d-0ab6-439c-8f27-820adab7775e,b88dfabe-80af-4632-9248-c53ef3bc0960,Secret Wars II Vol. 1 #1 (1985),comic,ULTRA_RARE,1,1000,100,0,,Secret Wars II Vol. 1,Marvel,7,2026-07-16,"10,99",2026-07-15
 ab079e00-7936-4926-8ca8-7db7cf53196b,b88dfabe-80af-4632-9248-c53ef3bc0960,Secret Wars II Vol. 1 #1 (1985),comic,SECRET_RARE,1,1000,100,0,,Secret Wars II Vol. 1,Marvel,"58,5",2026-07-15,85,2026-07-15
@@ -10837,7 +10837,7 @@ ec5626a4-9e39-4dc4-8ead-6ddfdb9e0170,15e2b29c-3373-4d16-a434-6d005dc83f09,Sorcer
 7d9d9ad9-5b47-449e-8f19-3c9030e05903,40aeaff1-fbfe-46f9-ac04-fbeb164e58d5,Sorcerer Supreme #7 (2025),comic,UNCOMMON,7,1000,11,0,,Sorcerer Supreme,Marvel,798,2026-06-17,798,2026-06-17
 0b3f109f-dcf7-4254-9080-29086177e4de,40aeaff1-fbfe-46f9-ac04-fbeb164e58d5,Sorcerer Supreme #7 (2025),comic,ULTRA_RARE,7,1000,11,0,,Sorcerer Supreme,Marvel,798,2026-06-17,798,2026-06-17
 0d96e8bc-60c6-4976-95d2-83e84a6ddb6a,40aeaff1-fbfe-46f9-ac04-fbeb164e58d5,Sorcerer Supreme #7 (2025),comic,SECRET_RARE,7,1000,11,0,,Sorcerer Supreme,Marvel,798,2026-06-17,798,2026-06-17
-aabae6f7-2217-4651-939a-d012ddadc646,2aadfe8d-1261-4c0a-bcb9-efe1b3d5f13f,Sorcerer Supreme #8 (2025),comic,COMMON,8,1000,11,0,,Sorcerer Supreme,Marvel,6,2026-07-08,"7,98",2026-07-08
+aabae6f7-2217-4651-939a-d012ddadc646,2aadfe8d-1261-4c0a-bcb9-efe1b3d5f13f,Sorcerer Supreme #8 (2025),comic,COMMON,8,1000,11,0,,Sorcerer Supreme,Marvel,6,2026-07-08,798,2026-07-08
 bbf595e5-344a-4589-85ce-efb56987dd3a,2aadfe8d-1261-4c0a-bcb9-efe1b3d5f13f,Sorcerer Supreme #8 (2025),comic,UNCOMMON,8,1000,11,0,,Sorcerer Supreme,Marvel,25,2026-07-08,25,2026-07-08
 d71d127f-2947-4792-aa13-2bc3b8e9b96b,2aadfe8d-1261-4c0a-bcb9-efe1b3d5f13f,Sorcerer Supreme #8 (2025),comic,ULTRA_RARE,8,1000,11,0,,Sorcerer Supreme,Marvel,45,2026-07-08,45,2026-07-08
 d6973853-9c49-41bc-b01c-c9839e2c32c1,2aadfe8d-1261-4c0a-bcb9-efe1b3d5f13f,Sorcerer Supreme #8 (2025),comic,SECRET_RARE,8,1000,11,0,,Sorcerer Supreme,Marvel,798,2026-07-08,798,2026-07-08
@@ -12344,6 +12344,11 @@ cfa7ac81-c3bb-4143-9a77-541def30af60,b479b6a5-4ea3-43e9-b40e-8f141a721846,The Am
 d8133d13-9589-44d9-ad06-2721750e2e02,b479b6a5-4ea3-43e9-b40e-8f141a721846,The Amazing Spider-Man Vol. 2 #548 (1999),comic,RARE,548,1000,100,0,,The Amazing Spider-Man Vol. 2,Marvel,"6,99",2026-07-21,"6,99",2026-07-21
 d4cd7e8f-0b58-46f2-976f-47b5c8204850,b479b6a5-4ea3-43e9-b40e-8f141a721846,The Amazing Spider-Man Vol. 2 #548 (1999),comic,ULTRA_RARE,548,1000,100,0,,The Amazing Spider-Man Vol. 2,Marvel,"6,99",2026-07-21,"6,99",2026-07-21
 7b91817e-a5b2-4d88-90a7-78ac29b593ae,b479b6a5-4ea3-43e9-b40e-8f141a721846,The Amazing Spider-Man Vol. 2 #548 (1999),comic,SECRET_RARE,548,1000,100,0,,The Amazing Spider-Man Vol. 2,Marvel,"6,99",2026-07-21,"6,99",2026-07-21
+662e1589-9a2f-4e00-b500-0bd936d4725b,ab11b5e2-d3ee-4d48-a6d1-2a0bff13594b,The Amazing Spider-Man Vol. 2 #549 (1999),comic,COMMON,549,1000,100,,,The Amazing Spider-Man Vol. 2,Marvel,"6,99",2026-07-22,"6,99",2026-07-22
+1ea9d96d-2f3b-4bd3-ad03-5d6f094e04f4,ab11b5e2-d3ee-4d48-a6d1-2a0bff13594b,The Amazing Spider-Man Vol. 2 #549 (1999),comic,UNCOMMON,549,1000,100,,,The Amazing Spider-Man Vol. 2,Marvel,"6,99",2026-07-22,"6,99",2026-07-22
+2c7b3c01-c0c7-455d-866c-646fcf1920a9,ab11b5e2-d3ee-4d48-a6d1-2a0bff13594b,The Amazing Spider-Man Vol. 2 #549 (1999),comic,RARE,549,1000,100,,,The Amazing Spider-Man Vol. 2,Marvel,"6,99",2026-07-22,"6,99",2026-07-22
+6104e9ae-fbbd-4358-8fb2-f7353789cc33,ab11b5e2-d3ee-4d48-a6d1-2a0bff13594b,The Amazing Spider-Man Vol. 2 #549 (1999),comic,ULTRA_RARE,549,1000,100,,,The Amazing Spider-Man Vol. 2,Marvel,"6,99",2026-07-22,"6,99",2026-07-22
+dc354437-ef22-4085-993e-03d5b8f80111,ab11b5e2-d3ee-4d48-a6d1-2a0bff13594b,The Amazing Spider-Man Vol. 2 #549 (1999),comic,SECRET_RARE,549,1000,100,,,The Amazing Spider-Man Vol. 2,Marvel,"6,99",2026-07-22,"6,99",2026-07-22
 e830235f-a16a-4409-9fdc-469987bccd05,c447b8df-22bb-4f71-bb12-0a6ddb7ccc86,The Amazing Spider-Man Vol. 7 #10 (2025),comic,COMMON,10,1000,11,0,,The Amazing Spider-Man Vol. 7,Marvel,7,2026-04-19,15,2025-08-20
 03189090-d22b-44eb-a218-8a73043fd095,c447b8df-22bb-4f71-bb12-0a6ddb7ccc86,The Amazing Spider-Man Vol. 7 #10 (2025),comic,UNCOMMON,10,1000,11,0,,The Amazing Spider-Man Vol. 7,Marvel,3,2026-01-30,15,2025-10-15
 154699b7-ee60-42bf-9f97-6c82b01faa7c,c447b8df-22bb-4f71-bb12-0a6ddb7ccc86,The Amazing Spider-Man Vol. 7 #10 (2025),comic,RARE,10,1000,11,0,,The Amazing Spider-Man Vol. 7,Marvel,798,2026-06-12,28,2026-04-19
@@ -12557,7 +12562,7 @@ ec8b8684-84a2-4694-855d-da8af434028d,d8c571bd-223c-4a2f-9f64-eae577f52786,The Bo
 4fcd5eac-06e7-49c4-a76d-e7ad2780ee58,abb4a1ff-abfc-41c9-bf5c-a39de2a9b6fb,The Boys #11 (2007),comic,COMMON,11,1000,11,0,,The Boys,Dynamite Entertainment,798,2026-06-24,798,2026-06-24
 90ff666c-8afa-46f5-bbdb-e367903cb0c6,abb4a1ff-abfc-41c9-bf5c-a39de2a9b6fb,The Boys #11 (2007),comic,SECRET_RARE,11,1000,11,0,,The Boys,Dynamite Entertainment,798,2026-06-24,798,2026-06-24
 1a9ef93f-3911-4753-ba2a-61f33f2528f7,5e714aea-cb77-41eb-963b-a3a945512ae5,The Boys #12 (2007),comic,COMMON,12,1000,11,0,,The Boys,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-f4c5e2b4-e459-429a-90e5-ef2eda407cb5,5e714aea-cb77-41eb-963b-a3a945512ae5,The Boys #12 (2007),comic,SECRET_RARE,12,1000,11,0,,The Boys,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
+f4c5e2b4-e459-429a-90e5-ef2eda407cb5,5e714aea-cb77-41eb-963b-a3a945512ae5,The Boys #12 (2007),comic,SECRET_RARE,12,1000,11,0,,The Boys,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
 45cc3bd9-5d27-4177-b0cb-adf38d1c1421,bbc34095-3d6e-4d10-a725-50f8f5729279,The Boys #2 (2009),comic,COMMON,2,1000,11,0,,The Boys: Dynamite Edition,Dynamite Entertainment,2,2026-07-06,60,2025-06-18
 512ab76a-1400-4e5b-a164-463a75278c25,bbc34095-3d6e-4d10-a725-50f8f5729279,The Boys #2 (2009),comic,SECRET_RARE,2,1000,11,0,,The Boys: Dynamite Edition,Dynamite Entertainment,798,2026-05-11,300,2026-03-31
 20b75b2e-2616-46d9-83f6-98b33523b331,86449ec1-d45b-4ab1-b0bf-3001a6759ae3,The Boys #3 (2006),comic,COMMON,3,1000,11,0,,The Boys: Dynamite Edition,Dynamite Entertainment,2,2026-07-06,1000,2026-03-20
@@ -13454,11 +13459,11 @@ b6f9a6dc-9bc7-475f-b296-f3cfc38a8126,70e1b0cc-0403-4fbe-8422-be5811443486,Thunde
 c73330be-9899-42ef-974e-1234f5729746,70e1b0cc-0403-4fbe-8422-be5811443486,ThunderCats x Silverhawks #3 (2026),comic,RARE,3,1000,11,0,,ThunderCats x Silverhawks,Dynamite Entertainment,798,2026-06-10,798,2026-06-10
 32eccf87-b6d1-44ed-bcb9-c8bae964381b,70e1b0cc-0403-4fbe-8422-be5811443486,ThunderCats x Silverhawks #3 (2026),comic,ULTRA_RARE,3,1000,11,0,,ThunderCats x Silverhawks,Dynamite Entertainment,798,2026-06-10,798,2026-06-10
 c8c428a0-6f34-431d-a050-d52a3d43f58d,70e1b0cc-0403-4fbe-8422-be5811443486,ThunderCats x Silverhawks #3 (2026),comic,SECRET_RARE,3,1000,11,0,,ThunderCats x Silverhawks,Dynamite Entertainment,798,2026-06-10,798,2026-06-10
-893ee4b0-8bfb-4d21-bbb2-6b5c42acef39,edbd1a73-d794-4b0a-a888-26ca98da6f16,ThunderCats x Silverhawks #4 (2026),comic,COMMON,4,1000,11,0,,ThunderCats x Silverhawks,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-255dbaa9-a66e-47d9-b155-31b3b13fe3c3,edbd1a73-d794-4b0a-a888-26ca98da6f16,ThunderCats x Silverhawks #4 (2026),comic,UNCOMMON,4,1000,11,0,,ThunderCats x Silverhawks,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-b9308757-b143-44db-b8ed-464dad49a38e,edbd1a73-d794-4b0a-a888-26ca98da6f16,ThunderCats x Silverhawks #4 (2026),comic,RARE,4,1000,11,0,,ThunderCats x Silverhawks,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-3d66e953-73cf-4e9b-a2a6-22b80c14a9d9,edbd1a73-d794-4b0a-a888-26ca98da6f16,ThunderCats x Silverhawks #4 (2026),comic,ULTRA_RARE,4,1000,11,0,,ThunderCats x Silverhawks,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-95fd8381-44a2-4b20-8b0b-60d608efa573,edbd1a73-d794-4b0a-a888-26ca98da6f16,ThunderCats x Silverhawks #4 (2026),comic,SECRET_RARE,4,1000,11,0,,ThunderCats x Silverhawks,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
+893ee4b0-8bfb-4d21-bbb2-6b5c42acef39,edbd1a73-d794-4b0a-a888-26ca98da6f16,ThunderCats x Silverhawks #4 (2026),comic,COMMON,4,1000,11,0,,ThunderCats x Silverhawks,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+255dbaa9-a66e-47d9-b155-31b3b13fe3c3,edbd1a73-d794-4b0a-a888-26ca98da6f16,ThunderCats x Silverhawks #4 (2026),comic,UNCOMMON,4,1000,11,0,,ThunderCats x Silverhawks,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+b9308757-b143-44db-b8ed-464dad49a38e,edbd1a73-d794-4b0a-a888-26ca98da6f16,ThunderCats x Silverhawks #4 (2026),comic,RARE,4,1000,11,0,,ThunderCats x Silverhawks,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+3d66e953-73cf-4e9b-a2a6-22b80c14a9d9,edbd1a73-d794-4b0a-a888-26ca98da6f16,ThunderCats x Silverhawks #4 (2026),comic,ULTRA_RARE,4,1000,11,0,,ThunderCats x Silverhawks,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+95fd8381-44a2-4b20-8b0b-60d608efa573,edbd1a73-d794-4b0a-a888-26ca98da6f16,ThunderCats x Silverhawks #4 (2026),comic,SECRET_RARE,4,1000,11,0,,ThunderCats x Silverhawks,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
 0e03c85b-5b96-43fa-b6ed-2e5b348f1812,5404eb81-5ec4-45ad-a769-5a28e9a95061,ThunderCats x Silverhawks: Road to War #1 (2026),comic,COMMON,1,1000,11,0,,ThunderCats x Silverhawks: Road to War,Dynamite Entertainment,898,2026-03-18,898,2026-03-18
 8fedf091-880d-490e-b8a7-66ff9313e324,5404eb81-5ec4-45ad-a769-5a28e9a95061,ThunderCats x Silverhawks: Road to War #1 (2026),comic,UNCOMMON,1,1000,11,0,,ThunderCats x Silverhawks: Road to War,Dynamite Entertainment,898,2026-03-18,898,2026-03-18
 1e4fa119-4af5-4321-ba7b-aa6fe70d965a,5404eb81-5ec4-45ad-a769-5a28e9a95061,ThunderCats x Silverhawks: Road to War #1 (2026),comic,RARE,1,1000,11,0,,ThunderCats x Silverhawks: Road to War,Dynamite Entertainment,898,2026-04-22,1499,2026-03-20
@@ -13593,11 +13598,11 @@ fc3c0805-dd85-47d7-b04b-00f46b0418e4,5e533b18-6d79-4e5e-b321-d9777754a8f6,Thunde
 71809905-28a4-454f-8bed-b4bacfe8edb3,7cd46dc1-2ddf-4989-b399-0a26bd70f312,Thundercats: Cheetara #1 (2024),comic,RARE,1,1000,11,0,,Thundercats: Cheetara,Dynamite Entertainment,798,2026-06-24,798,2026-06-24
 ae78e31a-ae69-4eed-bee9-c6d1b6ba6414,7cd46dc1-2ddf-4989-b399-0a26bd70f312,Thundercats: Cheetara #1 (2024),comic,ULTRA_RARE,1,1000,11,0,,Thundercats: Cheetara,Dynamite Entertainment,798,2026-06-24,798,2026-06-24
 d3d3cd41-b437-42bd-aef8-429a9ce76ecc,7cd46dc1-2ddf-4989-b399-0a26bd70f312,Thundercats: Cheetara #1 (2024),comic,SECRET_RARE,1,1000,11,0,,Thundercats: Cheetara,Dynamite Entertainment,798,2026-06-24,798,2026-06-24
-de1128a6-aa79-4a30-add1-789540a94749,64fc9f98-8b34-4cd8-96ae-0a4f50cf63d8,Thundercats: Cheetara #2 (2024),comic,COMMON,2,1000,11,0,,Thundercats: Cheetara,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-0a857463-ae3f-42f5-9528-1786a043e735,64fc9f98-8b34-4cd8-96ae-0a4f50cf63d8,Thundercats: Cheetara #2 (2024),comic,UNCOMMON,2,1000,11,0,,Thundercats: Cheetara,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-aab478ea-ce6d-4ebf-933c-f5e0b9966b33,64fc9f98-8b34-4cd8-96ae-0a4f50cf63d8,Thundercats: Cheetara #2 (2024),comic,RARE,2,1000,11,0,,Thundercats: Cheetara,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-5eb2369f-def0-42d9-b318-bdbb13c767e9,64fc9f98-8b34-4cd8-96ae-0a4f50cf63d8,Thundercats: Cheetara #2 (2024),comic,ULTRA_RARE,2,1000,11,0,,Thundercats: Cheetara,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
-c3da147d-ecb0-48ff-b599-c3083815adc5,64fc9f98-8b34-4cd8-96ae-0a4f50cf63d8,Thundercats: Cheetara #2 (2024),comic,SECRET_RARE,2,1000,11,0,,Thundercats: Cheetara,Dynamite Entertainment,"7,98",2026-07-08,"7,98",2026-07-08
+de1128a6-aa79-4a30-add1-789540a94749,64fc9f98-8b34-4cd8-96ae-0a4f50cf63d8,Thundercats: Cheetara #2 (2024),comic,COMMON,2,1000,11,0,,Thundercats: Cheetara,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+0a857463-ae3f-42f5-9528-1786a043e735,64fc9f98-8b34-4cd8-96ae-0a4f50cf63d8,Thundercats: Cheetara #2 (2024),comic,UNCOMMON,2,1000,11,0,,Thundercats: Cheetara,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+aab478ea-ce6d-4ebf-933c-f5e0b9966b33,64fc9f98-8b34-4cd8-96ae-0a4f50cf63d8,Thundercats: Cheetara #2 (2024),comic,RARE,2,1000,11,0,,Thundercats: Cheetara,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+5eb2369f-def0-42d9-b318-bdbb13c767e9,64fc9f98-8b34-4cd8-96ae-0a4f50cf63d8,Thundercats: Cheetara #2 (2024),comic,ULTRA_RARE,2,1000,11,0,,Thundercats: Cheetara,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
+c3da147d-ecb0-48ff-b599-c3083815adc5,64fc9f98-8b34-4cd8-96ae-0a4f50cf63d8,Thundercats: Cheetara #2 (2024),comic,SECRET_RARE,2,1000,11,0,,Thundercats: Cheetara,Dynamite Entertainment,798,2026-07-08,798,2026-07-08
 395fba4f-cf35-4422-aa5b-f75719165e8a,197a1978-c7de-4ebe-8903-ac38565c71eb,Thundercats: Panthro #1 (2025),comic,COMMON,1,1000,11,0,,Thundercats: Panthro,Dynamite Entertainment,898,2025-11-12,898,2025-11-12
 d065ea40-d110-4e04-8c7c-a8589ba599be,197a1978-c7de-4ebe-8903-ac38565c71eb,Thundercats: Panthro #1 (2025),comic,UNCOMMON,1,1000,11,0,,Thundercats: Panthro,Dynamite Entertainment,898,2025-11-12,898,2025-11-12
 0893e86d-49fd-47f8-b381-7dce82030074,197a1978-c7de-4ebe-8903-ac38565c71eb,Thundercats: Panthro #1 (2025),comic,RARE,1,1000,11,0,,Thundercats: Panthro,Dynamite Entertainment,898,2026-04-28,10,2026-04-28
@@ -14377,11 +14382,11 @@ e912be29-508c-4b47-b46b-36c3f94ddfa7,42a16fc0-e60f-47fd-a776-d94b87671ae4,Uncann
 7cb7b4d8-5496-4bfb-b349-4adc7a018056,2c5e297c-c055-4ff9-8620-32902677dcf5,Uncanny X-Men #30 (2024),comic,UNCOMMON,30,1000,11,0,,Uncanny X-Men,Marvel,798,2026-06-17,798,2026-06-17
 9ef024fd-ad11-4082-bb8c-28c4db74d4ad,2c5e297c-c055-4ff9-8620-32902677dcf5,Uncanny X-Men #30 (2024),comic,ULTRA_RARE,30,1000,11,0,,Uncanny X-Men,Marvel,798,2026-06-17,798,2026-06-17
 c68e8e73-7466-4882-bbca-bd0ec82dca6a,2c5e297c-c055-4ff9-8620-32902677dcf5,Uncanny X-Men #30 (2024),comic,SECRET_RARE,30,1000,11,0,,Uncanny X-Men,Marvel,798,2026-06-17,798,2026-06-17
-da8c74e0-0db3-4da8-a956-4716ed221a50,101473f0-4c20-4b23-9c31-f04973c7137d,Uncanny X-Men #31 (2024),comic,COMMON,31,1000,11,0,,Uncanny X-Men,Marvel,"2,5",2026-07-08,"7,98",2026-07-08
-880a75b7-ad30-45c3-b4b0-3174671c74e1,101473f0-4c20-4b23-9c31-f04973c7137d,Uncanny X-Men #31 (2024),comic,UNCOMMON,31,1000,11,0,,Uncanny X-Men,Marvel,"2,95",2026-07-08,"7,98",2026-07-08
+da8c74e0-0db3-4da8-a956-4716ed221a50,101473f0-4c20-4b23-9c31-f04973c7137d,Uncanny X-Men #31 (2024),comic,COMMON,31,1000,11,0,,Uncanny X-Men,Marvel,25,2026-07-08,798,2026-07-08
+880a75b7-ad30-45c3-b4b0-3174671c74e1,101473f0-4c20-4b23-9c31-f04973c7137d,Uncanny X-Men #31 (2024),comic,UNCOMMON,31,1000,11,0,,Uncanny X-Men,Marvel,295,2026-07-08,798,2026-07-08
 b7694eee-7bb6-459d-b019-e07e896248ac,101473f0-4c20-4b23-9c31-f04973c7137d,Uncanny X-Men #31 (2024),comic,RARE,31,1000,11,0,,Uncanny X-Men,Marvel,25,2026-07-12,25,2026-07-12
-f2b0a85e-5e61-4dea-a954-f8965a8c2229,101473f0-4c20-4b23-9c31-f04973c7137d,Uncanny X-Men #31 (2024),comic,ULTRA_RARE,31,1000,11,0,,Uncanny X-Men,Marvel,"7,98",2026-07-08,"7,98",2026-07-08
-07165675-54b3-4648-9cc6-3c33bd04a069,101473f0-4c20-4b23-9c31-f04973c7137d,Uncanny X-Men #31 (2024),comic,SECRET_RARE,31,1000,11,0,,Uncanny X-Men,Marvel,"7,98",2026-07-08,99,2026-07-08
+f2b0a85e-5e61-4dea-a954-f8965a8c2229,101473f0-4c20-4b23-9c31-f04973c7137d,Uncanny X-Men #31 (2024),comic,ULTRA_RARE,31,1000,11,0,,Uncanny X-Men,Marvel,798,2026-07-08,798,2026-07-08
+07165675-54b3-4648-9cc6-3c33bd04a069,101473f0-4c20-4b23-9c31-f04973c7137d,Uncanny X-Men #31 (2024),comic,SECRET_RARE,31,1000,11,0,,Uncanny X-Men,Marvel,798,2026-07-08,99,2026-07-08
 05d354dd-4d5e-4c69-90f1-49cfcb14aac2,a08f00ce-524f-4107-a8b3-3908f39033e5,Uncanny X-Men #4 (2024),comic,COMMON,4,1000,11,0,,Uncanny X-Men,Marvel,1,2026-06-18,13,2025-01-16
 9114250e-123f-43d1-90db-5adfbb79e38c,a08f00ce-524f-4107-a8b3-3908f39033e5,Uncanny X-Men #4 (2024),comic,RARE,4,1000,11,0,,Uncanny X-Men,Marvel,2,2026-06-19,21,2025-01-27
 b964f647-91bb-42a4-8729-7417e98430ba,a08f00ce-524f-4107-a8b3-3908f39033e5,Uncanny X-Men #4 (2024),comic,SECRET_RARE,4,1000,11,0,,Uncanny X-Men,Marvel,220,2025-01-15,220,2025-01-15
@@ -14444,11 +14449,11 @@ b112df9c-d1bd-4fa1-926a-77905116ffe1,807593a0-03c4-46dd-9c57-821690c0e72c,Uncann
 152e868e-3650-4318-ab37-b2968ab6f883,807593a0-03c4-46dd-9c57-821690c0e72c,Uncanny X-Men Vol. 1 #8 (1963),comic,RARE,8,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,75,2026-03-26,39,2026-06-17
 a0247440-7394-4303-9139-d7dd38fe832b,807593a0-03c4-46dd-9c57-821690c0e72c,Uncanny X-Men Vol. 1 #8 (1963),comic,ULTRA_RARE,8,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,1799,2026-05-17,5000,2026-05-27
 496acd20-6c91-4867-92b8-72ca11d0988f,807593a0-03c4-46dd-9c57-821690c0e72c,Uncanny X-Men Vol. 1 #8 (1963),comic,SECRET_RARE,8,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,699,2026-05-30,1600,2026-06-14
-62e14b15-e06b-4c3c-bdc1-0bdc18fc9b7a,d01ddc04-41b2-4e26-8bbc-0409784524fe,Uncanny X-Men Vol. 1 #99 (1963),comic,COMMON,99,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,"6,99",2026-07-16,"6,99",2026-07-16
-8a784eab-3749-44a4-a1ac-3e66abb111eb,d01ddc04-41b2-4e26-8bbc-0409784524fe,Uncanny X-Men Vol. 1 #99 (1963),comic,UNCOMMON,99,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,"6,99",2026-07-16,"6,99",2026-07-16
+62e14b15-e06b-4c3c-bdc1-0bdc18fc9b7a,d01ddc04-41b2-4e26-8bbc-0409784524fe,Uncanny X-Men Vol. 1 #99 (1963),comic,COMMON,99,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,"2,4",2026-07-16,"6,99",2026-07-16
+8a784eab-3749-44a4-a1ac-3e66abb111eb,d01ddc04-41b2-4e26-8bbc-0409784524fe,Uncanny X-Men Vol. 1 #99 (1963),comic,UNCOMMON,99,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,"2,5",2026-07-16,"6,99",2026-07-16
 bf2b7b54-51bf-4b11-8a03-96773c835fe6,d01ddc04-41b2-4e26-8bbc-0409784524fe,Uncanny X-Men Vol. 1 #99 (1963),comic,RARE,99,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,"6,99",2026-07-16,"6,99",2026-07-16
-4c015416-da1f-42b1-a9a6-4239b65ba89e,d01ddc04-41b2-4e26-8bbc-0409784524fe,Uncanny X-Men Vol. 1 #99 (1963),comic,ULTRA_RARE,99,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,"6,99",2026-07-16,"6,99",2026-07-16
-212c6bae-70d6-429b-b1d7-f198fba917b2,d01ddc04-41b2-4e26-8bbc-0409784524fe,Uncanny X-Men Vol. 1 #99 (1963),comic,SECRET_RARE,99,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,"6,99",2026-07-16,"6,99",2026-07-16
+4c015416-da1f-42b1-a9a6-4239b65ba89e,d01ddc04-41b2-4e26-8bbc-0409784524fe,Uncanny X-Men Vol. 1 #99 (1963),comic,ULTRA_RARE,99,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,"6,99",2026-07-16,9,2026-07-16
+212c6bae-70d6-429b-b1d7-f198fba917b2,d01ddc04-41b2-4e26-8bbc-0409784524fe,Uncanny X-Men Vol. 1 #99 (1963),comic,SECRET_RARE,99,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,99,2026-07-16,651,2026-07-16
 0bfea192-fed9-4d19-8bb3-07e8b03e2af8,9547e7fc-7e2a-4e8f-8c21-0983a5d76bfe,Uncanny X-Men Vol. 3 #131 (2013),comic,COMMON,131,1000,100,0,,Uncanny X-Men Vol. 3,Marvel,2,2026-06-26,10,2026-07-13
 6ff2a9b0-7617-43de-b266-4b08e120ee3d,9547e7fc-7e2a-4e8f-8c21-0983a5d76bfe,Uncanny X-Men Vol. 3 #131 (2013),comic,UNCOMMON,131,1000,100,0,,Uncanny X-Men Vol. 3,Marvel,25,2026-07-01,699,2026-06-19
 4090ddac-2348-47da-ab31-8da31dfa2a61,9547e7fc-7e2a-4e8f-8c21-0983a5d76bfe,Uncanny X-Men Vol. 3 #131 (2013),comic,RARE,131,1000,100,0,,Uncanny X-Men Vol. 3,Marvel,299,2026-07-01,12,2026-07-13
