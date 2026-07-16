@@ -6,11 +6,18 @@ name: Analytics - ledger writer (entrepot)
 # scraper/ledger.py (fonctions importees, parite au caractere pres) en 1-2 min
 # au lieu de 10-16 min de rejeu.
 #
-# /!\ PAS de cron tant que la validation croisee avec l'ancien ledger n'est
-# pas faite : les deux ecriraient les memes onglets. Une fois valide, deplacer
-# ici le cron "0 22 * * 4" de ledger.yml et neutraliser ce dernier (secours).
+# CRON ACTIF (bascule du 16/07/2026, apres validation croisee du Sheet) :
+# c'est desormais CE workflow qui alimente le Sheet chaque semaine. L'ancien
+# ledger.yml (rejeu complet 10-16 min) est neutralise et ne reste qu'en secours
+# manuel (workflow_dispatch). NE PAS reactiver son cron : les deux ecriraient
+# les memes onglets.
 
 on:
+  # HEBDO : jeudi 22:00 UTC = VENDREDI 00:00 heure de Paris (cron repris de
+  # ledger.yml). Le classement 🐋 et la cornerisation 🎯 sont frais le vendredi
+  # matin, et le daily de 02:15 UTC passe APRES (aucune course sur le Sheet).
+  schedule:
+    - cron: "0 22 * * 4"
   workflow_dispatch:
     inputs:
       steps:

@@ -20,11 +20,11 @@ name: Analytics - grand livre (holdings)
 # (rangs + profil) vit dans 🟣C-PSEUDOS.
 
 on:
-  # HEBDO : jeudi 22:00 UTC = VENDREDI 00:00 heure de Paris. Le classement 🐋
-  # et la cornerisation 🎯 sont donc frais le vendredi matin, et le daily de
-  # 02:15 UTC passe APRES (aucune course sur le Sheet).
-  schedule:
-    - cron: "0 22 * * 4"
+  # NEUTRALISE le 16/07/2026 : le cron hebdo "0 22 * * 4" est passe sur
+  # ledger-writer.yml (writer leger sur l'entrepot jetonveve, 1-2 min). Ce
+  # workflow de rejeu complet (10-16 min) reste EN SECOURS, declenchable a la
+  # main uniquement (workflow_dispatch). NE PAS remettre le cron ici tant que
+  # ledger-writer.yml le porte, sinon les deux ecrivent les memes onglets.
   workflow_dispatch:
     inputs:
       steps:
