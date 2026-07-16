@@ -431,7 +431,7 @@ bc871559-b5ff-4d52-958a-dc1652d8015a,b3020177-82d0-4d22-804f-a76aa42bf272,CUL-DE
 75fd5ad6-8c57-442e-b909-f5cda1ec3917,4511ae43-1ee4-48c8-a7df-eed7ac17ee7b,Winter Soldier,collectible,SECRET_RARE,,241,11,2,,Avengers,Marvel,25,2026-06-13,10000000,2025-09-19
 43bb7950-19b2-4687-b6da-de526c651fc1,ef1363a7-e1d0-40b5-9dfa-d3b6ff49909d,Bigshot Toyworks - Vincent Mascot,collectible,ULTRA_RARE,CE,245,11,4,,DesignerCon 2024,DesignerCon General,7,2025-08-24,25,2024-11-15
 886b4db9-44cf-4f79-9c92-bf70ddf63bed,f298e02c-1554-4bee-b297-2e90d37206e2,Star Wars™ Return of the Jedi Comic #1: Poster Series,collectible,SECRET_RARE,,248,41,4,,Star Wars Posters Collection,Star Wars,65,2025-03-24,1000,2025-05-15
-8d8093ae-34a6-4ef5-a7b4-4b5fe9bd8892,417fce5b-0978-4168-b78a-94df37922f4e,Vasil,collectible,SECRET_RARE,FE,249,11,13,,HAZARD,Hands In Factory,"19,99",2026-07-16,"54,5",2026-07-13
+8d8093ae-34a6-4ef5-a7b4-4b5fe9bd8892,417fce5b-0978-4168-b78a-94df37922f4e,Vasil,collectible,SECRET_RARE,FE,249,11,13,,HAZARD,Hands In Factory,"16,99",2026-07-16,"54,5",2026-07-13
 0b39709d-b8c7-4dc4-ae55-83d940cb7891,b6ade9c3-2ecb-4e7f-a959-7aee95f986e1,Assassin’s Creed - Altaïr,collectible,SECRET_RARE,FA,250,11,1,,Assassin's Creed,Ubisoft,25,2026-05-18,1E+15,2025-11-21
 9df59b34-4aa2-44c5-9ba8-101f9f31bff8,d559fe3b-2c35-4b41-ba37-a51a8bb8d4d8,Brett Crawford - S3LF MADE,collectible,SECRET_RARE,CE,250,41,3,,DesignerCon 2022 Collection,DesignerCon General,150,2025-02-05,333333,2026-03-24
 d9c90e56-3022-460f-a6a9-ad3356c5668e,9fc225b1-3c27-4e28-aa23-bbcf0c324d4e,Creepshow TV Graveyard,collectible,SECRET_RARE,FE,250,11,3,,Creepshow TV,Evoke Entertainment,1295,2025-05-26,316,2026-05-11
@@ -647,7 +647,7 @@ d0122a89-aac8-4527-a413-7267041c59be,c0b99e31-ce49-4dfa-b9d0-14dbe2153971,VeVe E
 52106634-c0eb-445c-a09e-7aa34e05e8d1,3b97734b-3006-48ef-86cb-f2e171033e40,Phoenix Five - Emma Frost,collectible,ULTRA_RARE,,480,21,10,,Phoenix Five,Marvel,33,2026-06-07,455,2026-06-07
 d0cb8b88-f65c-4441-9ae9-2b9e63379817,ec5268d7-5747-4d40-b1ab-23b4b5a77444,Series 2 - Boba Fett,collectible,ULTRA_RARE,,480,21,7,,Underworlders Collection,Star Wars,765,2026-02-15,2563,2026-02-08
 51783056-16e0-4adc-9a63-a294f0eb968f,7cc57c7e-8f2e-4109-8893-f22be70301d6,The Book of Boba Fett - Movie Props,collectible,ULTRA_RARE,,480,21,2,,Star Wars Movie Props,Star Wars,549,2026-02-10,30,2026-04-14
-262ca5c3-d806-421d-aa0a-05207e5ea59c,93b9e171-1310-4914-b468-b659f1a554c0,Teenage Mutant Ninja Turtles - Donatello,collectible,ULTRA_RARE,FA,487,21,34,,Teenage Mutant Ninja Turtles,Paramount Pictures,"22,99",2026-07-04,45,2026-07-05
+262ca5c3-d806-421d-aa0a-05207e5ea59c,93b9e171-1310-4914-b468-b659f1a554c0,Teenage Mutant Ninja Turtles - Donatello,collectible,ULTRA_RARE,FA,487,21,34,,Teenage Mutant Ninja Turtles,Paramount Pictures,"21,99",2026-07-04,45,2026-07-05
 d8d99355-5b95-4f3a-b229-fe29f8be5001,4266e7e1-ad8b-4f56-b49c-07e19c0a0ca1,Teenage Mutant Ninja Turtles - Leonardo,collectible,ULTRA_RARE,FA,487,21,9,,Teenage Mutant Ninja Turtles,Paramount Pictures,2899,2026-04-16,7695,2026-05-10
 3e628ba1-7c41-4d53-8ae7-ecc2aa09512a,b7729e6e-47f8-45c5-bf03-acce3a231ea3,Teenage Mutant Ninja Turtles - Michelangelo,collectible,ULTRA_RARE,FA,487,21,6,,Teenage Mutant Ninja Turtles,Paramount Pictures,449,2025-11-29,185,2026-06-02
 a218120e-106b-4761-9cce-21f4485d53a0,b449a9c3-3a18-4881-bd1e-92e53e2cd0d7,Teenage Mutant Ninja Turtles - Raphael,collectible,ULTRA_RARE,FA,487,21,14,,Teenage Mutant Ninja Turtles,Paramount Pictures,1999,2026-07-08,50,2026-05-04
@@ -7348,9 +7348,9 @@ ba64008a-7e0d-4719-8f5a-1cb4d000d63d,82bcb932-a9f9-4b49-b7b3-ccba52158108,Infern
 d0bc8726-2c88-4b88-bb44-0ec353faa34e,82bcb932-a9f9-4b49-b7b3-ccba52158108,Infernal Hulk #8 (2025),comic,ULTRA_RARE,8,1000,11,0,,Infernal Hulk,Marvel,798,2026-06-24,798,2026-06-24
 0ce31eaa-09f9-4657-96cc-a366745cf545,82bcb932-a9f9-4b49-b7b3-ccba52158108,Infernal Hulk #8 (2025),comic,SECRET_RARE,8,1000,11,0,,Infernal Hulk,Marvel,798,2026-06-24,798,2026-06-24
 a0e46603-5bab-4d6d-997c-06d57a471951,55d47080-1bdb-48bc-95f3-f2394955eab7,Infernal Hulk #9 (2025),comic,COMMON,9,1000,11,0,,Infernal Hulk,Marvel,"6,5",2026-07-15,19,2026-07-15
-51b7bd3c-6da7-4b0e-8587-8a253ea4d745,55d47080-1bdb-48bc-95f3-f2394955eab7,Infernal Hulk #9 (2025),comic,UNCOMMON,9,1000,11,0,,Infernal Hulk,Marvel,2,2026-07-15,8,2026-07-15
-7f447c44-1beb-4464-a43e-6a7d4c93c257,55d47080-1bdb-48bc-95f3-f2394955eab7,Infernal Hulk #9 (2025),comic,RARE,9,1000,11,0,,Infernal Hulk,Marvel,20,2026-07-15,45,2026-07-15
-b94c669c-ba67-456b-9be9-0cf834a15050,55d47080-1bdb-48bc-95f3-f2394955eab7,Infernal Hulk #9 (2025),comic,ULTRA_RARE,9,1000,11,0,,Infernal Hulk,Marvel,14,2026-07-15,40,2026-07-16
+51b7bd3c-6da7-4b0e-8587-8a253ea4d745,55d47080-1bdb-48bc-95f3-f2394955eab7,Infernal Hulk #9 (2025),comic,UNCOMMON,9,1000,11,0,,Infernal Hulk,Marvel,2,2026-07-16,8,2026-07-15
+7f447c44-1beb-4464-a43e-6a7d4c93c257,55d47080-1bdb-48bc-95f3-f2394955eab7,Infernal Hulk #9 (2025),comic,RARE,9,1000,11,0,,Infernal Hulk,Marvel,20,2026-07-16,45,2026-07-15
+b94c669c-ba67-456b-9be9-0cf834a15050,55d47080-1bdb-48bc-95f3-f2394955eab7,Infernal Hulk #9 (2025),comic,ULTRA_RARE,9,1000,11,0,,Infernal Hulk,Marvel,8,2026-07-15,40,2026-07-16
 42271a70-6526-4ad2-9fb9-e21730ee374c,55d47080-1bdb-48bc-95f3-f2394955eab7,Infernal Hulk #9 (2025),comic,SECRET_RARE,9,1000,11,0,,Infernal Hulk,Marvel,"7,98",2026-07-15,"7,98",2026-07-15
 5b1c4b36-3944-49c6-8686-25de4bbd8393,35810577-012d-43b4-930d-6587b09c0d7c,Infinity Watch #1 (2024),comic,UNCOMMON,1,1000,11,0,,Infinity Watch,Marvel,425,2024-12-13,1099,2025-01-31
 d9cfd5fb-a137-4444-84ce-f5ee4240af15,35810577-012d-43b4-930d-6587b09c0d7c,Infinity Watch #1 (2024),comic,SECRET_RARE,1,1000,11,0,,Infinity Watch,Marvel,798,2024-12-11,798,2024-12-11
@@ -10507,8 +10507,8 @@ a561732e-ac2e-4cf2-86c0-949b99d0f995,56ccd387-b613-4eb4-a328-5e6207377bcf,Scary 
 498538cb-af6d-4f5c-9add-4e9043ef8d9e,b88dfabe-80af-4632-9248-c53ef3bc0960,Secret Wars II Vol. 1 #1 (1985),comic,COMMON,1,1000,100,0,,Secret Wars II Vol. 1,Marvel,2,2026-07-15,"6,99",2026-07-15
 42252b73-3528-4a05-bf39-9f601ae39064,b88dfabe-80af-4632-9248-c53ef3bc0960,Secret Wars II Vol. 1 #1 (1985),comic,UNCOMMON,1,1000,100,0,,Secret Wars II Vol. 1,Marvel,"2,5",2026-07-15,"6,99",2026-07-15
 b800a5c2-6059-4de5-9fd5-9f8bf2533ef8,b88dfabe-80af-4632-9248-c53ef3bc0960,Secret Wars II Vol. 1 #1 (1985),comic,RARE,1,1000,100,0,,Secret Wars II Vol. 1,Marvel,"3,14",2026-07-15,"6,99",2026-07-15
-0684041d-0ab6-439c-8f27-820adab7775e,b88dfabe-80af-4632-9248-c53ef3bc0960,Secret Wars II Vol. 1 #1 (1985),comic,ULTRA_RARE,1,1000,100,0,,Secret Wars II Vol. 1,Marvel,"7,88",2026-07-16,"10,99",2026-07-15
-ab079e00-7936-4926-8ca8-7db7cf53196b,b88dfabe-80af-4632-9248-c53ef3bc0960,Secret Wars II Vol. 1 #1 (1985),comic,SECRET_RARE,1,1000,100,0,,Secret Wars II Vol. 1,Marvel,55,2026-07-15,85,2026-07-15
+0684041d-0ab6-439c-8f27-820adab7775e,b88dfabe-80af-4632-9248-c53ef3bc0960,Secret Wars II Vol. 1 #1 (1985),comic,ULTRA_RARE,1,1000,100,0,,Secret Wars II Vol. 1,Marvel,7,2026-07-16,"10,99",2026-07-15
+ab079e00-7936-4926-8ca8-7db7cf53196b,b88dfabe-80af-4632-9248-c53ef3bc0960,Secret Wars II Vol. 1 #1 (1985),comic,SECRET_RARE,1,1000,100,0,,Secret Wars II Vol. 1,Marvel,65,2026-07-15,85,2026-07-15
 964677f4-66e6-49f5-bfe9-361256db241d,ed750ff7-11e4-426a-a224-56242f4a543a,Sensational She-Hulk #10  (2023),comic,COMMON,10,1000,11,0,,Sensational She-Hulk,Marvel,59,2025-07-21,27,2024-12-09
 ed61a138-b9c9-4d9a-ba57-75ce1a35fd0f,ed750ff7-11e4-426a-a224-56242f4a543a,Sensational She-Hulk #10  (2023),comic,RARE,10,1000,11,1,,Sensational She-Hulk,Marvel,7,2025-05-08,36,2025-06-20
 6bf8ec86-dce6-4048-adf9-4f374a97e50c,ed750ff7-11e4-426a-a224-56242f4a543a,Sensational She-Hulk #10  (2023),comic,SECRET_RARE,10,1000,11,0,,Sensational She-Hulk,Marvel,788,2025-01-09,1050,2024-12-06
@@ -14410,7 +14410,7 @@ b10db569-b747-43b4-9f42-89413ed91243,70d48938-64e4-488c-9054-27bc7818d44c,Uncann
 33a8aad3-0b63-48b7-9c67-c53d82097143,b48d53ea-9f47-4794-af1c-2c7dedd38b71,Uncanny X-Men Annual #1 (2026),comic,SECRET_RARE,1,1000,11,0,,Uncanny X-Men Annual,Marvel,798,2026-04-08,798,2026-04-08
 54a96dc4-be67-41c7-aa1a-a9b3c4a7e528,1279a661-1b7c-4d09-a34a-8cc62bb96de2,Uncanny X-Men Vol. 1 #100 (1963),comic,COMMON,100,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,"3,99",2026-07-14,"6,99",2026-07-14
 2eccc3b9-a35b-4c06-b9a4-e50c9b01b92c,1279a661-1b7c-4d09-a34a-8cc62bb96de2,Uncanny X-Men Vol. 1 #100 (1963),comic,UNCOMMON,100,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,"2,6",2026-07-14,"6,99",2026-07-14
-3671215d-bf80-42ba-a011-f44aa51ba28b,1279a661-1b7c-4d09-a34a-8cc62bb96de2,Uncanny X-Men Vol. 1 #100 (1963),comic,RARE,100,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,"8,19",2026-07-14,9,2026-07-15
+3671215d-bf80-42ba-a011-f44aa51ba28b,1279a661-1b7c-4d09-a34a-8cc62bb96de2,Uncanny X-Men Vol. 1 #100 (1963),comic,RARE,100,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,7,2026-07-14,9,2026-07-15
 c73688ba-f8cf-40bb-925b-97f81e3f08be,1279a661-1b7c-4d09-a34a-8cc62bb96de2,Uncanny X-Men Vol. 1 #100 (1963),comic,ULTRA_RARE,100,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,"9,72",2026-07-14,"14,9",2026-07-15
 1aed29fb-e452-4152-ac8a-14153a7a0cb5,1279a661-1b7c-4d09-a34a-8cc62bb96de2,Uncanny X-Men Vol. 1 #100 (1963),comic,SECRET_RARE,100,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,85,2026-07-14,"92,99",2026-07-15
 2d879970-0a33-4357-b339-2f7169c258a0,2c434f5a-2fa8-4054-a0c3-975c6ec7d585,Uncanny X-Men Vol. 1 #125 (1963),comic,COMMON,125,1000,100,0,B,Uncanny X-Men Vol. 1,Marvel,164,2026-04-19,22,2026-03-24
