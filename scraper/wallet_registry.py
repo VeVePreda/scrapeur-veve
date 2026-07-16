@@ -26,7 +26,8 @@ from typing import Any, Dict, List
 
 from scraper.sheets import _client, _open_worksheet, append_log
 from scraper.chain_sheets import read_activity
-from scraper.stackr import PSEUDOS_TAB, PSEUDOS_HEADER, apply_type_validation
+from scraper.stackr import (PSEUDOS_TAB, PSEUDOS_HEADER, apply_type_validation,
+                            apply_type_colors, apply_pseudo_formats)
 
 
 def _aggregate(activity: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
@@ -93,12 +94,14 @@ def main() -> int:
         else:
             ws.append_rows(grid[i:i + 20000], value_input_option="RAW")
     try:
-        ws.freeze(rows=1)
+        ws.freeze(rows=1, cols=2)      # username + Type de compte figes (Preda)
         ws.format("1:1", {"textFormat": {"bold": True}})
     except Exception:
         pass
-    # (re)pose le menu deroulant sur la colonne manuelle "Type de compte"
+    # (re)pose le menu deroulant + le fond par type + les formats nombres
     apply_type_validation(sh, ws)
+    apply_type_colors(sh, ws)
+    apply_pseudo_formats(sh, ws)
 
     summary = {"status": "OK", "wallets_active": len(agg),
                "pseudos_enriched": updated, "duration": f"{time.time()-t0:.0f}s"}

@@ -421,9 +421,13 @@ def sync_catalogue(products: List[Dict[str, Any]], spreadsheet_id: str,
     for rec in merged.values():
         _normalise(rec)
 
+    # TRI CHRONOLOGIQUE (demande Preda 16/07) : le DERNIER sorti EN HAUT, par
+    # date de sortie (releaseDate) decroissante — vaut pour comics ET
+    # collectibles. Une date vide (jamais dropee) tombe en bas. (Avant :
+    # first_seen = l'ordre ou NOUS avons vu l'item, pas sa sortie VeVe.)
     ordered_recs = sorted(
         merged.values(),
-        key=lambda r: (str(r.get(FIRST_SEEN, "")), str(r.get("name", ""))),
+        key=lambda r: (str(r.get("releaseDate", "")), str(r.get("name", ""))),
         reverse=True,
     )
     comics_recs = [r for r in ordered_recs

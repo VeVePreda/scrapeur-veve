@@ -86,25 +86,27 @@ PSEUDOS_TAB = "🟣C-PSEUDOS"
 # The last 2 columns are the on-chain WALLET REGISTRY, filled by
 # scraper.wallet_registry from ChainActivity (kept across runs; chain_first_seen
 # only ever moves earlier — approximates the wallet's creation).
-PSEUDOS_HEADER = ["username",
-                  # ⬇️ COLONNE MANUELLE (remplie a la main par Preda, menu
-                  # deroulant) : type de compte pour filtrer et sortir des
-                  # alertes d'activite. Elle PERSISTE au rebuild quotidien — tous
-                  # les writers de l'onglet (wallet_registry, ce module, ledger)
-                  # relisent l'existant (get_all_records) puis reconstruisent via
-                  # r.get(c, ""), donc une valeur saisie a la main est reportee.
-                  "Type de compte",
-                  "wallet_imx", "wallet_stackr", "veve_user_id",
-                  "status", "source", "first_seen", "last_checked",
-                  "chain_first_seen", "chain_last_active",
-                  # --- profil injecte par scraper.ledger (join wallet_imx) ---
-                  "holdings", "distinct_collectibles", "acquired", "sold",
-                  "retention", "median_hold_days", "collectorScore",
-                  "activityStatus", "engagementLevel", "value_store",
-                  "value_floor", "qty_bucket", "airdropOnly",
-                  # --- rangs whales (13/07 : l'onglet 🐋A-WHALES est absorbe
-                  #     ici ; vide = hors du top 100 du classement) ---
-                  "rang_qty", "rang_floor", "rang_store"]
+# ORDRE VOULU PAR PREDA (16/07) : ses colonnes de tete d'abord (username · Type
+# de compte · holdings · collectorScore · activityStatus · engagementLevel ·
+# value_store · value_floor), puis l'identite/wallets, le reste du profil, les
+# rangs. Reordonner est SANS RISQUE : tous les writers reconstruisent par NOM
+# (r.get(c, "")) ; le seul acces positionnel est col_values(1) = username, qui
+# reste en colonne A. La colonne manuelle « Type de compte » (menu deroulant)
+# PERSISTE au rebuild (relecture de l'existant puis reconstruction par nom).
+PSEUDOS_HEADER = [
+    "username", "Type de compte",
+    # profil (injecte par scraper.ledger) — les plus regardes en premier
+    "holdings", "collectorScore", "activityStatus", "engagementLevel",
+    "value_store", "value_floor",
+    # --- identite / wallets ---
+    "wallet_imx", "wallet_stackr", "veve_user_id", "status", "source",
+    "first_seen", "last_checked", "chain_first_seen", "chain_last_active",
+    # --- profil (suite) ---
+    "distinct_collectibles", "acquired", "sold", "retention", "median_hold_days",
+    "qty_bucket", "airdropOnly",
+    # --- rangs whales (l'onglet 🐋A-WHALES est absorbe ici ; vide = hors top 100) ---
+    "rang_qty", "rang_floor", "rang_store",
+]
 
 PAUSE = float(os.environ.get("STACKR_PAUSE", "0.35"))
 MAX_LOOKUPS = int(os.environ.get("STACKR_MAX_LOOKUPS", "200"))
@@ -508,7 +510,7 @@ def write_book(spreadsheet_id: str, book: PseudoBook) -> None:
     ws.clear()
     ws.update(range_name="A1", values=grid, value_input_option="RAW")
     try:
-        ws.freeze(rows=1)
+        ws.freeze(rows=1, cols=2)      # username + Type de compte figes (Preda)
         ws.format("1:1", {"textFormat": {"bold": True}})
     except Exception:
         pass
@@ -517,6 +519,27 @@ def write_book(spreadsheet_id: str, book: PseudoBook) -> None:
 # Menu deroulant de la colonne manuelle "Type de compte" (choix Preda 16/07).
 PSEUDO_TYPES = ["VeVe Team", "Fondateur", "Modération", "Publisher",
                 "Influenceur", "À suivre"]
+
+# Fond leger par type de compte (demande Preda 16/07) — pour reperer le profil
+# d'un coup d'oeil. Pastels sur fond blanc, dans l'esprit du reste du Sheet.
+PSEUDO_TYPE_COLORS = {
+    "VeVe Team":   {"red": 0.80, "green": 0.89, "blue": 0.99},   # bleu
+    "Fondateur":   {"red": 0.99, "green": 0.91, "blue": 0.67},   # or
+    "Modération":  {"red": 0.85, "green": 0.94, "blue": 0.83},   # vert
+    "Publisher":   {"red": 0.90, "green": 0.82, "blue": 0.94},   # violet
+    "Influenceur": {"red": 0.99, "green": 0.87, "blue": 0.80},   # orange
+    "À suivre":    {"red": 0.91, "green": 0.91, "blue": 0.91},   # gris
+}
+
+# Formats nombres des colonnes du profil (demande Preda 16/07) : $, entiers, %.
+PSEUDO_FORMATS = {
+    "value_store": "$#,##0", "value_floor": "$#,##0",
+    "holdings": "#,##0", "collectorScore": "#,##0",
+    "acquired": "#,##0", "sold": "#,##0", "distinct_collectibles": "#,##0",
+    "median_hold_days": "#,##0",
+    "rang_qty": "#,##0", "rang_floor": "#,##0", "rang_store": "#,##0",
+    "retention": '0"%"',      # 85 -> « 85% » (retention = 100 - churn, deja en %)
+}
 
 
 def apply_type_validation(sh, ws) -> None:
@@ -548,6 +571,74 @@ def apply_type_validation(sh, ws) -> None:
         sh.batch_update({"requests": [req]})
     except Exception as e:                                  # noqa: BLE001
         print(f"    validation 'Type de compte' : {e}", flush=True)
+
+
+def apply_type_colors(sh, ws) -> None:
+    """Fond leger par type de compte (conditional formatting) : on repere le
+    profil d'un coup d'oeil. On PURGE d'abord les regles existantes de l'onglet
+    (sinon elles s'empilent a chaque run), puis une regle par valeur. Plage
+    bornee a la grille reelle (meme raison que la validation). Non bloquant."""
+    try:
+        col = PSEUDOS_HEADER.index("Type de compte")
+    except ValueError:
+        return
+    try:
+        n_rows = int(sh.worksheet(ws.title).row_count or 0)
+    except Exception:                                      # noqa: BLE001
+        n_rows = int(getattr(ws, "row_count", 0) or 0)
+    end = max(2, n_rows)
+    rng = {"sheetId": ws.id, "startRowIndex": 1, "endRowIndex": end,
+           "startColumnIndex": col, "endColumnIndex": col + 1}
+    reqs = []
+    try:                                                   # purge des anciennes regles
+        meta = sh.fetch_sheet_metadata()
+        for s in meta.get("sheets", []):
+            if s.get("properties", {}).get("sheetId") == ws.id:
+                for _ in range(len(s.get("conditionalFormats", []) or [])):
+                    reqs.append({"deleteConditionalFormatRule":
+                                 {"sheetId": ws.id, "index": 0}})
+                break
+    except Exception:                                      # noqa: BLE001
+        pass
+    for val, color in PSEUDO_TYPE_COLORS.items():
+        reqs.append({"addConditionalFormatRule": {"index": 0, "rule": {
+            "ranges": [rng],
+            "booleanRule": {
+                "condition": {"type": "TEXT_EQ",
+                              "values": [{"userEnteredValue": val}]},
+                "format": {"backgroundColor": color}}}}})
+    try:
+        sh.batch_update({"requests": reqs})
+    except Exception as e:                                  # noqa: BLE001
+        print(f"    couleurs 'Type de compte' : {e}", flush=True)
+
+
+def apply_pseudo_formats(sh, ws) -> None:
+    """Formats nombres du profil ($ / entiers / %) — demande Preda 16/07. Applique
+    par colonne (repeatCell), plage bornee a la grille reelle. Non bloquant."""
+    try:
+        n_rows = int(sh.worksheet(ws.title).row_count or 0)
+    except Exception:                                      # noqa: BLE001
+        n_rows = int(getattr(ws, "row_count", 0) or 0)
+    end = max(2, n_rows)
+    reqs = []
+    for col_name, pat in PSEUDO_FORMATS.items():
+        try:
+            c = PSEUDOS_HEADER.index(col_name)
+        except ValueError:
+            continue
+        reqs.append({"repeatCell": {
+            "range": {"sheetId": ws.id, "startRowIndex": 1, "endRowIndex": end,
+                      "startColumnIndex": c, "endColumnIndex": c + 1},
+            "cell": {"userEnteredFormat": {"numberFormat":
+                     {"type": "NUMBER", "pattern": pat}}},
+            "fields": "userEnteredFormat.numberFormat"}})
+    if not reqs:
+        return
+    try:
+        sh.batch_update({"requests": reqs})
+    except Exception as e:                                  # noqa: BLE001
+        print(f"    formats nombres pseudos : {e}", flush=True)
 
 
 def append_runlog(spreadsheet_id: str, summary: Dict[str, Any]) -> None:
