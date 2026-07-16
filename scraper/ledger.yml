@@ -1,0 +1,159 @@
+name: Analytics - grand livre (holdings)
+
+# TROIS sources (chacune tolerante si absente, il en faut au moins une) :
+#   1. Release "holders-snapshot" (repo public paolo)     -> etat PRESENT exact
+#      (qui detient quel exemplaire AUJOURD'HUI) : cornerisation, whales,
+#      wallet-size exacts des que le scan holders est termine.
+#   2. Release "chain-archive"   (repo public astronema)  -> HISTORIQUE des
+#      transferts : comportement (CollectorScore, durees, last_active) +
+#      resolution du vendeur des tokens en escrow.
+#   3. Release "chain-archive-daily" (CE repo)            -> CONTINUITE : les
+#      journees produites par chain_run apres le mur du scan profond.
+#      Chevauchements deduplique par (block, log_index) dans replay().
+#   4. Release "imx-archive"     (repo public paolo)      -> ERE IMX 2021->2026
+#      pour le PULSE MENSUEL uniquement (l'histoire complete sur STATS) ;
+#      grand livre / profils / scores restent CollectChain.
+# Ecrit : data/ledger.csv.gz + data/wallet_profiles.csv.gz (commites),
+# onglets 🎯A-CORNERISATION / 📈H-WALLET-SIZE(cache) / 🟣C-PSEUDOS / _Whales(cache).
+# 13/07 : l'onglet 🐋A-WHALES est SUPPRIME — le classement est rendu sur
+# 📊 STATS (source = onglet cache _Whales) et le detail wallet par wallet
+# (rangs + profil) vit dans 🟣C-PSEUDOS.
+
+on:
+  # NEUTRALISE le 16/07/2026 : le cron hebdo "0 22 * * 4" est passe sur
+  # ledger-writer.yml (writer leger sur l'entrepot jetonveve, 1-2 min). Ce
+  # workflow de rejeu complet (10-16 min) reste EN SECOURS, declenchable a la
+  # main uniquement (workflow_dispatch). NE PAS remettre le cron ici tant que
+  # ledger-writer.yml le porte, sinon les deux ecrivent les memes onglets.
+  workflow_dispatch:
+    inputs:
+      steps:
+        description: "Sorties (all, ou liste : whales,corner,size,pseudos,pulse)"
+        required: false
+        default: "all"
+      archive_repo:
+        description: "Repo owner/name de l'archive chain-archive"
+        default: "astronemagame-maker/astronema"
+      snapshot_repo:
+        description: "Repo owner/name du snapshot holders-snapshot"
+        default: "lepaolo/paolo"
+      imx_repo:
+        description: "Repo owner/name de l'archive IMX (imx-archive)"
+        default: "lepaolo/paolo"
+      whales_top:
+        description: "Nombre de whales a lister"
+        default: "100"
+
+permissions:
+  contents: write
+
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      SHEET_ID: ${{ secrets.SHEET_ID }}
+      WHALES_TOP: ${{ github.event.inputs.whales_top || '100' }}
+      LEDGER_STEPS: ${{ github.event.inputs.steps || 'all' }}
+      ARCHIVE_DIR: dl
+      SNAPSHOT_DIR: dl_snap
+      IMX_DIR: dl_imx
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Les scans profonds sont TERMINES : chain-archive (astronema) et
+      # imx-archive (paolo) sont IMMUABLES -> cache Actions (~270 Mo) au lieu
+      # de re-telecharger a chaque run. Si un scan est un jour relance,
+      # incrementer la cle (v1 -> v2).
+      # restore/save SEPARES : le cache est sauve DES la fin des telechargements
+      # (actions/cache classique ne sauve qu'en fin de job -> un timeout du
+      # ledger annulait la sauvegarde, constate au run du 11/07).
+      - name: Cache archives immuables (chain-archive + imx-archive)
+        id: cache-static
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            dl_static
+            dl_imx
+          key: archives-immuables-v1
+
+      - name: Telecharger l'archive transferts (Release chain-archive)
+        if: ${{ steps.cache-static.outputs.cache-hit != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dl_static
+          REPO="${{ github.event.inputs.archive_repo || 'astronemagame-maker/astronema' }}"
+          gh release download chain-archive --repo "$REPO" --dir dl_static --pattern '*.csv.gz' \
+            || echo "Archive transferts indisponible - on continue (snapshot seul)."
+          echo "Archive :" && ls -lh dl_static/ || true
+
+      - name: Injecter les archives cachees dans dl/
+        run: |
+          mkdir -p dl dl_static dl_imx
+          cp -al dl_static/. dl/ 2>/dev/null || cp -r dl_static/. dl/ || true
+          echo "dl apres injection :" && ls dl/ | head -12
+
+      - name: Telecharger le snapshot holders (Release holders-snapshot)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dl_snap
+          REPO="${{ github.event.inputs.snapshot_repo || 'lepaolo/paolo' }}"
+          gh release download holders-snapshot --repo "$REPO" --dir dl_snap --pattern '*.csv.gz' \
+            || echo "Snapshot holders indisponible - on continue (rejeu seul)."
+          echo "Snapshot :" && ls -lh dl_snap/ || true
+
+      - name: Telecharger la continuite quotidienne (Release chain-archive-daily, ce repo)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download chain-archive-daily --dir dl --pattern '*.csv.gz' \
+            || echo "Pas d'archive quotidienne (Release absente) - ok."
+          echo "dl :" && ls -lh dl/ || true
+
+      - name: Telecharger l'archive IMX 2021-2026 (Release imx-archive, paolo)
+        if: ${{ steps.cache-static.outputs.cache-hit != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dl_imx
+          REPO="${{ github.event.inputs.imx_repo || 'lepaolo/paolo' }}"
+          gh release download imx-archive --repo "$REPO" --dir dl_imx --pattern '*.csv.gz' \
+            || echo "Archive IMX indisponible - pulse limite a l'ere CollectChain."
+          echo "IMX :" && ls -lh dl_imx/ | head -5 && du -sh dl_imx/ || true
+
+      - name: Sauver le cache immediatement (avant le gros calcul)
+        if: ${{ steps.cache-static.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            dl_static
+            dl_imx
+          key: archives-immuables-v1
+
+      - name: Construire le grand livre + agregats
+        run: python -m scraper.ledger
+
+      # Le grand livre depasse desormais 100 Mo (8,6 M d'editions avec le
+      # snapshot holders) -> Release au lieu d'un commit (rejete par GitHub).
+      - name: Publier le grand livre (Release ledger-data)
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls data/ledger.csv.gz >/dev/null 2>&1 || { echo "Pas de grand livre a publier."; exit 0; }
+          gh release view ledger-data >/dev/null 2>&1 || \
+            gh release create ledger-data --title "Grand livre + profils wallets" \
+              --notes "data/ledger.csv.gz (veve_uuid,edition,holder,listed) + data/wallet_profiles.csv.gz — regeneres a chaque run du workflow ledger. Trop gros pour un commit (>100 Mo)."
+          gh release upload ledger-data data/ledger.csv.gz data/wallet_profiles.csv.gz --clobber
+          echo "Publie :" && ls -lh data/
