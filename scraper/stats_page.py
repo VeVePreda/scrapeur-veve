@@ -51,6 +51,10 @@ import datetime as _dt
 import os
 import sys
 import time
+import csv
+import gzip
+import io
+import urllib.request
 from collections import Counter, defaultdict
 from typing import Any, Dict, List
 
@@ -1346,6 +1350,198 @@ def _fmt_requests(ws_id: int, n_daily: int) -> List[Dict]:
 # Main
 # ---------------------------------------------------------------------------
 
+
+# ═══ AGRÉGAT CORNÉRISATION + FICHE 🦊 MENUS LIÉS (16/07) ═══
+REL_ANALYTICS = ("https://github.com/fanablefrance/jetonveve/releases/download/"
+                 "analytics-derived")
+REL_CATALOGUE = ("https://github.com/fanablefrance/jetonveve/releases/download/"
+                 "catalogue")
+FICHE_INDEX_TAB = "_FicheIndex"
+FICHE_MENU_TAB = "_FicheMenu"
+GHOST_COL, GHOST_ROW0 = "AI", 48       # bloc agrégat, sous burns/univers (colonne AI)
+_RAR = {"COMMON": "Common", "UNCOMMON": "Uncommon", "RARE": "Rare",
+        "ULTRA_RARE": "Ultra Rare", "SECRET_RARE": "Secret Rare",
+        "ARTIST_PROOF": "Artist Proof", "FE": "FE", "FA": "FA"}
+_ACT_ORD = ["Actif", "Engage", "Somnolant", "Inactif", "Desinscrit",
+            "Fantome", "Non classe"]
+_ACT_LBL = {"Actif": "Actif ≤7j", "Engage": "Engagé ≤30j",
+            "Somnolant": "Somnolant ≤90j", "Inactif": "Inactif ≤180j",
+            "Desinscrit": "Désinscrit ≤365j", "Fantome": "Fantôme >365j",
+            "Non classe": "Non classé"}
+
+
+def _dl(url, tries=3):
+    for i in range(tries):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "veve-stats/1.0"})
+            with urllib.request.urlopen(req, timeout=120) as r:
+                return r.read()
+        except Exception:
+            if i + 1 >= tries:
+                raise
+            time.sleep(2 * (i + 1))
+
+
+def _rows_url(url):
+    data = _dl(url)
+    if url.endswith(".gz"):
+        data = gzip.decompress(data)
+    return list(csv.reader(io.StringIO(data.decode("utf-8"))))
+
+
+def _gi(x):
+    try:
+        return int(float(x))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _gsp(n):
+    return f"{n:,}".replace(",", " ")
+
+
+def build_fiche_index(cat_rows):
+    """catalogue (data, sans en-tete) -> [type, item, rarete, uuid, key] unique.
+    Comic : item=serie, rarete=rarete. Collectible : item=nom (desambigue par
+    serie si homonyme), pas de rarete. Dedup dur -> chaque cover selectionnable."""
+    coll = {}
+    for r in cat_rows:
+        if len(r) >= 7 and r[1] == "Collectible":
+            coll[r[2]] = coll.get(r[2], 0) + 1
+    out, seen = [], {}
+    for r in cat_rows:
+        if len(r) < 7:
+            continue
+        uuid, kind, name, rar, series = r[0], r[1], r[2], r[4], r[6]
+        if kind == "Comic":
+            typ, item, rr = "Comic", series, _RAR.get(rar, (rar or "").title())
+        elif kind == "Collectible":
+            typ, rr = "Collectible", ""
+            item = name if coll.get(name, 0) <= 1 else f"{name} ({series})"
+        else:
+            continue
+        key = f"{typ}|{item}|{rr}" if typ == "Comic" else f"{typ}|{item}"
+        if key in seen:
+            seen[key] += 1
+            item = f"{item} #{seen[key]}"
+            key = f"{typ}|{item}|{rr}" if typ == "Comic" else f"{typ}|{item}"
+        else:
+            seen[key] = 1
+        out.append([typ, item, rr, uuid, key])
+    return out
+
+
+def _write_fiche_helpers(sh):
+    """Ecrit _FicheIndex (catalogue) + _FicheMenu (formules des menus lies).
+    Les deux sont CACHES. A poser AVANT la fiche (ses validations les visent)."""
+    cat = _rows_url(f"{REL_CATALOGUE}/catalogue.csv.gz")[1:]
+    idx = build_fiche_index(cat)
+    wi = _open_worksheet(sh, FICHE_INDEX_TAB, cols=5)
+    wi.clear()
+    grid = [["type", "item", "rarete", "uuid", "key"]] + idx
+    step = 6000
+    for i in range(0, len(grid), step):
+        chunk = grid[i:i + step]
+        if i == 0:
+            wi.update(range_name="A1", values=chunk, value_input_option="RAW")
+        else:
+            wi.append_rows(chunk, value_input_option="RAW")
+    r1 = FICHE_ROW + 1
+    st = f"'{STATS_TAB}'"
+    fi = "'" + FICHE_INDEX_TAB + "'"
+    item_f = f'=IFERROR(SORT(UNIQUE(FILTER({fi}!B2:B;{fi}!A2:A={st}!$B${r1})));"")'
+    rar_f = (f'=IFERROR(SORT(UNIQUE(FILTER({fi}!C2:C;'
+             f'({fi}!A2:A={st}!$B${r1})*({fi}!B2:B={st}!$D${r1}))));"")')
+    uuid_f = (f'=IFERROR(INDEX({fi}!D2:D;MATCH('
+              f'IF({st}!$B${r1}="Comic";"Comic|"&{st}!$D${r1}&"|"&{st}!$F${r1};'
+              f'"Collectible|"&{st}!$D${r1});{fi}!E2:E;0));"")')
+    wm = _open_worksheet(sh, FICHE_MENU_TAB, cols=6)
+    wm.clear()
+    wm.update(range_name="A1", values=[[item_f, "", rar_f, "", uuid_f]],
+              value_input_option="USER_ENTERED")
+    for w in (wi, wm):
+        try:
+            sh.batch_update({"requests": [{"updateSheetProperties": {
+                "properties": {"sheetId": w.id, "hidden": True},
+                "fields": "hidden"}}]})
+        except Exception:
+            pass
+    return len(idx)
+
+
+def build_ghost_block(wal_rows, sup_rows, base_row):
+    """Bloc compact : chiffre supply perdue + wallets/supply par profil.
+    Retourne (grid, fmts_abs a1, bolds_abs rows) — colonnes AI..AL."""
+    wal = {r[0]: _gi(r[1]) for r in wal_rows if r and r[0]}
+    sup = {r[0]: (_gi(r[1]), _gi(r[2])) for r in sup_rows if r and r[0]}
+    tw = sum(wal.values()) or 1
+    ts = sum(v[0] for v in sup.values()) or 1
+    gs, gh = sup.get("Fantome", (0, 0))
+    ds, _ = sup.get("Desinscrit", (0, 0))
+    g, fmt, bold = [], [], []
+
+    def row(*c):
+        g.append(list(c))
+        return base_row + len(g) - 1        # rang absolu de la ligne ajoutee
+
+    bold.append(row("⚰️ SUPPLY POTENTIELLEMENT PERDUE", "", "", ""))
+    bold.append(row(f"{_gsp(gs)} ex", f"{100.0 * gs / ts:.1f} % circ.",
+                    f"sur {_gsp(gh)} fantômes", ""))
+    row(f"+ Désinscrits : {_gsp(gs + ds)} ex", f"{100.0 * (gs + ds) / ts:.1f} % (>180j)",
+        "", "")
+    row("", "", "", "")
+    bold.append(row("WALLETS PAR PROFIL", "Wallets", "%", ""))
+    a = base_row + len(g)
+    for k in _ACT_ORD:
+        if k in wal:
+            row(_ACT_LBL[k], wal[k], round(100.0 * wal[k] / tw, 1), "")
+    b = base_row + len(g) - 1
+    fmt.append((f"AJ{a}:AJ{b}", "#,##0"))
+    fmt.append((f"AK{a}:AK{b}", "0.0"))
+    row("", "", "", "")
+    bold.append(row("SUPPLY PAR PROFIL", "Exempl.", "% circ.", "Détent."))
+    a = base_row + len(g)
+    for k in _ACT_ORD:
+        if k in sup:
+            sv, hv = sup[k]
+            row(_ACT_LBL[k], sv, round(100.0 * sv / ts, 1), hv)
+    b = base_row + len(g) - 1
+    fmt.append((f"AJ{a}:AJ{b}", "#,##0"))
+    fmt.append((f"AK{a}:AK{b}", "0.0"))
+    fmt.append((f"AL{a}:AL{b}", "#,##0"))
+    return g, fmt, bold
+
+
+def _write_ghost_block(ws, sh):
+    from gspread.utils import a1_range_to_grid_range as _gr
+    wal = _rows_url(f"{REL_ANALYTICS}/wallets_par_profil.csv")[1:]
+    sup = _rows_url(f"{REL_ANALYTICS}/supply_par_profil.csv")[1:]
+    grid, fmt, bold = build_ghost_block(wal, sup, GHOST_ROW0)
+    ws.update(range_name=f"{GHOST_COL}{GHOST_ROW0}", values=grid,
+              value_input_option="RAW")
+    reqs = []
+    RED = {"backgroundColor": {"red": 0.82, "green": 0.18, "blue": 0.18},
+           "textFormat": {"bold": True,
+                          "foregroundColor": {"red": 1, "green": 1, "blue": 1}}}
+    reqs.append({"repeatCell": {"range": _gr(f"AI{GHOST_ROW0}:AL{GHOST_ROW0}", ws.id),
+        "cell": {"userEnteredFormat": RED},
+        "fields": "userEnteredFormat(backgroundColor,textFormat)"}})
+    for r in bold:
+        reqs.append({"repeatCell": {"range": _gr(f"AI{r}:AL{r}", ws.id),
+            "cell": {"userEnteredFormat": {"textFormat": {"bold": True}}},
+            "fields": "userEnteredFormat.textFormat.bold"}})
+    for a1, nf in fmt:
+        reqs.append({"repeatCell": {"range": _gr(a1, ws.id),
+            "cell": {"userEnteredFormat": {"numberFormat":
+                     {"type": "NUMBER", "pattern": nf}}},
+            "fields": "userEnteredFormat.numberFormat"}})
+    try:
+        sh.batch_update({"requests": reqs})
+    except Exception as e:
+        print(f"ghost block format warning: {e}", flush=True)
+    return len(grid)
+
+
 def write_stats(sh) -> Dict[str, Any]:
     activity = _records(sh, ACTIVITY_TAB)
     items = _records(sh, ITEMS_TAB)
@@ -1505,9 +1701,17 @@ def write_stats(sh) -> Dict[str, Any]:
     # heatmaps, tout en FORMULES qui lisent 🎯A-CORNERISATION (ecrit apres
     # l'habillage : ses formats lui sont propres, l'habillage ne le touche pas).
     try:
+        try:
+            _write_fiche_helpers(sh)
+        except Exception as e:
+            print(f"fiche index warning: {e}", flush=True)
         _fiche.write(sh, ws, FICHE_ROW)
     except Exception as e:
         print(f"fiche warning: {e}", flush=True)
+    try:
+        _write_ghost_block(ws, sh)
+    except Exception as e:
+        print(f"ghost block warning: {e}", flush=True)
 
     # placer 📊 STATS en 1er onglet + supprimer l'ancien 🏠ACCUEIL (choix Preda)
     try:

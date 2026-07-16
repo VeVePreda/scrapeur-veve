@@ -75,9 +75,12 @@ def _col(idx1: int) -> str:
     return s
 
 
-def _build(colmap: Dict[str, str], row0: int, default_name: str):
+def _build(colmap: Dict[str, str], row0: int, default):
     R0 = row0 - 1
-    SEL = f"MATCH($B${row0 + 1};{Q}{CORNER_TAB}{Q}!$B:$B;0)"
+    ucol = colmap.get("veve_uuid", "A")
+    # menus lies : l'uuid resolu vit dans _FicheMenu!E1 -> on MATCH par UUID
+    # (unique) au lieu du nom (qui collide pour les comics -> Commun seul).
+    SEL = f"MATCH({Q}_FicheMenu{Q}!$E$1;{Q}{CORNER_TAB}{Q}!${ucol}:${ucol};0)"
 
     def IDX(name: str) -> str:
         c = colmap[name]
@@ -97,8 +100,10 @@ def _build(colmap: Dict[str, str], row0: int, default_name: str):
 
     put(0, 0, "🦊 FICHE PAR ITEM     "
               "(données : 🎯A-CORNERISATION, recalculées chaque nuit)")
-    put(1, 0, "Item ▼")
-    put(1, 1, default_name)
+    dtype, ditem, drar = default
+    put(1, 0, "Type ▼");   put(1, 1, dtype)
+    put(1, 2, "Item ▼");   put(1, 3, ditem)
+    put(1, 4, "Rareté ▼"); put(1, 5, drar)
     kpis = [("Supply", "circulating", "#,##0"), ("Holders", "holders", "#,##0"),
             ("Gini", "gini", "0.000"), ("Score coll. /100", "avg_collector", "0.0"),
             ("Score act. /100", "avg_activity", "0.0")]
@@ -225,11 +230,19 @@ def _merge(sid, r0, c0, nc):
                            "mergeType": "MERGE_ALL"}}
 
 
-def _dropdown(sid, row1):
+def _dv_list(sid, row1, col0, values):
     return {"setDataValidation": {
-        "range": _rng(sid, row1 - 1, 1, 1, 1),
+        "range": _rng(sid, row1 - 1, 1, col0, 1),
+        "rule": {"condition": {"type": "ONE_OF_LIST",
+            "values": [{"userEnteredValue": v} for v in values]},
+            "showCustomUi": True, "strict": False}}}
+
+
+def _dv_range(sid, row1, col0, a1):
+    return {"setDataValidation": {
+        "range": _rng(sid, row1 - 1, 1, col0, 1),
         "rule": {"condition": {"type": "ONE_OF_RANGE", "values": [
-            {"userEnteredValue": f"={Q}{CORNER_TAB}{Q}!$B$2:$B"}]},
+            {"userEnteredValue": a1}]},
             "showCustomUi": True, "strict": False}}}
 
 
@@ -249,9 +262,11 @@ def write(sh, ws, row0: int) -> int:
               f"({', '.join(manque)}) — relancer le ledger. Module non ecrit.",
               flush=True)
         return 0
-    default_name = DEFAULT_ITEM
+    default = (os.environ.get("STATS_FICHE_DEFAULT_TYPE", "Collectible"),
+               os.environ.get("STATS_FICHE_DEFAULT", DEFAULT_ITEM),
+               os.environ.get("STATS_FICHE_DEFAULT_RAR", ""))
 
-    grid, meta = _build(colmap, row0, default_name)
+    grid, meta = _build(colmap, row0, default)
     need = row0 + meta["nrows"] + 4
     if ws.row_count < need:
         try:
@@ -279,8 +294,10 @@ def write(sh, ws, row0: int) -> int:
                     {"textFormat": {"bold": True},
                      "horizontalAlignment": "LEFT"}))
     # menu de l'item : surligne (demande Preda) + label en gras
-    reqs.append(_bg(sid, ar0 + 1, 1, 0, 1, BOLD))
-    reqs.append(_bg(sid, ar0 + 1, 1, 1, 1, HILITE))
+    for _lc in (0, 2, 4):
+        reqs.append(_bg(sid, ar0 + 1, 1, _lc, 1, BOLD))
+    for _mc in (1, 3, 5):
+        reqs.append(_bg(sid, ar0 + 1, 1, _mc, 1, HILITE))
     for r0, c0, nc, fam in meta["titles"]:
         reqs.append(_bg(sid, r0, 1, c0, nc,
                         {"backgroundColor": FAM[fam][0],
@@ -313,7 +330,10 @@ def write(sh, ws, row0: int) -> int:
                          "textFormat": {"bold": True}}))
     for r0, nr, c0, nc in meta["heat_ranges"]:
         reqs.append(_gradient(sid, r0, nr, c0, nc))
-    reqs.append(_dropdown(sid, meta["dropdown_row"]))
+    dr = meta["dropdown_row"]
+    reqs.append(_dv_list(sid, dr, 1, ["Comic", "Collectible"]))
+    reqs.append(_dv_range(sid, dr, 3, f"={Q}_FicheMenu{Q}!$A$1:$A"))
+    reqs.append(_dv_range(sid, dr, 5, f"={Q}_FicheMenu{Q}!$C$1:$C"))
 
     # purge des gradients du run PRECEDENT (accumulation sinon).
     dels: List[dict] = []
@@ -336,5 +356,5 @@ def write(sh, ws, row0: int) -> int:
         print(f"fiche : habillage refuse ({e}) — les valeurs sont posees.",
               flush=True)
     print(f"🦊 Fiche par item : {meta['nrows']} lignes × {meta['width']} col "
-          f"(item par défaut « {default_name} »).", flush=True)
+          f"(item par défaut « {default[1]} »).", flush=True)
     return meta["nrows"]
