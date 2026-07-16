@@ -1431,7 +1431,7 @@ def build_fiche_index(cat_rows):
     return out
 
 
-def _write_fiche_helpers(sh):
+def _write_fiche_helpers(sh, fiche_row):
     """Ecrit _FicheIndex (catalogue) + _FicheMenu (formules des menus lies).
     Les deux sont CACHES. A poser AVANT la fiche (ses validations les visent)."""
     cat = _rows_url(f"{REL_CATALOGUE}/catalogue.csv.gz")[1:]
@@ -1446,7 +1446,7 @@ def _write_fiche_helpers(sh):
             wi.update(range_name="A1", values=chunk, value_input_option="RAW")
         else:
             wi.append_rows(chunk, value_input_option="RAW")
-    r1 = FICHE_ROW + 1
+    r1 = fiche_row + 1
     st = f"'{STATS_TAB}'"
     fi = "'" + FICHE_INDEX_TAB + "'"
     item_f = f'=IFERROR(SORT(UNIQUE(FILTER({fi}!B2:B;{fi}!A2:A={st}!$B${r1})));"")'
@@ -1540,6 +1540,112 @@ def _write_ghost_block(ws, sh):
     except Exception as e:
         print(f"ghost block format warning: {e}", flush=True)
     return len(grid)
+
+
+CIMET_TAB = "_Cimetieres"
+
+
+def _gf(x):
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def build_cimetieres(corner_rows, name_map):
+    """corner_items.csv PROD (uuid,category,circ,holders,burned,stock,ghost,
+    ghost_wallets,pct) + name_map -> [name, type, circ, ghost, pct] (ghost>0)."""
+    out = []
+    for r in corner_rows:
+        if len(r) < 9:
+            continue
+        gs = _gi(r[6])
+        if gs <= 0:
+            continue
+        typ = "Comic" if r[1] == "comic" else "Collectible"
+        out.append([name_map.get(r[0], r[0]), typ, _gi(r[2]), gs, _gf(r[8])])
+    return out
+
+
+def _write_cimetieres(sh):
+    ci = _rows_url(f"{REL_ANALYTICS}/corner_items.csv")[1:]
+    cf = _rows_url(f"{REL_ANALYTICS}/corner_full.csv.gz")
+    name_map = {r[0]: r[1] for r in cf[1:] if len(r) > 1}
+    rows = build_cimetieres(ci, name_map)
+    rows.sort(key=lambda x: x[3], reverse=True)
+    w = _open_worksheet(sh, CIMET_TAB, cols=5)
+    w.clear()
+    grid = [["name", "type", "circulating", "ghost", "pct"]] + rows
+    step = 6000
+    for i in range(0, len(grid), step):
+        chunk = grid[i:i + step]
+        if i == 0:
+            w.update(range_name="A1", values=chunk, value_input_option="RAW")
+        else:
+            w.append_rows(chunk, value_input_option="RAW")
+    try:
+        sh.batch_update({"requests": [{"updateSheetProperties": {
+            "properties": {"sheetId": w.id, "hidden": True}, "fields": "hidden"}}]})
+    except Exception:
+        pass
+    return len(rows)
+
+
+def _write_tops(ws, sh, tr):
+    """TOP 20 cimetieres (par supply fantome) + TOP 20 cornerises (par %, circ>=500)
+    cote a cote sous les whales, avec un menu Type qui trie en direct (QUERY).
+    Retourne la ligne ou poser la fiche (dessous)."""
+    from gspread.utils import a1_range_to_grid_range as _gr
+    _write_cimetieres(sh)
+    if ws.row_count < tr + 80:
+        try:
+            ws.resize(rows=tr + 80)
+        except Exception:
+            pass
+    tog = f"$B${tr}"
+
+    def _q(order, cond):
+        return (f"=IFERROR(QUERY('{CIMET_TAB}'!$A$2:$E;"
+                f'"select A,B,C,D,E where {cond} "&'
+                f"IF({tog}=\"Tous\";\"\";\"and B='\"&{tog}&\"' \")&"
+                f'"order by {order} desc limit 20";0);"")')
+    ws.update(range_name=f"A{tr}", values=[["Trier ▼", "Tous"]],
+              value_input_option="RAW")
+    ws.update(range_name=f"A{tr + 2}", values=[[
+        "TOP 20 — PLUS GROS CIMETIÈRES (supply fantôme)", "", "", "", "", "",
+        "TOP 20 — PLUS CORNÉRISÉS PAR LES FANTÔMES (circ ≥ 500)"]],
+        value_input_option="RAW")
+    ws.update(range_name=f"A{tr + 3}", values=[[
+        "Item", "Type", "Circulant", "Fantôme", "% fant.", "",
+        "Item", "Type", "Circulant", "Fantôme", "% fant."]],
+        value_input_option="RAW")
+    ws.update(range_name=f"A{tr + 4}", values=[[_q("D", "D>0")]],
+              value_input_option="USER_ENTERED")
+    ws.update(range_name=f"G{tr + 4}", values=[[_q("E", "C>=500")]],
+              value_input_option="USER_ENTERED")
+    reqs = [{"setDataValidation": {"range": _gr(f"B{tr}", ws.id),
+        "rule": {"condition": {"type": "ONE_OF_LIST", "values": [
+            {"userEnteredValue": v} for v in ("Tous", "Collectible", "Comic")]},
+            "showCustomUi": True, "strict": False}}},
+        {"repeatCell": {"range": _gr(f"B{tr}", ws.id),
+            "cell": {"userEnteredFormat": {"backgroundColor":
+                     {"red": 1.0, "green": 0.90, "blue": 0.46}}},
+            "fields": "userEnteredFormat.backgroundColor"}}]
+    for a1 in (f"A{tr}", f"A{tr + 2}:K{tr + 2}", f"A{tr + 3}:K{tr + 3}"):
+        reqs.append({"repeatCell": {"range": _gr(a1, ws.id),
+            "cell": {"userEnteredFormat": {"textFormat": {"bold": True}}},
+            "fields": "userEnteredFormat.textFormat.bold"}})
+    for a1, nf in ((f"C{tr + 4}:D{tr + 23}", "#,##0"), (f"E{tr + 4}:E{tr + 23}", "0.0"),
+                   (f"I{tr + 4}:J{tr + 23}", "#,##0"), (f"K{tr + 4}:K{tr + 23}", "0.0")):
+        reqs.append({"repeatCell": {"range": _gr(a1, ws.id),
+            "cell": {"userEnteredFormat": {"numberFormat":
+                     {"type": "NUMBER", "pattern": nf}}},
+            "fields": "userEnteredFormat.numberFormat"}})
+    try:
+        sh.batch_update({"requests": reqs})
+    except Exception as e:
+        print(f"tops format warning: {e}", flush=True)
+    return tr + 26
 
 
 def write_stats(sh) -> Dict[str, Any]:
@@ -1664,6 +1770,13 @@ def write_stats(sh) -> Dict[str, Any]:
         except Exception:
             pass
 
+    # ⚰️ TOP 20 CIMETIÈRES + CORNÉRISÉS (sous les whales) + menu de tri Type
+    fiche_row = FICHE_ROW
+    try:
+        fiche_row = _write_tops(ws, sh, WHALES_ROW + (len(whales_g) or 24) + 2)
+    except Exception as e:
+        print(f"tops warning: {e}", flush=True)
+
     # bannieres des modules de droite (💰 en T8, 🩺 juste en dessous)
     try:
         if wsize:
@@ -1702,10 +1815,10 @@ def write_stats(sh) -> Dict[str, Any]:
     # l'habillage : ses formats lui sont propres, l'habillage ne le touche pas).
     try:
         try:
-            _write_fiche_helpers(sh)
+            _write_fiche_helpers(sh, fiche_row)
         except Exception as e:
             print(f"fiche index warning: {e}", flush=True)
-        _fiche.write(sh, ws, FICHE_ROW)
+        _fiche.write(sh, ws, fiche_row)
     except Exception as e:
         print(f"fiche warning: {e}", flush=True)
     try:
