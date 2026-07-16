@@ -1389,6 +1389,20 @@ def _rows_url(url):
     return list(csv.reader(io.StringIO(data.decode("utf-8"))))
 
 
+def _retry429(fn, *a, **kw):
+    """Rejoue un appel gspread si Google renvoie 429 (quota d'ecritures/min)."""
+    import gspread
+    for i in range(5):
+        try:
+            return fn(*a, **kw)
+        except gspread.exceptions.APIError as e:
+            code = getattr(getattr(e, "response", None), "status_code", None)
+            if code == 429 and i < 4:
+                time.sleep(15 * (i + 1))
+                continue
+            raise
+
+
 def _gi(x):
     try:
         return int(float(x))
@@ -1437,15 +1451,15 @@ def _write_fiche_helpers(sh, fiche_row):
     cat = _rows_url(f"{REL_CATALOGUE}/catalogue.csv.gz")[1:]
     idx = build_fiche_index(cat)
     wi = _open_worksheet(sh, FICHE_INDEX_TAB, cols=5)
-    wi.clear()
-    grid = [["type", "item", "rarete", "uuid", "key"]] + idx
-    step = 6000
-    for i in range(0, len(grid), step):
-        chunk = grid[i:i + step]
-        if i == 0:
-            wi.update(range_name="A1", values=chunk, value_input_option="RAW")
-        else:
-            wi.append_rows(chunk, value_input_option="RAW")
+    try:
+        existing = len(wi.col_values(1))          # 1 LECTURE (quota separe)
+    except Exception:
+        existing = 0
+    if existing != len(idx) + 1:                  # taille changee -> reecrire (1 requete)
+        wi.clear()
+        grid = [["type", "item", "rarete", "uuid", "key"]] + idx
+        _retry429(wi.update, range_name="A1", values=grid,
+                  value_input_option="RAW")
     r1 = fiche_row + 1
     st = f"'{STATS_TAB}'"
     fi = "'" + FICHE_INDEX_TAB + "'"
@@ -1457,15 +1471,16 @@ def _write_fiche_helpers(sh, fiche_row):
               f'"Collectible|"&{st}!$D${r1});{fi}!E2:E;0));"")')
     wm = _open_worksheet(sh, FICHE_MENU_TAB, cols=6)
     wm.clear()
-    wm.update(range_name="A1", values=[[item_f, "", rar_f, "", uuid_f]],
+    _retry429(wm.update, range_name="A1",
+              values=[[item_f, "", rar_f, "", uuid_f]],
               value_input_option="USER_ENTERED")
-    for w in (wi, wm):
-        try:
-            sh.batch_update({"requests": [{"updateSheetProperties": {
+    try:
+        _retry429(sh.batch_update, {"requests": [
+            {"updateSheetProperties": {
                 "properties": {"sheetId": w.id, "hidden": True},
-                "fields": "hidden"}}]})
-        except Exception:
-            pass
+                "fields": "hidden"}} for w in (wi, wm)]})
+    except Exception:
+        pass
     return len(idx)
 
 
@@ -1536,7 +1551,7 @@ def _write_ghost_block(ws, sh):
                      {"type": "NUMBER", "pattern": nf}}},
             "fields": "userEnteredFormat.numberFormat"}})
     try:
-        sh.batch_update({"requests": reqs})
+        _retry429(sh.batch_update, {"requests": reqs})
     except Exception as e:
         print(f"ghost block format warning: {e}", flush=True)
     return len(grid)
@@ -1576,16 +1591,11 @@ def _write_cimetieres(sh):
     w = _open_worksheet(sh, CIMET_TAB, cols=5)
     w.clear()
     grid = [["name", "type", "circulating", "ghost", "pct"]] + rows
-    step = 6000
-    for i in range(0, len(grid), step):
-        chunk = grid[i:i + step]
-        if i == 0:
-            w.update(range_name="A1", values=chunk, value_input_option="RAW")
-        else:
-            w.append_rows(chunk, value_input_option="RAW")
+    _retry429(w.update, range_name="A1", values=grid, value_input_option="RAW")
     try:
-        sh.batch_update({"requests": [{"updateSheetProperties": {
-            "properties": {"sheetId": w.id, "hidden": True}, "fields": "hidden"}}]})
+        _retry429(sh.batch_update, {"requests": [{"updateSheetProperties": {
+            "properties": {"sheetId": w.id, "hidden": True},
+            "fields": "hidden"}}]})
     except Exception:
         pass
     return len(rows)
@@ -1609,20 +1619,19 @@ def _write_tops(ws, sh, tr):
                 f'"select A,B,C,D,E where {cond} "&'
                 f"IF({tog}=\"Tous\";\"\";\"and B='\"&{tog}&\"' \")&"
                 f'"order by {order} desc limit 20";0);"")')
-    ws.update(range_name=f"A{tr}", values=[["Trier ▼", "Tous"]],
-              value_input_option="RAW")
-    ws.update(range_name=f"A{tr + 2}", values=[[
-        "TOP 20 — PLUS GROS CIMETIÈRES (supply fantôme)", "", "", "", "", "",
-        "TOP 20 — PLUS CORNÉRISÉS PAR LES FANTÔMES (circ ≥ 500)"]],
-        value_input_option="RAW")
-    ws.update(range_name=f"A{tr + 3}", values=[[
-        "Item", "Type", "Circulant", "Fantôme", "% fant.", "",
-        "Item", "Type", "Circulant", "Fantôme", "% fant."]],
-        value_input_option="RAW")
-    ws.update(range_name=f"A{tr + 4}", values=[[_q("D", "D>0")]],
-              value_input_option="USER_ENTERED")
-    ws.update(range_name=f"G{tr + 4}", values=[[_q("E", "C>=500")]],
-              value_input_option="USER_ENTERED")
+    _retry429(ws.batch_update, [
+        {"range": f"A{tr}", "values": [["Trier ▼", "Tous"]]},
+        {"range": f"A{tr + 2}", "values": [[
+            "TOP 20 — PLUS GROS CIMETIÈRES (supply fantôme)", "", "", "", "", "",
+            "TOP 20 — PLUS CORNÉRISÉS PAR LES FANTÔMES (circ ≥ 500)"]]},
+        {"range": f"A{tr + 3}", "values": [[
+            "Item", "Type", "Circulant", "Fantôme", "% fant.", "",
+            "Item", "Type", "Circulant", "Fantôme", "% fant."]]},
+    ], value_input_option="RAW")
+    _retry429(ws.batch_update, [
+        {"range": f"A{tr + 4}", "values": [[_q("D", "D>0")]]},
+        {"range": f"G{tr + 4}", "values": [[_q("E", "C>=500")]]},
+    ], value_input_option="USER_ENTERED")
     reqs = [{"setDataValidation": {"range": _gr(f"B{tr}", ws.id),
         "rule": {"condition": {"type": "ONE_OF_LIST", "values": [
             {"userEnteredValue": v} for v in ("Tous", "Collectible", "Comic")]},
@@ -1642,7 +1651,7 @@ def _write_tops(ws, sh, tr):
                      {"type": "NUMBER", "pattern": nf}}},
             "fields": "userEnteredFormat.numberFormat"}})
     try:
-        sh.batch_update({"requests": reqs})
+        _retry429(sh.batch_update, {"requests": reqs})
     except Exception as e:
         print(f"tops format warning: {e}", flush=True)
     return tr + 26
