@@ -86,7 +86,15 @@ PSEUDOS_TAB = "🟣C-PSEUDOS"
 # The last 2 columns are the on-chain WALLET REGISTRY, filled by
 # scraper.wallet_registry from ChainActivity (kept across runs; chain_first_seen
 # only ever moves earlier — approximates the wallet's creation).
-PSEUDOS_HEADER = ["username", "wallet_imx", "wallet_stackr", "veve_user_id",
+PSEUDOS_HEADER = ["username",
+                  # ⬇️ COLONNE MANUELLE (remplie a la main par Preda, menu
+                  # deroulant) : type de compte pour filtrer et sortir des
+                  # alertes d'activite. Elle PERSISTE au rebuild quotidien — tous
+                  # les writers de l'onglet (wallet_registry, ce module, ledger)
+                  # relisent l'existant (get_all_records) puis reconstruisent via
+                  # r.get(c, ""), donc une valeur saisie a la main est reportee.
+                  "Type de compte",
+                  "wallet_imx", "wallet_stackr", "veve_user_id",
                   "status", "source", "first_seen", "last_checked",
                   "chain_first_seen", "chain_last_active",
                   # --- profil injecte par scraper.ledger (join wallet_imx) ---
@@ -504,6 +512,42 @@ def write_book(spreadsheet_id: str, book: PseudoBook) -> None:
         ws.format("1:1", {"textFormat": {"bold": True}})
     except Exception:
         pass
+
+
+# Menu deroulant de la colonne manuelle "Type de compte" (choix Preda 16/07).
+PSEUDO_TYPES = ["VeVe Team", "Fondateur", "Modération", "Publisher",
+                "Influenceur", "À suivre"]
+
+
+def apply_type_validation(sh, ws) -> None:
+    """(Re)pose le menu deroulant (6 categories) sur la colonne manuelle
+    "Type de compte", sur toutes les lignes de donnees. La validation survit aux
+    reecritures de valeurs (ws.clear/update ne touche que les valeurs, pas la
+    data-validation) ; on la repose chaque jour par securite. Non bloquant.
+    ⚠️ On BORNE la plage a la taille REELLE de la grille (relue a la source) —
+    une plage plus grande que la grille fait refuser TOUTE la requete par l'API
+    (« range exceeds grid limits ») et le menu ne serait jamais pose."""
+    try:
+        col = PSEUDOS_HEADER.index("Type de compte")
+    except ValueError:
+        return
+    try:
+        n_rows = int(sh.worksheet(ws.title).row_count or 0)
+    except Exception:                                      # noqa: BLE001
+        n_rows = int(getattr(ws, "row_count", 0) or 0)
+    end = max(2, n_rows)                                   # au moins la 1re ligne de donnees
+    req = {"setDataValidation": {
+        "range": {"sheetId": ws.id, "startRowIndex": 1, "endRowIndex": end,
+                  "startColumnIndex": col, "endColumnIndex": col + 1},
+        "rule": {
+            "condition": {"type": "ONE_OF_LIST",
+                          "values": [{"userEnteredValue": v}
+                                     for v in PSEUDO_TYPES]},
+            "showCustomUi": True, "strict": True}}}
+    try:
+        sh.batch_update({"requests": [req]})
+    except Exception as e:                                  # noqa: BLE001
+        print(f"    validation 'Type de compte' : {e}", flush=True)
 
 
 def append_runlog(spreadsheet_id: str, summary: Dict[str, Any]) -> None:

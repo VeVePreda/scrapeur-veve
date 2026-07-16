@@ -13,8 +13,7 @@ Tabs maintained:
         — COLD catalogue, one row per product UUID, physically split by category.
           Only stable fields (identity, rarity, series/brand/licensor, description,
           drop method, market fee…). Rows are never deleted (we always start from
-          what's already there), so a source outage can't wipe your data. Upcoming
-          drops are highlighted (green = comics, blue = collectibles).
+          what's already there), so a source outage can't wipe your data.
 2. "Marques & Licences"
         — COLD reference page: one row per brand and per licensor, with product
           counts. Rebuilt each day from the catalogue.
@@ -612,12 +611,10 @@ def _apply_formatting(sh, ws, n_rows: int, n_cols: int,
         "cell": {"userEnteredFormat": {"textFormat": {"bold": True}}},
         "fields": "userEnteredFormat.textFormat.bold"}})
 
-    for r in upcoming_rows[:2000]:
-        reqs.append({"repeatCell": {
-            "range": {"sheetId": sid, "startRowIndex": r, "endRowIndex": r + 1,
-                      "startColumnIndex": 0, "endColumnIndex": n_cols},
-            "cell": {"userEnteredFormat": {"backgroundColor": upcoming_colour}},
-            "fields": "userEnteredFormat.backgroundColor"}})
+    # Plus de surlignage de fond des nouveaux items / drops a venir (demande
+    # Preda, 16/07) : tout reste sur fond BLANC — le reset ci-dessus efface les
+    # anciennes couleurs vert/bleu. On garde la signature (appelant intact).
+    _ = (upcoming_rows, upcoming_colour)
     # Clear any leftover conditional-format rules (old rarity colouring).
     try:
         meta = sh.fetch_sheet_metadata()
