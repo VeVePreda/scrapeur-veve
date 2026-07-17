@@ -180,9 +180,17 @@ def construire(comics: List[Dict], collect: List[Dict],
             if SUPPLY_MAX and supply > SUPPLY_MAX:
                 continue
             note = notes.get(s) or notes.get(uid) or ""
+            # NOM : pour un COMIC l'identite est la SERIE (veve_series_name) ;
+            # pour un COLLECTIBLE c'est l'ITEM (name). veve_series_name porte la
+            # COLLECTION d'un collectible (ex. « Christian Louboutin... » au lieu
+            # de « Sea Queen ») -> polluait les cartes d'alerte. Corrige 17/07.
+            if cat == "collectible":
+                nom = (r.get("name") or r.get("veve_series_name") or "").strip()
+            else:
+                nom = (r.get("veve_series_name") or r.get("name") or "").strip()
             out.append([
                 uid, s,
-                (r.get("veve_series_name") or r.get("name") or "").strip(),
+                nom,
                 cat,
                 (r.get("rarity") or "").strip(),
                 (r.get("edition_type") or "").strip(),
