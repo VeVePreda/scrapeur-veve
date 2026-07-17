@@ -69,9 +69,16 @@ jobs:
           [ -z "$BASE" ] && BASE="https://github.com/fanablefrance/jetonveve/releases/download/analytics-derived"
           curl -sL --fail -o data/ledger.csv.gz "$BASE/ledger_full.csv.gz" \
             || echo "ledger_full.csv.gz indisponible - profils seuls."
-          gh release view ledger-data >/dev/null 2>&1 || \
-            gh release create ledger-data --title "Grand livre + profils wallets" \
-              --notes "data/ledger.csv.gz (veve_uuid,edition,holder,listed) + data/wallet_profiles.csv.gz — desormais derives de l'entrepot jetonveve (analytics-derived)."
+          # Idempotent : la Release ledger-data a pu etre creee jadis par
+          # ledger.yml. Si `view` donne un faux negatif, `create` percute le tag
+          # existant (HTTP 422 "Release.tag_name already exists"). On tolere ce
+          # cas (|| true) : l'upload --clobber ci-dessous attache de toute facon
+          # les fichiers a la Release existante. Une vraie erreur ressortira a
+          # l'upload (release introuvable), donc rien n'est masque a tort.
+          gh release view ledger-data >/dev/null 2>&1 \
+            || gh release create ledger-data --title "Grand livre + profils wallets" \
+                 --notes "data/ledger.csv.gz (veve_uuid,edition,holder,listed) + data/wallet_profiles.csv.gz — desormais derives de l'entrepot jetonveve (analytics-derived)." \
+            || true
           FILES="data/wallet_profiles.csv.gz"
           [ -f data/ledger.csv.gz ] && FILES="$FILES data/ledger.csv.gz"
           gh release upload ledger-data $FILES --clobber
