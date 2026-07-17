@@ -199,12 +199,18 @@ def _records(sh, tab) -> List[Dict[str, Any]]:
         ws = sh.worksheet(tab)
     except Exception:
         return []
+    # LECTURE ROBUSTE 429 : Google limite les LECTURES a ~60/min/user. stats_page
+    # lit beaucoup d'onglets d'affilee -> un 429 renvoyait [] -> la section vide
+    # etait EFFACEE par le batch_clear et repeinte vide (burns/whales/univers/
+    # tops/fiche disparus, incident 17/07). On reessaie sur 429 (backoff, comme
+    # les ecritures) au lieu d'abandonner. _retry429 est defini plus bas (appel
+    # au runtime -> reference avant sa def = OK).
     try:
         from gspread.utils import ValueRenderOption
-        return ws.get_all_records(
-            value_render_option=ValueRenderOption.unformatted)
+        return _retry429(ws.get_all_records,
+                         value_render_option=ValueRenderOption.unformatted)
     except TypeError:
-        return ws.get_all_records()
+        return _retry429(ws.get_all_records)
     except Exception:
         return []
 
