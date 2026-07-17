@@ -176,6 +176,15 @@ AVERTISSEMENT = ("ⓘ Chiffres indicatifs, issus de sources publiques — ce n'e
 
 MAX_DESC = 4000                      # Discord refuse au-dela de 4096
 
+# 🔔 LE PING EPHEMERE (idee de Preda) — le canal STATS n'a que 4 messages
+# EDITES : une edition ne genere AUCUNE notification, donc une mise a jour passe
+# inapercue. Parade : a chaque run, poster un message NEUF (qui, lui, notifie)
+# puis le SUPPRIMER dans la foulee. Le push (surtout mobile) est deja parti ; le
+# fil reste propre, ses 4 messages intacts. Declencheur = chaque run (choix
+# Preda) : on ping des qu'au moins un message a ete publie/reecrit.
+PING_ON = os.environ.get("DISCORD_STATS_PING", "true").lower() != "false"
+PING_TEXTE = os.environ.get("DISCORD_STATS_PING_TEXTE", "🔄 Stats mises à jour")
+
 
 # ---------------------------------------------------------------------------
 # Mise en forme
@@ -332,6 +341,29 @@ def publier(cle: str, payload: Dict, state: Dict) -> bool:
 # Main
 # ---------------------------------------------------------------------------
 
+def pinger() -> None:
+    """Poster un message neuf — qui notifie — puis le SUPPRIMER aussitot. La
+    notification est deja partie ; le fil garde ses 4 messages et rien d'autre.
+    Plafond + 429 + espacement geres par la couche discord_api, comme partout."""
+    if not PING_ON:
+        return
+    if not WEBHOOK:
+        print("[SIMULATION — pas de webhook] ping ephemere STATS "
+              f"(« {PING_TEXTE} », poste puis supprime).", flush=True)
+        return
+    payload = {"content": PING_TEXTE, "allowed_mentions": api.mentions()}
+    mid = api.poster(WEBHOOK, THREAD, payload)
+    if not mid:
+        return                    # plafond atteint ou POST refuse : rien a nettoyer
+    api.souffler()
+    if api.supprimer(WEBHOOK, THREAD, mid):
+        print(f"🔔 ping ephemere STATS ({mid}) : poste puis supprime — la notif "
+              "est partie, le fil reste propre.", flush=True)
+    else:
+        print(f"⚠️ ping ephemere STATS ({mid}) poste mais NON supprime — un "
+              "message a nettoyer a la main.", file=sys.stderr)
+
+
 def run() -> int:
     t0 = time.time()
     sheet_id = os.environ.get("SHEET_ID", "").strip()
@@ -370,6 +402,11 @@ def run() -> int:
             faits.append(cle)
         else:
             ok = False
+
+    # 🔔 Ping ephemere : uniquement si au moins un message a ete publie (sinon
+    # notifier « mise a jour » alors que rien n'a bouge serait un mensonge).
+    if faits:
+        pinger()
 
     api.save_state(STATE_PATH, state, WEBHOOK, THREAD)
     resume = {"jours": len(contenus["jours"]), "mois": len(contenus["mois"]),
