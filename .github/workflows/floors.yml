@@ -28,8 +28,11 @@ on:
         required: false
         default: ""
 
+# 🟠H-PRIX : groupe PARTAGE avec comic-prices + hprix-bridge (tous ecrivent
+# _DynState, reecriture non atomique) -> GitHub serialise, jamais deux en meme
+# temps. Remplace l'ancien groupe veve-floors (17/07).
 concurrency:
-  group: veve-floors
+  group: veve-hprix
   cancel-in-progress: false
 
 jobs:

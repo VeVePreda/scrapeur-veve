@@ -15,8 +15,11 @@ on:
         description: "Cap de test (0 = tous les comics)"
         default: "0"
 
+# 🟠H-PRIX : groupe PARTAGE avec floors + hprix-bridge (tous ecrivent _DynState,
+# dont la reecriture n'est pas atomique) -> GitHub les serialise, jamais deux en
+# meme temps. Remplace l'ancien groupe veve-comic-prices (17/07).
 concurrency:
-  group: veve-comic-prices
+  group: veve-hprix
   cancel-in-progress: false
 
 jobs:

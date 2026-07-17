@@ -7,19 +7,25 @@ name: Pont veille -> H-PRIX (ingest)
 # portant l'heure d'OBSERVATION. Un watermark (data/hprix_watermark.txt) evite
 # de retraiter le feed.
 #
-# Cadence HORAIRE, decalee du batch du matin (daily 04:11 / floors 05:41 /
-# comic_prices 06:21) : on ne touche pas _DynState en meme temps qu'eux (sa
-# reecriture n'est pas atomique). Horaire = 1 seul rafraichissement par fenetre
-# => au plus 1 changement par item et par run (l'historique reste fidele).
+# CADENCE : toutes les 3 h (17/07, choix Preda) au lieu d'horaire -> ~7 runs/j
+# au lieu de 21, economie de minutes preda (prive). H-PRIX = historique de floor
+# pour l'oeil humain, toutes les 3 h reste largement frais ; le watermark ingere
+# TOUS les changements accumules depuis le dernier run (aucune perte).
+# Les creneaux evitent le batch du matin (00:40 comic-prices -> 02:15 daily).
+#
+# 🟠H-PRIX : groupe de concurrence PARTAGE (veve-hprix) avec comic-prices +
+# floors -> GitHub serialise les 3 ecrivains de _DynState (reecriture non
+# atomique), plus jamais deux en meme temps. Un run du pont mis en attente
+# derriere un autre ecrivain est sans risque : le watermark rattrapera au tour
+# suivant.
 
 on:
   schedule:
-    # :50 chaque heure SAUF 04/05/06 UTC (ou le batch quotidien ecrit _DynState).
-    - cron: "50 0-3,7-23 * * *"
+    - cron: "50 3,6,9,12,15,18,21 * * *"
   workflow_dispatch:
 
 concurrency:
-  group: hprix-bridge
+  group: veve-hprix
   cancel-in-progress: false
 
 permissions:
