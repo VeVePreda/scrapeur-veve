@@ -5,6 +5,14 @@ name: VeVe floors sync (collectibles)
 #   fallback  -> my-nft-tracker market_lowestOffer
 # Appended (on change) to the shared "🟠H-PRIX" history. Edition counters are a
 # separate script; this one only touches floor / listings.
+#
+# 🌉 BASCULE DU PONT (FLOORS_FLOOR_SOURCE) :
+#   "self"   (defaut) = floors.py ecrit le floor collectible ET les listings.
+#   "bridge"          = floors.py CEDE le floor au pont veille->🟠H-PRIX (horaire,
+#                       plus frais) et n'ecrit plus que market_totalListings, que
+#                       le pont ne connait pas. Une seule source par champ, zero
+#                       course sur _DynState. Reversible : repasser sur "self".
+#   Champ de lancement > variable de depot > defaut.
 
 on:
   schedule:
@@ -15,6 +23,10 @@ on:
         description: "Cap the number of collectibles (0 = all, for a quick test)"
         required: false
         default: "0"
+      floor_source:
+        description: "Source du floor collectible : self (floors.py) ou bridge (cede au pont)"
+        required: false
+        default: ""
 
 concurrency:
   group: veve-floors
@@ -39,5 +51,6 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           SHEET_ID: ${{ secrets.SHEET_ID }}
           FLOORS_MAX: ${{ github.event.inputs.max || '0' }}
+          FLOORS_FLOOR_SOURCE: ${{ github.event.inputs.floor_source || vars.FLOORS_FLOOR_SOURCE || 'self' }}
           APIFY_PROXY_PASSWORD: ${{ secrets.APIFY_PROXY_PASSWORD }}
         run: python -m scraper.floors
