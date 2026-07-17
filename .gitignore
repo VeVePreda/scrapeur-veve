@@ -1,2 +1,4 @@
 __pycache__/
 *.pyc
+data/ledger.csv.gz
+data/wallet_profiles.csv.gz
