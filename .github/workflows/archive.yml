@@ -47,10 +47,21 @@ on:
         default: "non"
         type: choice
         options: ["non", "oui"]
-  schedule:
-    # Rattrapage quotidien de TOUS les salons (une fois la descente finie, il ne
-    # prend que les messages NOUVEAUX — quelques secondes par salon).
-    - cron: "20 4 * * *"
+  # ⛔ CRON RETIRE LE 19/07/2026 — decision Preda : « je n'utilise plus
+  # archive salon, c'etait juste pour prendre l'historique, j'en ai plus
+  # besoin maintenant ».
+  #
+  # Le workflow RESTE, en manuel uniquement. On ne le supprime pas : le
+  # corpus des 13 salons est la matiere premiere du futur chatbot, et le
+  # jour ou il faudra le completer, mieux vaut un bouton a cliquer qu'un
+  # outil a reecrire. Un collecteur qu'on ne peut plus relancer est un
+  # collecteur perdu.
+  #
+  # Pour le relancer : onglet Actions -> « Archive des salons » -> Run
+  # workflow. Pour le remettre en automatique : decommenter les deux
+  # lignes ci-dessous.
+  # schedule:
+  #   - cron: "20 4 * * *"
 
 permissions:
   contents: write
