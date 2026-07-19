@@ -66,6 +66,7 @@ import time
 from typing import Any, Dict, List
 
 from scraper import discord_api as api
+from scraper import discord_drops_sortis as sortis
 from scraper.sheets import _client, append_log
 from scraper.export_elements import lire_notes    # note de 🏆A-CLASSEMENT (lecture reutilisee)
 
@@ -533,6 +534,28 @@ def texte(d: Dict, ping: bool) -> str:
     return "\n".join(lignes)
 
 
+def dates_par_cle(sh) -> Dict[str, int]:
+    """{cle_serie: timestamp du drop}, SANS filtre de fenetre.
+
+    `drops_a_venir()` ecarte volontairement le passe — c'est justement le
+    passe qui nous interesse ici. On relit donc les deux onglets sans borne.
+    La cle est calculee EXACTEMENT comme a la publication : une formule qui
+    divergerait ne retrouverait aucune carte, et le marquage ne marquerait
+    rien, en silence.
+    """
+    out: Dict[str, int] = {}
+    for tab, _genre in TABS:
+        for r in _records(sh, tab):
+            _jour, ts, _avec_heure = _quand(r.get("releaseDate"))
+            if not ts:
+                continue
+            cle = (str(r.get("series_uuid") or "").strip()
+                   or str(r.get("veve_uuid") or "").strip())
+            if cle:
+                out.setdefault(cle, ts)
+    return out
+
+
 def message(d: Dict, ping: bool) -> Dict:
     """L'illustration part dans un embed sans titre : Discord l'affiche en grand
     SOUS le texte, exactement comme sur la carte de Preda."""
@@ -648,6 +671,21 @@ def run() -> int:
 
     # ═══ LE COMIC BOOK DAY : UN message pour tout le mercredi ═══
     cd = annoncer_comic_day(sh, state, wh, ping=premier_ping)
+
+    # 📦 Marquer les cartes dont le drop est passe. Place ICI, avant la
+    # sauvegarde de l'etat : ce qui est marque doit etre ecrit dans le meme
+    # souffle, sinon un plantage entre les deux ferait remarquer les memes
+    # cartes au tour suivant.
+    if wh:
+        n_sortis = sortis.marquer(
+            state.get("messages", {}), dates_par_cle(sh), state,
+            lire=lambda mid: api.lire_message(THREAD, mid),
+            editer=lambda mid, charge: api.editer(wh, THREAD, mid, charge),
+            mentions_vides=api.mentions([]),
+            souffler=api.souffler)
+        if n_sortis:
+            print(f"📦 {n_sortis} carte(s) marquee(s) « drop sorti ».",
+                  flush=True)
 
     state["cles"] = list(dict.fromkeys(state.get("cles", [])))
     api.save_state(STATE_PATH, state, wh, THREAD)

@@ -217,6 +217,36 @@ BOT = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
 API = "https://discord.com/api/v10"
 
 
+def lire_message(channel: str, message_id: str) -> Optional[Dict]:
+    """Le message complet (contenu + embeds), lu par le BOT.
+
+    Un webhook ne peut PAS relire ce qu'il a poste — d'ou le bot, comme pour
+    les reactions. Sert au marquage « drop sorti » : pour rediter une carte
+    sans la reconstruire, il faut d'abord la lire.
+
+    Rend None si la lecture echoue (message supprime, droits, reseau) :
+    l'appelant decide, personne ne plante.
+    """
+    if not BOT:
+        return None
+    url = f"{API}/channels/{channel}/messages/{message_id}"
+    for _ in range(ESSAIS):
+        try:
+            r = requests.get(url, headers={"Authorization": f"Bot {BOT}"},
+                             timeout=TIMEOUT)
+        except Exception as e:                              # noqa: BLE001
+            print(f"lecture du message KO ({e})", file=sys.stderr)
+            return None
+        if _429(r):
+            continue
+        if r.status_code >= 400:
+            print(f"lecture du message {r.status_code} : {r.text[:200]}",
+                  file=sys.stderr)
+            return None
+        return r.json()
+    return None
+
+
 def lire_reactions(channel: str, message_id: str) -> Dict[str, int]:
     """Les compteurs de reactions d'un message : {emoji: nombre}.
 
