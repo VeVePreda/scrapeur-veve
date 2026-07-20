@@ -1,3 +1,8 @@
+# ⚠️ DEPOT : VeVePreda/scrapeur-veve   ·   CHEMIN : scraper/discord_api.py
+# (un jumeau EXISTE dans jetonveve/scraper/ — ne pas confondre les deux)
+# Le projet vit sur 6 depots et DEUX comptes GitHub. Un fichier
+# depose au mauvais endroit ne provoque aucune erreur : il dort.
+
 """🔌 LA COUCHE DISCORD — une seule, partagee par tous les modules du hub.
 
 Pourquoi ce fichier : Preda a raison de refuser « 50 workflows ». Le corollaire,

@@ -1,3 +1,7 @@
+# ⚠️ DEPOT : VeVePreda/scrapeur-veve   ·   CHEMIN : scraper/discord_drops_sortis.py
+# Le projet vit sur 6 depots et DEUX comptes GitHub. Un fichier
+# depose au mauvais endroit ne provoque aucune erreur : il dort.
+
 """📦 Marquer les fiches dont le drop est PASSE.
 
 ⚠️ CE FICHIER VA DANS LE DEPOT `scrapeur-veve`, dans `scraper/`.
@@ -151,6 +155,19 @@ def marquer(messages: Dict[str, str], dates: Dict, state: Dict,
     sortis = list(state.setdefault("sortis", []))
     candidats = a_marquer(messages, dates, sortis, maintenant=maintenant,
                           plafond=plafond)
+
+    # ⭐ ON PARLE MEME QUAND ON NE FAIT RIEN (defaut corrige le 19/07).
+    # Avant, ce module se taisait quand il n'y avait rien a marquer — donc
+    # « il a tourne et n'avait rien a faire » et « il n'est pas installe »
+    # produisaient EXACTEMENT la meme sortie. Impossible de savoir lequel
+    # on regardait. Un garde-fou muet est un mur.
+    connues = len(messages or {})
+    journal(f"📦 marquage des drops sortis : {connues} carte(s) connue(s) · "
+            f"{len(sortis)} deja marquee(s) · {len(candidats)} a traiter.")
+    if connues == 0:
+        journal("   (l'etat ne contient aucune carte : seules celles postees "
+                "APRES l'arrivee de state['messages'] ont un identifiant "
+                "conserve — le marquage demarrera aux prochains drops.)")
     if not candidats:
         return 0
 

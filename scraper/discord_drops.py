@@ -1,3 +1,7 @@
+# ⚠️ DEPOT : VeVePreda/scrapeur-veve   ·   CHEMIN : scraper/discord_drops.py
+# Le projet vit sur 6 depots et DEUX comptes GitHub. Un fichier
+# depose au mauvais endroit ne provoque aucune erreur : il dort.
+
 """📦 LES DROPS À VENIR DANS LE POST FORUM « 📦DROP » — carte + sondage D/M/❌.
 
 Une carte par drop (a la maille de la SERIE : les 5 raretes d'un comic sont UNE
