@@ -622,6 +622,28 @@ def run() -> int:
             list(state.get("cles", [])) + [d["cle"] for d in neufs]))
         neufs = []
 
+    # ═══ 📦 MARQUER LES DROPS PASSES — AVANT TOUTE SORTIE ═══
+    # ⚠️ CORRIGE LE 20/07/2026. Ce bloc etait place plus bas, APRES le
+    # `if not neufs: ... return 0` juste en dessous. Consequence : le
+    # marquage ne tournait QUE les jours ou il y avait un nouveau drop a
+    # annoncer — c'est-a-dire presque jamais. Or marquer « drop sorti »
+    # concerne les drops PASSES : ca n'a aucun rapport avec l'existence de
+    # nouveautes du jour.
+    # Le commentaire de la branche ci-dessous mettait deja en garde contre
+    # ce piege pour le Comic Book Day (« Sortie prematuree = un message qui
+    # ne part jamais »). La lecon etait ecrite ; elle n'avait pas ete
+    # appliquee une branche plus loin.
+    if wh:
+        n_sortis = sortis.marquer(
+            state.get("messages", {}), dates_par_cle(sh), state,
+            lire=lambda mid: api.lire_message(THREAD, mid),
+            editer=lambda mid, charge: api.editer(wh, THREAD, mid, charge),
+            mentions_vides=api.mentions([]),
+            souffler=api.souffler)
+        if n_sortis:
+            print(f"📦 {n_sortis} carte(s) marquee(s) « drop sorti ».",
+                  flush=True)
+
     if not neufs:
         # ⚠️ Le Comic Book Day doit etre annonce MEME s'il n'y a aucun autre
         # drop : c'est un evenement a part entiere. (Sortie prematuree = un
@@ -675,21 +697,6 @@ def run() -> int:
 
     # ═══ LE COMIC BOOK DAY : UN message pour tout le mercredi ═══
     cd = annoncer_comic_day(sh, state, wh, ping=premier_ping)
-
-    # 📦 Marquer les cartes dont le drop est passe. Place ICI, avant la
-    # sauvegarde de l'etat : ce qui est marque doit etre ecrit dans le meme
-    # souffle, sinon un plantage entre les deux ferait remarquer les memes
-    # cartes au tour suivant.
-    if wh:
-        n_sortis = sortis.marquer(
-            state.get("messages", {}), dates_par_cle(sh), state,
-            lire=lambda mid: api.lire_message(THREAD, mid),
-            editer=lambda mid, charge: api.editer(wh, THREAD, mid, charge),
-            mentions_vides=api.mentions([]),
-            souffler=api.souffler)
-        if n_sortis:
-            print(f"📦 {n_sortis} carte(s) marquee(s) « drop sorti ».",
-                  flush=True)
 
     state["cles"] = list(dict.fromkeys(state.get("cles", [])))
     api.save_state(STATE_PATH, state, wh, THREAD)
