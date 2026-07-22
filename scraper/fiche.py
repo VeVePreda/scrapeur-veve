@@ -247,12 +247,30 @@ def _dv_range(sid, row1, col0, a1):
 
 
 def write(sh, ws, row0: int) -> int:
-    try:
-        header = sh.worksheet(CORNER_TAB).row_values(1)
-    except Exception as e:
-        print(f"fiche : 🎯A-CORNERISATION illisible ({e}) — module non ecrit.",
-              flush=True)
-        return 0
+    # 🔴 22/07/2026, vu en prod (daily #106) : un 429 « Read requests per
+    # minute » ICI faisait sauter le module ENTIER (« module non ecrit ») —
+    # or la grille de 📊 STATS venait d'etre reecrite, donc l'ANCIEN bloc
+    # etait deja efface : la page perdait tout son bas jusqu'au run suivant.
+    # (Le 429 venait d'une collision avec un autre job Sheets — Reparation
+    # ATL-ATH — sur le meme compte de service.) Un quota par MINUTE se
+    # rejoue, il ne se subit pas : backoff genereux, et on ne re-attrape
+    # jamais les autres erreurs.
+    header = None
+    for i, d in enumerate((0, 20, 40, 60)):
+        if d:
+            print(f"fiche : quota/indispo Sheets, pause {d}s (essai {i}/3)...",
+                  flush=True)
+            import time as _t
+            _t.sleep(d)
+        try:
+            header = sh.worksheet(CORNER_TAB).row_values(1)
+            break
+        except Exception as e:                              # noqa: BLE001
+            code = getattr(getattr(e, "response", None), "status_code", None)
+            if code not in (429, 503) or i == 3:
+                print(f"fiche : 🎯A-CORNERISATION illisible ({e}) — module "
+                      f"non ecrit.", flush=True)
+                return 0
     colmap = {name: _col(i + 1) for i, name in enumerate(header) if name}
     besoin = ["circulating", "holders", "prof_sup_Diamond-Hands",
               "act_sup_Actif", "hm_prof_act", "avg_collector"]
