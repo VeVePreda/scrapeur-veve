@@ -18,16 +18,18 @@ reparees), des 429 et des 503. La v2 inverse la source :
            market_totalListings du jour meme (v1 le prenait dans _DynState,
            rafraichi la veille).
   * note de classement -> le Sheet 🏆A-CLASSEMENT, SEULE lecture Sheet
-        restante avec les deux colonnes ci-dessous : c'est un jugement
-        manuel de Preda — le Sheet est la bonne source pour un geste humain.
-  * supply + first_available_edition -> viennent de l'enrichissement GraphQL,
-        qui n'existe QUE dans les onglets froids aujourd'hui. La v2 les lit
-        encore la (2 colonnes ENTIERES — le ×100 ne mord que les decimales),
-        c'est l'etape suivante du chantier (cache fichier) qui les detachera.
+        restante : c'est un jugement manuel de Preda — le Sheet est la bonne
+        source pour un geste humain.
+  * supply + first_available_edition + edition_type (secours) -> ETAPE 4 (ce
+        fichier) : viennent desormais du CACHE FICHIER data/enrichissement.csv
+        (scraper.enrich_cache), seede une fois depuis les onglets puis maintenu
+        par le daily. Le builder v2 ne lit donc PLUS aucune cellule d'onglet
+        froid ; il ne reste que la note (geste humain).
 
 ⭐ EN PRIME, LA PREUVE DEMANDEE PAR LE PLAN : le run MESURE l'accord entre
-`releaseAmount` (tracker) et `supply` (GraphQL/onglets) — c'est cette mesure
-qui dira si on peut un jour se passer completement des onglets pour le supply.
+`releaseAmount` (tracker) et `supply` (GraphQL, via le cache) — c'est cette
+mesure qui dira si on peut un jour se passer completement du cache pour le
+supply des collectibles.
 
 MODE « DOUBLE EN SILENCE »
 --------------------------
@@ -36,7 +38,8 @@ la prod (jetonveve, signaux 🎯/📚) continue de lire la v1. On compare N jour
 (scraper.compare_elements), et on ne bascule que sur un rapport propre.
 
 Env : GOOGLE_SERVICE_ACCOUNT_JSON, SHEET_ID, ELEMENTS_V2 (defaut
-      data/elements_v2.csv), ELEMENTS_SUPPLY_MAX (0 = tout, comme v1).
+      data/elements_v2.csv), ELEMENTS_SUPPLY_MAX (0 = tout, comme v1),
+      ENRICH_CACHE (defaut data/enrichissement.csv).
 """
 
 from __future__ import annotations
@@ -82,17 +85,17 @@ def _cat(p: Dict) -> str:
 
 
 def _edition(p: Dict, e: Dict) -> str:
-    """edition_type du pont : tracker d'abord, onglets en secours.
+    """edition_type du pont : tracker d'abord, cache en secours.
 
     Le 1er rapport du comparateur (22/07) a montre 241 ecarts (1,27 %),
     TOUS de deux formes :
       * v2='0'  quand v1=''   -> le tracker met un 0 numerique la ou il n'y a
         rien ; 0 n'est pas un type d'edition, c'est un vide deguise.
       * v2=''   quand v1='FA' -> le tracker ne connait pas les types poses par
-        GraphQL ('FA', 'FE'…) sur certaines fiches ; les onglets les ont
-        (sheets.py replie deja edition -> edition_type).
-    Regle : tracker si non vide et non zero, sinon la valeur des onglets —
-    et un zero, d'ou qu'il vienne, reste un vide (VIDE = INCONNU, jamais 0)."""
+        GraphQL ('FA', 'FE'…) sur certaines fiches ; le cache d'enrichissement
+        les a (herites des onglets, ou sheets replie edition -> edition_type).
+    Regle : tracker si non vide et non zero, sinon la valeur du cache — et un
+    zero, d'ou qu'il vienne, reste un vide (VIDE = INCONNU, jamais 0)."""
     ed = str(p.get("edition") or "").strip()
     if ed in ("", "0", "0.0"):
         ed = str(e.get("edition_type") or "").strip()
@@ -101,13 +104,42 @@ def _edition(p: Dict, e: Dict) -> str:
     return "" if ed in ("0", "0.0") else ed.upper()
 
 
-def lire_enrichissement(sh) -> Dict[str, Dict[str, int]]:
-    """{uuid -> {supply, first_public, edition_type}} depuis les onglets froids.
+def lire_enrichissement(sh=None) -> Dict[str, Dict[str, Any]]:
+    """{uuid -> {supply, first_public, series_uuid, edition_type}}.
+
+    ETAPE 4 DU CHANTIER : lit desormais le CACHE FICHIER data/enrichissement.csv
+    (scraper.enrich_cache — seede une fois depuis les onglets, puis maintenu par
+    le daily) AU LIEU des onglets froids. Le builder v2 ne touche donc plus
+    aucune cellule Sheet pour ces trois colonnes.
+
+    SECOURS : si le cache est ABSENT (seed pas encore lance), on RELIT les
+    onglets, avec un avertissement FORT — un cache muet ne doit pas devenir un
+    zero silencieux (regle projet : un compteur a zero est le seul signal qu'on
+    aura). La signature garde `sh` : main() appelle inchangee, et sh ne sert
+    plus qu'au secours."""
+    from scraper.enrich_cache import CACHE_PATH, charger
+    if os.path.exists(CACHE_PATH):
+        cache = charger(CACHE_PATH)
+        print(f"  enrichissement : cache fichier {CACHE_PATH} "
+              f"({len(cache)} items) — plus aucune lecture d'onglet froid.",
+              flush=True)
+        return cache
+    print(f"  ⚠️ cache enrichissement {CACHE_PATH} ABSENT — SECOURS : lecture "
+          f"des onglets froids. Lancer le workflow « seed enrichissement » "
+          f"(simuler=non) pour figer le cache.", file=sys.stderr)
+    if sh is None:
+        return {}
+    return _lire_enrichissement_onglets(sh)
+
+
+def _lire_enrichissement_onglets(sh) -> Dict[str, Dict[str, int]]:
+    """SECOURS historique : {uuid -> {supply, first_public, series_uuid,
+    edition_type}} depuis les onglets froids.
 
     SEULES deux colonnes ENTIERES (le ×100 ne mordait que les decimales) et
-    UN texte d'identite (edition_type, secours du tracker) sont lus — c'est la
-    partie que l'etape suivante du chantier remplacera par un cache fichier
-    maintenu par le daily."""
+    UN texte d'identite (edition_type, secours du tracker) etaient lus. Conserve
+    tel quel comme filet tant que le cache n'est pas seede ; une fois le cache en
+    place, plus jamais appele — c'est la porte de sortie de l'etape 4."""
     from scraper.sheets import COLLECT_TAB, COMICS_TAB
     from scraper.export_elements import _lire
     out: Dict[str, Dict[str, int]] = {}
@@ -192,8 +224,8 @@ def construire_v2(produits: List[Dict], enrich: Dict[str, Dict],
         ])
         stats["tracker"] += 1
 
-    # Les items connus des onglets mais ABSENTS du tracker : on ne les perd
-    # pas (le tracker peut retirer une fiche), mais sans prix — vide = inconnu.
+    # Les items connus du cache mais ABSENTS du tracker : on ne les perd pas
+    # (le tracker peut retirer une fiche), mais sans prix — vide = inconnu.
     for uid, e in enrich.items():
         if uid in vus:
             continue
@@ -210,14 +242,14 @@ def construire_v2(produits: List[Dict], enrich: Dict[str, Dict],
     eqb = stats["release_eq"] + stats["release_diff"]
     print(f"  v2 : {stats['tracker']} lignes tracker · "
           f"{stats['sans_enrich']} sans enrichissement (supply/1re ed. vides) · "
-          f"{stats['hors_tracker']} connues des onglets mais hors tracker.",
+          f"{stats['hors_tracker']} connues du cache mais hors tracker.",
           flush=True)
     if eqb:
         pct = 100.0 * stats["release_eq"] / eqb
         print(f"  ⭐ preuve releaseAmount vs supply (collectibles) : "
               f"{stats['release_eq']}/{eqb} identiques ({pct:.1f} %) · "
               f"{stats['release_absent']} sans releaseAmount. "
-              f"{'-> a ' + format(pct, '.0f') + ' %, le cache fichier pourra un jour remplacer les onglets.' if pct >= 99 else '-> PAS assez concordant pour se passer des onglets : garder la source GraphQL.'}",
+              f"{'-> a ' + format(pct, '.0f') + ' %, le cache pourra un jour se passer du supply GraphQL pour les collectibles.' if pct >= 99 else '-> PAS assez concordant pour se passer du supply GraphQL : garder le cache.'}",
               flush=True)
     return out
 
@@ -238,8 +270,12 @@ def main() -> int:
         print(f"⛔ recolte tracker trop maigre ({len(produits)}) — on n'ecrit "
               f"rien.", file=sys.stderr)
         return 3
+    # Le Sheet reste ouvert pour la SEULE lecture Sheet restante : la note
+    # 🏆A-CLASSEMENT (geste humain de Preda). L'enrichissement, lui, vient du
+    # cache fichier ; `sh` n'est passe a lire_enrichissement que comme secours
+    # si le cache n'est pas encore seede.
     sh = _retry("ouverture du Sheet", lambda: _client().open_by_key(sid))
-    enrich = _retry("lecture enrichissement (2 colonnes entieres)",
+    enrich = _retry("lecture enrichissement (cache fichier)",
                     lambda: lire_enrichissement(sh))
     try:
         notes = _retry("lecture 🏆A-CLASSEMENT", lambda: lire_notes(sh))

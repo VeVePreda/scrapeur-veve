@@ -37,6 +37,7 @@ import datetime as _dt
 import json
 import os
 import re
+import sys
 from typing import Any, Dict, List, Optional
 
 import gspread
@@ -486,6 +487,31 @@ def sync_catalogue(products: List[Dict[str, Any]], spreadsheet_id: str,
     brand_imgs = _read_brand_images(sh)
     n_brands, n_licensors = _write_marques(sh, merged.values(), brand_imgs)
 
+    # 🗃️ CACHE D'ENRICHISSEMENT (chantier pont elements, etape 4) — PROJECTION
+    # locale (data/enrichissement.csv) des MEMES records normalises qu'on vient
+    # d'ecrire dans les onglets. Elle alimente le builder v2 (export_elements_v2,
+    # phase « double en silence ») SANS qu'il relise une seule cellule d'onglet
+    # froid. C'est la MAINTENANCE du cache : le seed one-shot cree le fichier, ce
+    # bloc le tient a jour au meme instant que les onglets — zero requete Sheets
+    # en plus, zero logique dupliquee (la valeur du cache EST celle de l'onglet).
+    # La mise a jour est non destructive (ajout/reecriture par uuid, jamais de
+    # suppression) -> un item retire du tracker garde son enrichissement.
+    #
+    # SECONDAIRE PAR CONSTRUCTION : jusqu'a la bascule, la prod lit la v1
+    # (onglets). Un hoquet du cache ne doit donc JAMAIS faire echouer le
+    # catalogue — on journalise fort (pas de zero silencieux) et on continue.
+    cache_apres = ""
+    try:
+        from scraper.enrich_cache import maj_depuis_records
+        cstats = maj_depuis_records(merged.values())
+        cache_apres = cstats.get("apres", "")
+        print(f"  🗃️ cache enrichissement : {cache_apres} items "
+              f"({cstats.get('ajouts')} ajout(s), "
+              f"{cstats.get('reecritures')} reecriture(s)).", flush=True)
+    except Exception as e:                                  # noqa: BLE001
+        print(f"  ⚠️ cache enrichissement NON mis a jour ({e}) — le builder v2 "
+              f"lira les onglets froids en secours.", file=sys.stderr)
+
     return {
         "status": "OK",
         "total_rows": len(merged),
@@ -498,6 +524,7 @@ def sync_catalogue(products: List[Dict[str, Any]], spreadsheet_id: str,
         "upcoming_drops": n_upcoming,
         "brands": n_brands,
         "licensors": n_licensors,
+        "cache_enrichissement": cache_apres,
         "new_item_names": (new_collectibles + new_comics)[:40],
     }
 
