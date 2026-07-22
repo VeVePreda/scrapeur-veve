@@ -54,6 +54,21 @@ def _num(x) -> int:
         return 0
 
 
+def _dec(x) -> float:
+    """Decimal FR-tolerant (« 8 888,88 » -> 8888.88), 0.0 si illisible."""
+    try:
+        return float(str(x).replace(" ", "").replace(" ", "")
+                     .replace(",", ".") or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _paire_corrompue(r) -> bool:
+    """ATL > ATH = paire impossible (decimales FR x100 gelees dans le Sheet)."""
+    atl, ath = _dec(r.get("atl")), _dec(r.get("ath"))
+    return atl > 0 and ath > 0 and atl > ath
+
+
 def _retry(desc: str, fn):
     """Rejoue une lecture Sheets sur 429 (quota par MINUTE) / 503, backoff
     GENEREUX. export_elements est le DERNIER step du daily et tourne juste apres
@@ -167,6 +182,7 @@ def construire(comics: List[Dict], collect: List[Dict],
     listings, notes = listings or {}, notes or {}
     par_serie = tirages_comics(comics)
     out: List[List] = []
+    n_corrompus = 0
 
     for lignes, cat in ((comics, "comic"), (collect, "collectible")):
         for r in lignes:
@@ -202,11 +218,29 @@ def construire(comics: List[Dict], collect: List[Dict],
                 (r.get("veve_licensor") or "").strip(),
                 # ATH/ATL du floor (par element) — pour l'alerte : ATL sur
                 # chaque carte + les canaux 🆕 ATH / 📉 plus-bas historique.
-                r.get("atl") or "",
-                (r.get("atl_date") or "").strip(),
-                r.get("ath") or "",
-                (r.get("ath_date") or "").strip(),
+                # 🔴 GARDE DE COHERENCE (22/07/2026) : un ATL > ATH est
+                # IMPOSSIBLE, et 16,9 % des lignes en portaient un (3 172 sur
+                # 18 801) — des decimales FR ×100 gelees dans le Sheet (preuve :
+                # ath exporte 888888 la ou l'alerte a observe 8888,88 en direct ;
+                # « 3,69 » devenu 369 affichait « plus-bas 369 $ » sous un floor
+                # a 8,64 $ sur une carte Discord). On n'exporte RIEN de cette
+                # paire : vide = inconnu, jamais une valeur qu'on sait fausse.
+                # La reparation des cellules, elle, se fait dans le Sheet.
+                *(("", "", "", "") if _paire_corrompue(r)
+                  else (r.get("atl") or "",
+                        (r.get("atl_date") or "").strip(),
+                        r.get("ath") or "",
+                        (r.get("ath_date") or "").strip())),
             ])
+            if _paire_corrompue(r):
+                n_corrompus += 1
+    if n_corrompus:
+        # Un zero qui ne dit pas pourquoi il est zero est le defaut qu'on
+        # traque partout : on COMPTE ce qu'on retient.
+        print(f"  🛡️ {n_corrompus} paire(s) ATL/ATH incoherente(s) "
+              f"(atl > ath : decimales FR ×100 dans le Sheet) — exportees "
+              f"VIDES. La reparation se fait dans le Sheet, pas ici.",
+              file=sys.stderr)
     out.sort(key=lambda l: (l[3], l[6], l[2]))
     return out
 
