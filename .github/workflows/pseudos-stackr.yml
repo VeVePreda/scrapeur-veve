@@ -1,0 +1,58 @@
+# ⚠️ DEPOT : VeVePreda/scrapeur-veve   ·   CHEMIN : .github/workflows/pseudos-stackr.yml
+# Le projet vit sur 6 depots et DEUX comptes GitHub. Un fichier
+# depose au mauvais endroit ne provoque aucune erreur : il dort.
+
+name: Pseudos StackR (pseudo <-> wallet)
+
+# 🟣 Re-enclenchement du 22/07/2026 (demande Preda : « il faut la liste des
+# pseudos pour determiner les wallets des membres de l'equipe »).
+# Le step vivait dans le daily et a ete retire le 13/07 (cookie mort = 401
+# chaque nuit pour rien). Depuis, le module a un FAST-SKIP : cookie mort =
+# 0 requete, sortie propre. Un cron hebdo ne coute donc RIEN quand le cookie
+# est perime — et moissonne quand il est frais.
+#
+# ⚠️ LE COOKIE EST PERISSABLE (session Privy) : le renouveler AVANT une
+# moisson voulue — secret STACKR_COOKIE = l'en-tete `cookie` COMPLET d'une
+# requete api/trpc copie depuis DevTools, colle TEL QUEL (ne rien reformater :
+# les jetons privy sont des JWT fragiles, tout reparsing les corrompt).
+# Si le log dit « Fast-skip : session verifiedVeve refusee », le cookie est
+# mort -> le renouveler et relancer.
+
+on:
+  schedule:
+    - cron: "40 5 * * 1"          # lundi 05:40 UTC — gratuit si cookie mort
+  workflow_dispatch:
+    inputs:
+      lookups:
+        description: "Budget d'appels verifiedVeve (resolutions wallet<->pseudo) pour CE run"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pseudos-stackr
+  cancel-in-progress: false
+
+jobs:
+  pseudos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Collecte pseudo <-> wallet (StackR)
+        env:
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          STACKR_COOKIE: ${{ secrets.STACKR_COOKIE }}
+          STACKR_MAX_LOOKUPS: ${{ github.event.inputs.lookups || vars.STACKR_MAX_LOOKUPS || '200' }}
+          STACKR_RANKING_PAGES: ${{ vars.STACKR_RANKING_PAGES || '3' }}
+          STACKR_PAUSE: ${{ vars.STACKR_PAUSE || '0.35' }}
+          STACKR_FAST_SKIP: ${{ vars.STACKR_FAST_SKIP || 'true' }}
+        run: python -m scraper.stackr
