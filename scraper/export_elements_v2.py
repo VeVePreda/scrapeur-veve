@@ -81,12 +81,31 @@ def _cat(p: Dict) -> str:
         else "collectible"
 
 
-def lire_enrichissement(sh) -> Dict[str, Dict[str, int]]:
-    """{uuid -> {supply, first_public}} depuis les onglets froids.
+def _edition(p: Dict, e: Dict) -> str:
+    """edition_type du pont : tracker d'abord, onglets en secours.
 
-    SEULES deux colonnes ENTIERES sont lues (le ×100 ne mordait que les
-    decimales) — et c'est la partie que l'etape suivante du chantier
-    remplacera par un cache fichier maintenu par le daily."""
+    Le 1er rapport du comparateur (22/07) a montre 241 ecarts (1,27 %),
+    TOUS de deux formes :
+      * v2='0'  quand v1=''   -> le tracker met un 0 numerique la ou il n'y a
+        rien ; 0 n'est pas un type d'edition, c'est un vide deguise.
+      * v2=''   quand v1='FA' -> le tracker ne connait pas les types poses par
+        GraphQL ('FA', 'FE'…) sur certaines fiches ; les onglets les ont
+        (sheets.py replie deja edition -> edition_type).
+    Regle : tracker si non vide et non zero, sinon la valeur des onglets —
+    et un zero, d'ou qu'il vienne, reste un vide (VIDE = INCONNU, jamais 0)."""
+    ed = str(p.get("edition") or "").strip()
+    if ed in ("", "0", "0.0"):
+        ed = str(e.get("edition_type") or "").strip()
+    return "" if ed in ("0", "0.0") else ed
+
+
+def lire_enrichissement(sh) -> Dict[str, Dict[str, int]]:
+    """{uuid -> {supply, first_public, edition_type}} depuis les onglets froids.
+
+    SEULES deux colonnes ENTIERES (le ×100 ne mordait que les decimales) et
+    UN texte d'identite (edition_type, secours du tracker) sont lus — c'est la
+    partie que l'etape suivante du chantier remplacera par un cache fichier
+    maintenu par le daily."""
     from scraper.sheets import COLLECT_TAB, COMICS_TAB
     from scraper.export_elements import _lire
     out: Dict[str, Dict[str, int]] = {}
@@ -99,6 +118,9 @@ def lire_enrichissement(sh) -> Dict[str, Dict[str, int]]:
                 "supply": _num(r.get("supply")),
                 "first_public": _num(r.get("first_available_edition")),
                 "series_uuid": str(r.get("series_uuid") or "").strip(),
+                # TEXTE d'identite (pas un nombre : le ×100 ne peut pas mordre) —
+                # secours d'edition_type quand le tracker n'a rien (cf. _edition).
+                "edition_type": str(r.get("edition_type") or "").strip(),
             }
     return out
 
@@ -154,7 +176,7 @@ def construire_v2(produits: List[Dict], enrich: Dict[str, Dict],
         out.append([
             uid, serie, nom, cat,
             str(p.get("rarity") or "").strip(),
-            str(p.get("edition") or "").strip(),
+            _edition(p, e),
             supply,
             int(e["first_public"]) if e.get("first_public") else "",
             _num(lst) if lst not in (None, "") else "",   # vide = inconnu

@@ -95,9 +95,25 @@ def main() -> int:
             pct = 100.0 * len(diffs) / max(len(communs), 1)
             marque = " " if not diffs else ("⚠️" if col in STABLES else "≈")
             print(f"  {marque} {col:<14} {len(diffs):>6} ecart(s) ({pct:.2f} %)")
-            for u in diffs[:3]:
-                print(f"       {u[:8]}…  v1={v1[u].get(col, '')!r}  "
-                      f"v2={v2[u].get(col, '')!r}")
+            if col in STABLES and diffs:
+                # Sur une colonne STABLE, 3 exemples ne suffisent pas a DECIDER
+                # (ex. brand/licensor : quelle source fait foi ?). On regroupe
+                # par PAIRE de valeurs : la liste complete des divergences
+                # tient en quelques lignes et se juge d'un coup d'oeil.
+                paires: Dict[tuple, int] = {}
+                for u in diffs:
+                    p = (v1[u].get(col, ""), v2[u].get(col, ""))
+                    paires[p] = paires.get(p, 0) + 1
+                haut = sorted(paires.items(), key=lambda x: -x[1])
+                for (a, b), n in haut[:15]:
+                    print(f"       {n:>5} ×  v1={a!r}  v2={b!r}")
+                if len(haut) > 15:
+                    print(f"       … et {len(haut) - 15} autre(s) paire(s) "
+                          f"distincte(s).")
+            else:
+                for u in diffs[:3]:
+                    print(f"       {u[:8]}…  v1={v1[u].get(col, '')!r}  "
+                          f"v2={v2[u].get(col, '')!r}")
     print("══════════════════════════════════════════════════════")
     if SEUIL and total_stable > SEUIL:
         print(f"⛔ {total_stable} ecart(s) sur les colonnes STABLES "
