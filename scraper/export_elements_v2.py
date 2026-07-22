@@ -96,7 +96,9 @@ def _edition(p: Dict, e: Dict) -> str:
     ed = str(p.get("edition") or "").strip()
     if ed in ("", "0", "0.0"):
         ed = str(e.get("edition_type") or "").strip()
-    return "" if ed in ("0", "0.0") else ed
+    # rapport n°2 : le tracker ecrit parfois 'ce'/'fa' en minuscules — meme
+    # type, autre casse. On normalise en MAJUSCULES ('FA', 'FE', 'CE'…).
+    return "" if ed in ("0", "0.0") else ed.upper()
 
 
 def lire_enrichissement(sh) -> Dict[str, Dict[str, int]]:

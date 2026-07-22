@@ -7,19 +7,27 @@
 Il ne decide RIEN : il mesure, colonne par colonne, ce qui separerait le pont
 v2 (tracker) du pont v1 (onglets froids) si on basculait aujourd'hui.
 
-Deux familles de colonnes, deux verdicts :
-  * STABLES (identite, supply, first_public, note) : tout ecart est un
-    PROBLEME a comprendre avant bascule — elles ne bougent pas d'heure en
-    heure, une difference n'a pas d'excuse temporelle.
+TROIS familles de colonnes, trois lectures :
+  * IDENTITE (series_uuid, name, category, rarity, supply, first_public,
+    note) : tout ecart est un PROBLEME a comprendre avant bascule — elles ne
+    bougent pas d'heure en heure, une difference n'a pas d'excuse temporelle.
+    C'est LA SEULE famille comptee dans le verdict.
+  * SOURCE (edition_type, brand, licensor) : les onglets (GraphQL fige) et le
+    tracker (vivant) ne racontent pas toujours la meme chose — noms plus
+    courts, types FE/FA divergents. DECISION DU 22/07 (Preda) : le tracker
+    fait foi. Verifie ce jour-la : aucune divergence ne fait perdre de date
+    cle (les cartes Jedi gardent licensor='Star Wars', les Loki 'Marvel').
+    On LISTE tout (paires groupees) pour garder l'oeil, sans bloquer.
   * VIVANTES (listings, atl/ath + dates) : v1 date du dernier daily, v2 du
     scrape de l'instant — un ecart PEUT n'etre que du temps qui passe. On
     donne le taux et des exemples ; c'est la TENDANCE sur plusieurs jours
     qui compte (un taux qui ne baisse pas apres la reparation ×100 serait
     un signal).
 
-Sortie : rapport dans le log, code retour 0 toujours (l'observation ne casse
-pas un run). `COMPARE_SEUIL_STABLE` (defaut 0) : au-dela de N ecarts sur les
-colonnes stables, code retour 1 pour faire remarquer le run.
+Sortie : rapport dans le log. `COMPARE_SEUIL_STABLE` (defaut 0) : au-dela de
+N ecarts sur les colonnes d'IDENTITE, code retour 1 pour faire remarquer le
+run — 0 signifie donc « tout ecart d'identite rend le run rouge » (arme
+depuis que la famille SOURCE ne pollue plus le compte) ; -1 desarme.
 """
 
 from __future__ import annotations
@@ -33,8 +41,9 @@ V1 = os.environ.get("ELEMENTS_CSV", "data/elements.csv")
 V2 = os.environ.get("ELEMENTS_V2", "data/elements_v2.csv")
 SEUIL = int(os.environ.get("COMPARE_SEUIL_STABLE", "0"))
 
-STABLES = ["series_uuid", "name", "category", "rarity", "edition_type",
-           "supply", "first_public", "note", "brand", "licensor"]
+IDENTITE = ["series_uuid", "name", "category", "rarity",
+            "supply", "first_public", "note"]
+SOURCE = ["edition_type", "brand", "licensor"]
 VIVANTES = ["listings", "atl", "atl_date", "ath", "ath_date"]
 
 
@@ -82,46 +91,53 @@ def main() -> int:
         print(f"  ℹ️ {len(seulement_v2)} uuid SEULEMENT en v2 — ex : "
               + ", ".join(u[:8] for u in seulement_v2[:5]))
 
-    total_stable = 0
-    for fam, cols in (("STABLES (0 ecart attendu)", STABLES),
+    total_identite = 0
+    for fam, cols in (("IDENTITE (0 ecart exige — compte au verdict)", IDENTITE),
+                      ("SOURCE (tracker fait foi — non bloquant)", SOURCE),
                       ("VIVANTES (drift temporel tolere)", VIVANTES)):
-        print(f"  ── {fam} " + "─" * (40 - len(fam)))
+        print(f"  ── {fam} " + "─" * max(40 - len(fam), 3))
         for col in cols:
             diffs: List[str] = [u for u in communs
                                 if not _egal(col, v1[u].get(col, ""),
                                              v2[u].get(col, ""))]
-            if col in STABLES:
-                total_stable += len(diffs)
+            if col in IDENTITE:
+                total_identite += len(diffs)
             pct = 100.0 * len(diffs) / max(len(communs), 1)
-            marque = " " if not diffs else ("⚠️" if col in STABLES else "≈")
+            marque = " " if not diffs else \
+                ("⚠️" if col in IDENTITE else ("≠" if col in SOURCE else "≈"))
             print(f"  {marque} {col:<14} {len(diffs):>6} ecart(s) ({pct:.2f} %)")
-            if col in STABLES and diffs:
-                # Sur une colonne STABLE, 3 exemples ne suffisent pas a DECIDER
-                # (ex. brand/licensor : quelle source fait foi ?). On regroupe
-                # par PAIRE de valeurs : la liste complete des divergences
-                # tient en quelques lignes et se juge d'un coup d'oeil.
+            if col in SOURCE and diffs:
+                # Divergences de source ASSUMEES : on regroupe par PAIRE de
+                # valeurs — la liste COMPLETE tient en quelques lignes et se
+                # relit d'un coup d'oeil a chaque rapport (une paire NOUVELLE
+                # qui toucherait une date cle doit se voir tout de suite).
                 paires: Dict[tuple, int] = {}
                 for u in diffs:
                     p = (v1[u].get(col, ""), v2[u].get(col, ""))
                     paires[p] = paires.get(p, 0) + 1
                 haut = sorted(paires.items(), key=lambda x: -x[1])
-                for (a, b), n in haut[:15]:
+                for (a, b), n in haut[:40]:
                     print(f"       {n:>5} ×  v1={a!r}  v2={b!r}")
-                if len(haut) > 15:
-                    print(f"       … et {len(haut) - 15} autre(s) paire(s) "
+                if len(haut) > 40:
+                    print(f"       … et {len(haut) - 40} autre(s) paire(s) "
                           f"distincte(s).")
             else:
+                # IDENTITE : un ecart est une ANOMALIE — l'uuid sert a
+                # retrouver la ligne fautive. VIVANTES : 3 exemples suffisent.
                 for u in diffs[:3]:
                     print(f"       {u[:8]}…  v1={v1[u].get(col, '')!r}  "
                           f"v2={v2[u].get(col, '')!r}")
     print("══════════════════════════════════════════════════════")
-    if SEUIL and total_stable > SEUIL:
-        print(f"⛔ {total_stable} ecart(s) sur les colonnes STABLES "
+    # seuil 0 = TOUT ecart d'identite marque le run (arme depuis que la
+    # famille SOURCE ne pollue plus le compte) ; -1 pour desarmer.
+    if SEUIL >= 0 and total_identite > SEUIL:
+        print(f"⛔ {total_identite} ecart(s) sur les colonnes d'IDENTITE "
               f"(seuil {SEUIL}) — a comprendre avant toute bascule.",
               file=sys.stderr)
         return 1
-    print(f"Verdict : {total_stable} ecart(s) stables au total. La bascule ne "
-          f"se decide que sur plusieurs rapports consecutifs propres.",
+    print(f"Verdict : {total_identite} ecart(s) d'identite. La bascule ne "
+          f"se decide que sur plusieurs rapports consecutifs propres "
+          f"(identite a 0 ET atl/ath effondres apres le daily post-reparation).",
           flush=True)
     return 0
 
