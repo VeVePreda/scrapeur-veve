@@ -133,14 +133,20 @@ jobs:
         if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'comics')) }}
         run: python -m scraper.export_elements
 
-      - name: "9) Commit du CSV catalogue"
-        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'comics')) }}
+      - name: "9) Commit des CSV catalogue (pont v1 + cache enrichissement)"
+        # Fire aussi sur 'catalogue' seul : le cache d'enrichissement est ecrit
+        # par le step 1 (sheets.sync_catalogue), pas par le step 8.
+        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'comics') || contains(env.STEPS, 'catalogue')) }}
         run: |
           git config user.name "veve-daily-bot"
           git config user.email "actions@users.noreply.github.com"
           [ -f data/elements.csv ] && git add data/elements.csv
+          # 🗃️ Cache d'enrichissement (etape 4 pont elements) : ecrit par le
+          # step 1 (catalogue) au meme instant que les onglets. On le commite au
+          # meme titre que le pont v1 pour que le builder v2 le relise.
+          [ -f data/enrichissement.csv ] && git add data/enrichissement.csv
           git diff --cached --quiet && { echo "Rien a committer."; exit 0; }
-          git commit -m "catalogue: export du pont (alertes)"
+          git commit -m "catalogue: export du pont + cache enrichissement"
           for i in 1 2 3; do
             git pull --rebase origin main && git push && break
             sleep $((i * 5))

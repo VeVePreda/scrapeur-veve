@@ -1,0 +1,72 @@
+# ⚠️ DEPOT : VeVePreda/scrapeur-veve   ·   CHEMIN : .github/workflows/enrich-seed.yml
+# Le projet vit sur 6 depots et DEUX comptes GitHub. Un fichier
+# depose au mauvais endroit ne provoque aucune erreur : il dort.
+
+name: Seed cache enrichissement (une fois)
+
+# 🌱 SEED PONCTUEL (etape 4 du chantier pont elements) : fige les colonnes
+# d'enrichissement (supply, first_public, edition_type, series_uuid) des onglets
+# froids 🔵C-COLLECTIBLE / 🟢C-COMICS dans data/enrichissement.csv. A partir de
+# la, le builder v2 lit ce fichier au lieu des onglets, et le daily le maintient
+# (sheets.sync_catalogue). Pas de cron : ca se lance A LA MAIN, d'abord en
+# simulation (meme discipline que repare-atl-ath).
+#
+# MODE D'EMPLOI :
+#   1. Lancer avec simuler = oui (defaut). Lire le rapport dans le log : les
+#      compteurs du cache (uuid uniques, avec supply / 1re edition / edition_type).
+#   2. Si le rapport est sain, relancer avec simuler = non : data/enrichissement.csv
+#      est ecrit ET commite.
+#   3. Lancer « Pont elements v2 (double en silence) » : le builder v2 lit
+#      desormais le cache ; le comparateur doit rester a 0 ecart d'identite
+#      (rapport propre suivant).
+
+on:
+  workflow_dispatch:
+    inputs:
+      simuler:
+        description: "Tourner a blanc : tout lire, RIEN ecrire (lire le rapport d'abord)"
+        required: false
+        default: "oui"
+        type: choice
+        options: ["oui", "non"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: enrich-seed
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Etat le plus recent (anti-checkout perime)
+        run: git pull --rebase origin main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Seed du cache d'enrichissement
+        env:
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          ENRICH_SEED_SIMULER: ${{ github.event.inputs.simuler == 'non' && '0' || '1' }}
+        run: python -m scraper.seed_enrichissement
+
+      - name: Commit du cache (seulement en ecriture reelle)
+        if: ${{ github.event.inputs.simuler == 'non' }}
+        run: |
+          git config user.name "veve-daily-bot"
+          git config user.email "actions@users.noreply.github.com"
+          [ -f data/enrichissement.csv ] && git add data/enrichissement.csv
+          git diff --cached --quiet && { echo "Rien a committer."; exit 0; }
+          git commit -m "cache: seed enrichissement (etape 4 pont elements)"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && break
+            sleep $((i * 5))
+          done
