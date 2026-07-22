@@ -174,10 +174,29 @@ def _client() -> gspread.Client:
 
 
 def _open_worksheet(sh, tab: str, cols: int = 26):
-    try:
-        return sh.worksheet(tab)
-    except gspread.WorksheetNotFound:
-        return sh.add_worksheet(title=tab, rows=100, cols=cols)
+    """Ouvre (ou cree) un onglet — en survivant aux hoquets de Google.
+
+    22/07/2026 : le daily #105 est tombe sur un 503 « service unavailable »
+    PILE sur l'ouverture de l'onglet Marques — tout le sync catalogue etait
+    deja ecrit, et le step entier est sorti en erreur pour un hoquet d'API.
+    Meme parade que le _retry d'export_elements : on rejoue les 429/503
+    (transitoires par definition), backoff genereux, et on ne re-attrape
+    JAMAIS les autres erreurs (un 403/404 doit continuer de crier)."""
+    import time as _t
+    for i, d in enumerate((0, 10, 20, 40, 60)):
+        if d:
+            print(f"  {tab} : API Sheets indisponible, pause {d}s "
+                  f"(essai {i}/4)...", flush=True)
+            _t.sleep(d)
+        try:
+            return sh.worksheet(tab)
+        except gspread.WorksheetNotFound:
+            return sh.add_worksheet(title=tab, rows=100, cols=cols)
+        except gspread.exceptions.APIError as e:
+            code = getattr(getattr(e, "response", None), "status_code", None)
+            if code not in (429, 503) or i == 4:
+                raise
+    return sh.worksheet(tab)
 
 
 def _now() -> str:

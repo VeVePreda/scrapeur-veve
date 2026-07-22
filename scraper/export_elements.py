@@ -69,6 +69,19 @@ def _paire_corrompue(r) -> bool:
     return atl > 0 and ath > 0 and atl > ath
 
 
+def _prix_canonique(x):
+    """Un prix exporte vers le pont = un NOMBRE a point decimal, ou vide.
+
+    22/07 : la cellule peut etre un nombre (affiche « 8 888,88 » en locale FR
+    par get_all_values) ou un texte « 6,99 ». Exporter la chaine formatee brute
+    casserait le lecteur d'en face (float('8 888.88') echoue -> 0 silencieux).
+    On exporte donc la VALEUR, canonique, pas son costume d'affichage."""
+    d = _dec(x)
+    if d <= 0:
+        return ""
+    return int(d) if d == int(d) else round(d, 2)
+
+
 def _retry(desc: str, fn):
     """Rejoue une lecture Sheets sur 429 (quota par MINUTE) / 503, backoff
     GENEREUX. export_elements est le DERNIER step du daily et tourne juste apres
@@ -227,9 +240,9 @@ def construire(comics: List[Dict], collect: List[Dict],
                 # paire : vide = inconnu, jamais une valeur qu'on sait fausse.
                 # La reparation des cellules, elle, se fait dans le Sheet.
                 *(("", "", "", "") if _paire_corrompue(r)
-                  else (r.get("atl") or "",
+                  else (_prix_canonique(r.get("atl")),
                         (r.get("atl_date") or "").strip(),
-                        r.get("ath") or "",
+                        _prix_canonique(r.get("ath")),
                         (r.get("ath_date") or "").strip())),
             ])
             if _paire_corrompue(r):
