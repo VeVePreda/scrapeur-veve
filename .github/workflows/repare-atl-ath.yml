@@ -1,0 +1,53 @@
+# ⚠️ DEPOT : VeVePreda/scrapeur-veve   ·   CHEMIN : .github/workflows/repare-atl-ath.yml
+# Le projet vit sur 6 depots et DEUX comptes GitHub. Un fichier
+# depose au mauvais endroit ne provoque aucune erreur : il dort.
+
+name: Reparation ATL-ATH (une fois)
+
+# 🔧 REPARATION PONCTUELLE (audit du 22/07/2026) : les colonnes atl/ath des
+# onglets 🔵C-COLLECTIBLE / 🟢C-COMICS portent des decimales FR ×100 gelees
+# (« 8888,88 » devenu 888888 ; 16,9 % des paires impossibles). Ce workflow
+# re-demande la VERITE au tracker et recrit UNIQUEMENT ces 4 colonnes, en
+# NOMBRES. Pas de cron : ca se lance A LA MAIN, d'abord en simulation.
+#
+# MODE D'EMPLOI :
+#   1. Lancer avec simuler = oui (defaut). Lire le rapport dans le log :
+#      « paires impossibles : N avant -> 0 apres » + le temoin ODDY.
+#   2. Si le rapport est sain, relancer avec simuler = non.
+#   3. Attendre le prochain daily (ou lancer catalogue-export) puis verifier
+#      dans son log : plus de paires incoherentes exportees.
+
+on:
+  workflow_dispatch:
+    inputs:
+      simuler:
+        description: "Tourner a blanc : tout calculer, RIEN ecrire (lire le rapport d'abord)"
+        required: false
+        default: "oui"
+        type: choice
+        options: ["oui", "non"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repare-atl-ath
+  cancel-in-progress: false
+
+jobs:
+  repare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Reparation des colonnes ATL/ATH
+        env:
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          REPARE_SIMULER: ${{ github.event.inputs.simuler == 'non' && '0' || '1' }}
+        run: python -m scraper.repare_atl_ath
