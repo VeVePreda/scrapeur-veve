@@ -245,19 +245,42 @@ def main() -> int:
         return 2
 
     import datetime as _dt
+    import time as _time
     days = int(os.environ.get("ELEMENTS_V3_LOOKBACK_DAYS", "120"))
     cutoff = _dt.datetime.utcnow() - _dt.timedelta(days=days)
     plateau = int(os.environ.get("ELEMENTS_V3_PLATEAU_PAGES", "300"))
-    print(f"Moisson metadata chaine depuis {cutoff:%Y-%m-%d} "
-          f"(arret couverture apres {plateau} pages sans nouveau type) …",
-          flush=True)
+    # ⭐ GARANTIE ANTI-TIMEOUT : budget-temps INTERNE < timeout du job GitHub
+    # (300 min). On s'arrete PROPREMENT avant le couperet -> l'ecriture + l'upload
+    # Release s'executent (sur un timeout GitHub, meme les steps `if: always()`
+    # sont sautes). Le reste se recolte au dispatch suivant (accumulation).
+    budget_min = int(os.environ.get("ELEMENTS_V3_TIME_BUDGET_MIN", "240"))
+    deadline = _time.monotonic() + budget_min * 60 if budget_min > 0 else None
+    flush_every = int(os.environ.get("ELEMENTS_V3_FLUSH_EVERY", "200"))
 
-    catalogue = harvest(cc, cutoff, plateau)
+    # officiel charge AVANT la moisson : sert au flush de secours periodique.
+    officiel = lire_officiel(CSV_OFFICIEL)
+
+    def _flush(best: Dict[str, Dict[str, Any]]) -> None:
+        """Sauvegarde de secours : ecrit le CSV partiel en cours de route (belt-
+        and-suspenders si le process tombe hors timeout). Le run normal reecrit
+        proprement + accumule a la fin."""
+        try:
+            partiel = construire_v3(best, officiel)
+            if partiel:
+                ecrire(partiel, CSV_V3)
+        except Exception as e:                                 # noqa: BLE001
+            print(f"    (flush de secours ignore : {e})", file=sys.stderr)
+
+    print(f"Moisson metadata chaine depuis {cutoff:%Y-%m-%d} · arret sur "
+          f"couverture ({plateau} pages sans nouveau) ou budget-temps "
+          f"({budget_min} min) · flush /{flush_every} pages …", flush=True)
+
+    catalogue = harvest(cc, cutoff, plateau, deadline=deadline,
+                        flush=_flush, flush_every=flush_every)
     if len(catalogue) < 50:
         print(f"⛔ moisson trop maigre ({len(catalogue)} types) — rien d'ecrit.",
               file=sys.stderr)
         return 3
-    officiel = lire_officiel(CSV_OFFICIEL)
     rows = construire_v3(catalogue, officiel)
     if not rows:
         print("⛔ 0 ligne — rien d'ecrit.", file=sys.stderr)
@@ -297,19 +320,23 @@ def _accumuler(rows: List[List], graine_csv: str) -> List[List]:
     return rows
 
 
-def harvest(cc, cutoff, plateau_pages: int = 300) -> Dict[str, Dict[str, Any]]:
+def harvest(cc, cutoff, plateau_pages: int = 300, deadline=None,
+            flush=None, flush_every: int = 0) -> Dict[str, Dict[str, Any]]:
     """Pagine /transfers newest-first et COLLECTE la metadata catalogue au vol,
-    avec DEUX garde-fous pour ne pas balayer des millions de lignes pour rien :
+    avec des garde-fous pour ne jamais balayer des millions de lignes pour rien
+    NI perdre une recolte sur un couperet :
 
       * arret sur COUVERTURE : si `plateau_pages` pages defilent sans AUCUN
         nouveau veve_uuid, l'univers actif est couvert -> on s'arrete (0 =
         desarme). Les types dormants se completeront via le scan profond.
-      * arret sur CUTOFF : transferts plus vieux que `cutoff`.
-      * plafond dur `ELEMENTS_V3_MAX_PAGES` (securite budget).
+      * arret sur BUDGET-TEMPS : `deadline` (time.monotonic) atteinte -> arret
+        PROPRE avant le timeout du job (l'appelant ecrit alors normalement).
+      * flush de SECOURS : tous les `flush_every` pages, `flush(best)` sauvegarde
+        le CSV partiel (regle « une recolte ne se perd jamais »).
+      * arret sur CUTOFF, plafond dur `ELEMENTS_V3_MAX_PAGES`.
 
-    Retourne directement {veve_uuid: catalogue le plus recent} — collapse
-    integre a la pagination (metadata au (block,log_index) le plus grand).
-    Journalise sa progression (sinon un run long semble plante)."""
+    Retourne {veve_uuid: catalogue le plus recent} — collapse integre a la
+    pagination. Journalise sa progression (sinon un run long semble plante)."""
     import time
     session = cc._session()
     params: Dict[str, Any] = {}
@@ -355,9 +382,16 @@ def harvest(cc, cutoff, plateau_pages: int = 300) -> Dict[str, Dict[str, Any]]:
             print(f"    … {pages} pages · {len(best)} types · "
                   f"{since_new} page(s) sans nouveau · jusqu'a {oldest}",
                   flush=True)
+        if flush and flush_every and pages % flush_every == 0:
+            flush(best)          # sauvegarde de secours du CSV partiel
         if plateau_pages and since_new >= plateau_pages:
             print(f"  ✓ couverture plafonnee : {plateau_pages} pages sans "
                   f"nouveau type -> arret ({len(best)} types).", flush=True)
+            break
+        if deadline is not None and time.monotonic() >= deadline:
+            print(f"  ⏱️ budget-temps atteint -> arret PROPRE ({len(best)} "
+                  f"types, {pages} pages). Le reste au prochain dispatch "
+                  f"(accumulation).", flush=True)
             break
         nxt = data.get("next_page_params")
         if stop or not nxt:
