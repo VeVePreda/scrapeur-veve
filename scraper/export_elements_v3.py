@@ -245,18 +245,18 @@ def main() -> int:
         return 2
 
     import datetime as _dt
-    days = int(os.environ.get("ELEMENTS_V3_LOOKBACK_DAYS", "3650"))
+    days = int(os.environ.get("ELEMENTS_V3_LOOKBACK_DAYS", "120"))
     cutoff = _dt.datetime.utcnow() - _dt.timedelta(days=days)
-    print(f"Moisson metadata chaine depuis {cutoff:%Y-%m-%d} …", flush=True)
+    plateau = int(os.environ.get("ELEMENTS_V3_PLATEAU_PAGES", "300"))
+    print(f"Moisson metadata chaine depuis {cutoff:%Y-%m-%d} "
+          f"(arret couverture apres {plateau} pages sans nouveau type) …",
+          flush=True)
 
-    # fetch_transfers renvoie des enregistrements APLATIS (sans metadata) : pour
-    # v3 il nous faut les transferts BRUTS. On rejoue donc la pagination brute.
-    raw = list(_moisson_brute(cc, cutoff))
-    if len(raw) < 100:
-        print(f"⛔ moisson trop maigre ({len(raw)} transferts) — rien d'ecrit.",
+    catalogue = harvest(cc, cutoff, plateau)
+    if len(catalogue) < 50:
+        print(f"⛔ moisson trop maigre ({len(catalogue)} types) — rien d'ecrit.",
               file=sys.stderr)
         return 3
-    catalogue = collapse(raw)
     officiel = lire_officiel(CSV_OFFICIEL)
     rows = construire_v3(catalogue, officiel)
     if not rows:
@@ -297,39 +297,76 @@ def _accumuler(rows: List[List], graine_csv: str) -> List[List]:
     return rows
 
 
-def _moisson_brute(cc, cutoff) -> Iterable[Dict[str, Any]]:
-    """Pagination BRUTE de /transfers (garde la metadata, contrairement a
-    fetch_transfers qui aplatit). Reutilise session, URL et politesse de
-    collectchain. Reprise possible via ELEMENTS_V3_MAX_PAGES."""
+def harvest(cc, cutoff, plateau_pages: int = 300) -> Dict[str, Dict[str, Any]]:
+    """Pagine /transfers newest-first et COLLECTE la metadata catalogue au vol,
+    avec DEUX garde-fous pour ne pas balayer des millions de lignes pour rien :
+
+      * arret sur COUVERTURE : si `plateau_pages` pages defilent sans AUCUN
+        nouveau veve_uuid, l'univers actif est couvert -> on s'arrete (0 =
+        desarme). Les types dormants se completeront via le scan profond.
+      * arret sur CUTOFF : transferts plus vieux que `cutoff`.
+      * plafond dur `ELEMENTS_V3_MAX_PAGES` (securite budget).
+
+    Retourne directement {veve_uuid: catalogue le plus recent} — collapse
+    integre a la pagination (metadata au (block,log_index) le plus grand).
+    Journalise sa progression (sinon un run long semble plante)."""
     import time
     session = cc._session()
     params: Dict[str, Any] = {}
     pages = 0
     max_pages = int(os.environ.get("ELEMENTS_V3_MAX_PAGES", "20000"))
-    seen: set = set()
+    best: Dict[str, Dict[str, Any]] = {}
+    best_ord: Dict[str, Tuple[int, int]] = {}
+    since_new = 0
+    newest_date = ""
     while pages < max_pages:
         data = cc._get(session, cc.TRANSFERS_URL, params)
         items = data.get("items", [])
         if not items:
             break
+        new_this = 0
         stop = False
         for it in items:
             ts = cc._parse_ts(it.get("timestamp"))
             if ts is not None and ts < cutoff:
                 stop = True
                 break
-            # dedup leger par (block, log_index)
-            k = (it.get("block_number"), it.get("log_index"))
-            if k in seen:
+            if not newest_date and it.get("timestamp"):
+                newest_date = str(it["timestamp"])[:10]
+            inst = (((it.get("total") or {}).get("token_instance")) or {})
+            cat = catalogue_from_instance(inst)
+            if not cat or not cat["veve_uuid"]:
                 continue
-            seen.add(k)
-            yield it
+            uid = cat["veve_uuid"]
+            o = _order(it)
+            if uid not in best:
+                new_this += 1
+            if uid not in best or o >= best_ord[uid]:
+                best[uid] = cat
+                best_ord[uid] = o
         pages += 1
+        since_new = 0 if new_this else since_new + 1
+        if pages % 25 == 0:
+            oldest = "?"
+            try:
+                oldest = str(items[-1].get("timestamp"))[:10]
+            except Exception:
+                pass
+            print(f"    … {pages} pages · {len(best)} types · "
+                  f"{since_new} page(s) sans nouveau · jusqu'a {oldest}",
+                  flush=True)
+        if plateau_pages and since_new >= plateau_pages:
+            print(f"  ✓ couverture plafonnee : {plateau_pages} pages sans "
+                  f"nouveau type -> arret ({len(best)} types).", flush=True)
+            break
         nxt = data.get("next_page_params")
         if stop or not nxt:
+            print(f"  ✓ {'cutoff' if stop else 'fin des transferts'} atteint "
+                  f"-> arret ({len(best)} types, {pages} pages).", flush=True)
             break
         params = dict(nxt)
         time.sleep(cc.PAUSE_BETWEEN_PAGES)
+    return best
 
 
 if __name__ == "__main__":
