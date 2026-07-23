@@ -162,6 +162,39 @@ def test_accumulation_conserve_les_types_absents(tmp_path):
     assert SW_UUID in uids and TMNT_UUID in uids           # les deux survivent
 
 
+class _FauxCC:
+    """Faux client chaine : sert `pages` pages puis du vide. Permet de tester
+    l'arret-couverture de harvest() sans reseau."""
+    TRANSFERS_URL = "x"
+    PAUSE_BETWEEN_PAGES = 0
+    def __init__(self, pages):
+        self._pages = list(pages)
+        self._i = 0
+    def _session(self):
+        return None
+    def _parse_ts(self, x):
+        return None                       # jamais avant cutoff (cutoff ignore)
+    def _get(self, session, url, params):
+        if self._i >= len(self._pages):
+            return {"items": []}
+        page = self._pages[self._i]
+        self._i += 1
+        nxt = {"p": self._i} if self._i < len(self._pages) else None
+        return {"items": page, "next_page_params": nxt}
+
+
+def test_harvest_arret_sur_plateau():
+    import datetime as _dt
+    # page 0 : le collectible (1 nouveau type) ; puis 5 pages qui REVOIENT le
+    # meme item (0 nouveau). Plateau=3 -> doit s'arreter avant d'epuiser.
+    p_new = [COLLECTIBLE_TMNT]
+    p_repeat = [COLLECTIBLE_TMNT]
+    cc = _FauxCC([p_new] + [p_repeat] * 5)
+    cat = v3.harvest(cc, _dt.datetime(2000, 1, 1), plateau_pages=3)
+    assert TMNT_UUID in cat
+    assert cc._i <= 4        # arrete au plateau, n'a pas lu les 6 pages
+
+
 def test_comic_supply_max_par_serie():
     """Deux couvertures de la meme serie : supply = MAX (regle v1/v2)."""
     c1 = COMIC_STARWARS
