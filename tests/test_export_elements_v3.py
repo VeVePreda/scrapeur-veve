@@ -147,63 +147,87 @@ def test_item_hors_officiel_sans_prix():
 
 
 def test_accumulation_conserve_les_types_absents(tmp_path):
-    """Un run qui ne revoit qu'un item ne doit pas reperdre l'autre (graine)."""
-    graine = tmp_path / "elements_v3.csv"
+    """Un run qui ne revoit qu'un item ne doit pas reperdre l'autre (graine
+    chargee en memoire puis fusionnee — chemin reel du mode profond)."""
+    graine_csv = tmp_path / "elements_v3.csv"
     rows_prec = v3.construire_v3(v3.collapse([COMIC_STARWARS]), OFFICIEL)
-    v3.ecrire(rows_prec, str(graine))                       # run precedent : le comic
+    v3.ecrire(rows_prec, str(graine_csv))                  # run precedent : le comic
+    graine = v3.charger_graine(str(graine_csv))            # en memoire
     rows_now = v3.construire_v3(v3.collapse([COLLECTIBLE_TMNT]), OFFICIEL)  # run courant : le collectible
-    fusion = v3._accumuler(rows_now, str(graine))
-    uids = {r[0] for r in fusion}
+    fus = v3.fusion(rows_now, graine)
+    uids = {r[0] for r in fus}
     assert SW_UUID in uids and TMNT_UUID in uids           # les deux survivent
 
 
 class _FauxCC:
-    """Faux client chaine : sert `pages` pages puis du vide. Permet de tester
-    l'arret-couverture de harvest() sans reseau."""
+    """Faux client chaine SANS etat de position : `_get` lit la page a l'index
+    `params['p']` (0 par defaut) -> supporte la REPRISE par curseur."""
     TRANSFERS_URL = "x"
     PAUSE_BETWEEN_PAGES = 0
     def __init__(self, pages):
         self._pages = list(pages)
-        self._i = 0
     def _session(self):
         return None
     def _parse_ts(self, x):
         return None                       # jamais avant cutoff (cutoff ignore)
     def _get(self, session, url, params):
-        if self._i >= len(self._pages):
+        i = (params or {}).get("p", 0)
+        if i >= len(self._pages):
             return {"items": []}
-        page = self._pages[self._i]
-        self._i += 1
-        nxt = {"p": self._i} if self._i < len(self._pages) else None
-        return {"items": page, "next_page_params": nxt}
+        nxt = {"p": i + 1} if i + 1 < len(self._pages) else None
+        return {"items": self._pages[i], "next_page_params": nxt}
+
+
+def _col(uid_last):
+    """Un transfert collectible d'uuid distinct (uid_last complete l'uuid)."""
+    u = f"00000000-0000-0000-0000-{uid_last:012d}"
+    return _transfer(1, 0, f"x/collectible_type_image.{u}.z.full.jpeg",
+                     {"name": f"C{uid_last}", "rarity": "Common", "editionType": "FA",
+                      "totalEditions": 1, "brand": "B", "licensor": "L"})
 
 
 def test_harvest_arret_sur_plateau():
     import datetime as _dt
-    # page 0 : le collectible (1 nouveau type) ; puis 5 pages qui REVOIENT le
-    # meme item (0 nouveau). Plateau=3 -> doit s'arreter avant d'epuiser.
-    p_new = [COLLECTIBLE_TMNT]
-    p_repeat = [COLLECTIBLE_TMNT]
-    cc = _FauxCC([p_new] + [p_repeat] * 5)
-    cat = v3.harvest(cc, _dt.datetime(2000, 1, 1), plateau_pages=3)
+    # page 0 : 1 nouveau type ; puis 5 pages qui REVOIENT le meme (0 nouveau).
+    cc = _FauxCC([[COLLECTIBLE_TMNT]] * 6)
+    cat, meta = v3.harvest(cc, _dt.datetime(2000, 1, 1), plateau_pages=3)
     assert TMNT_UUID in cat
-    assert cc._i <= 4        # arrete au plateau, n'a pas lu les 6 pages
+    assert meta["pages"] <= 4 and not meta["swept"]   # arret au plateau
 
 
-def test_harvest_arret_sur_budget_temps_et_flush(tmp_path):
-    """Deadline dans le passe -> arret propre au 1er tour ; le flush a bien
-    sauvegarde le partiel (garantie anti-timeout)."""
+def test_harvest_arret_sur_budget_temps_et_flush():
+    """Deadline dans le passe -> arret propre au 1er tour ; flush declenche."""
     import datetime as _dt, time as _time
-    cc = _FauxCC([[COLLECTIBLE_TMNT]] * 50)     # bien plus que ce qu'on lira
+    cc = _FauxCC([[COLLECTIBLE_TMNT]] * 50)
     flushes = []
-    def flush(best):
-        flushes.append(len(best))
-    cat = v3.harvest(cc, _dt.datetime(2000, 1, 1), plateau_pages=0,
-                     deadline=_time.monotonic() - 1,   # deja depassee
-                     flush=flush, flush_every=1)
-    assert TMNT_UUID in cat          # ce qui a ete vu est conserve
-    assert cc._i <= 2                # arret quasi immediat, pas les 50 pages
-    assert flushes and flushes[0] >= 1   # le flush de secours a tourne
+    cat, meta = v3.harvest(cc, _dt.datetime(2000, 1, 1), plateau_pages=0,
+                           deadline=_time.monotonic() - 1,
+                           flush=lambda b: flushes.append(len(b)), flush_every=1)
+    assert TMNT_UUID in cat
+    assert meta["pages"] <= 2 and not meta["swept"]   # arret quasi immediat
+    assert meta["cursor"] is not None                 # curseur pour reprendre
+    assert flushes and flushes[0] >= 1
+
+
+def test_harvest_reprise_curseur_et_swept():
+    """Coupe apres 2 pages -> curseur ; reprise au curseur -> descend plus bas
+    sans re-scanner le haut, et finit 'swept' (curseur None)."""
+    import datetime as _dt, os
+    cc = _FauxCC([[_col(1)], [_col(2)], [_col(3)], [_col(4)]])
+    os.environ["ELEMENTS_V3_MAX_PAGES"] = "2"          # coupe apres 2 pages
+    try:
+        cat1, m1 = v3.harvest(cc, _dt.datetime(2000, 1, 1), plateau_pages=0)
+    finally:
+        del os.environ["ELEMENTS_V3_MAX_PAGES"]
+    assert m1["pages"] == 2 and not m1["swept"] and m1["cursor"] == {"p": 2}
+    assert set(cat1) == {"00000000-0000-0000-0000-000000000001",
+                         "00000000-0000-0000-0000-000000000002"}
+    # reprise au curseur : ne revoit PAS les pages 0-1, lit 2-3 puis fin.
+    cat2, m2 = v3.harvest(cc, _dt.datetime(2000, 1, 1), plateau_pages=0,
+                          start_params=m1["cursor"])
+    assert m2["swept"] and m2["cursor"] is None
+    assert set(cat2) == {"00000000-0000-0000-0000-000000000003",
+                         "00000000-0000-0000-0000-000000000004"}
 
 
 def test_comic_supply_max_par_serie():
