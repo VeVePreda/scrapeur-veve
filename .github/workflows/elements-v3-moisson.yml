@@ -1,0 +1,102 @@
+# ⚠️ DEPOT : VeVePreda/scrapeur-veve   ·   CHEMIN : .github/workflows/elements-v3-moisson.yml
+# Le projet vit sur 6 depots et DEUX comptes GitHub. Un fichier depose au
+# mauvais endroit ne provoque aucune erreur : il dort.
+
+name: Pont elements v3 (catalogue depuis la chaine — moisson silence)
+
+# 🌉 SUITE DU SPIKE GO-CATALOGUE (23/07). Moissonne la metadata catalogue
+# DEPUIS LA CHAINE (CollectChain) — 1 echantillon (le plus recent) par
+# veve_uuid — construit data/elements_v3.csv (identite on-chain, colonnes
+# off-chain reportees de data/elements.csv), puis le COMPARE a l'export
+# officiel SANS RIEN DEBRANCHER. La prod continue de lire elements.csv (v2).
+#
+# DISPATCH SEUL, mode « double en silence » : rien n'est commite dans le
+# depot. elements_v3.csv part en ARTIFACT du run (a telecharger) ET, en
+# option, dans une Release `elements-v3` pour survivre entre dispatches.
+# On lit tout dans le log du comparateur — objectif : mesurer l'ampleur
+# reelle des ecarts d'identite sur tout l'univers on-chain avant de trancher
+# le libelle des comics et d'envisager une bascule.
+#
+# ⚠️ Sandbox local n'atteint pas l'API en volume -> la moisson pleine tourne
+#    ICI. La profondeur d'un run est bornee par le budget (timeout) : les
+#    types ACTIFS sont couverts ; la couverture des types dormants se
+#    completera en repliant la capture metadata dans le scan profond.
+
+on:
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: "Profondeur du balayage transferts (jours). 400 couvre l'essentiel des types actifs."
+        required: false
+        default: "400"
+      max_pages:
+        description: "Plafond de pages /transfers (garde-fou budget)."
+        required: false
+        default: "20000"
+      publier_release:
+        description: "Publier elements_v3.csv dans la Release elements-v3 (oui/non)."
+        required: false
+        default: "oui"
+
+permissions:
+  contents: write          # ecrire la Release elements-v3 (pas le depot)
+
+concurrency:
+  group: chain-tracker     # jamais en meme temps que chain_run / backfill
+  cancel-in-progress: false
+
+jobs:
+  moisson:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      # Reprise : on part de la Release elements-v3 si elle existe, pour que
+      # des dispatches successifs ACCUMULENT la couverture (les types deja
+      # moissonnes ne sont pas reperdus si un run ne va pas au bout).
+      - name: Graine de couverture (Release elements-v3, si presente)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download elements-v3 --pattern elements_v3.csv --dir data 2>/dev/null \
+            && echo "Graine chargee depuis la Release." \
+            || echo "Pas de Release elements-v3 encore — premiere moisson."
+
+      - name: Moisson metadata chaine -> data/elements_v3.csv
+        env:
+          ELEMENTS_V3_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '400' }}
+          ELEMENTS_V3_MAX_PAGES: ${{ github.event.inputs.max_pages || '20000' }}
+          ELEMENTS_V3_ACCUMULATE: "1"
+        run: python -m scraper.export_elements_v3
+
+      - name: Comparer a l'export officiel (mesure, ne bloque jamais)
+        env:
+          ELEMENTS_V2: data/elements_v3.csv
+          COMPARE_SEUIL_STABLE: "-1"     # -1 = desarme : on MESURE, run vert
+        run: python -m scraper.compare_elements
+
+      - name: Artifact du run
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: elements_v3
+          path: data/elements_v3.csv
+          if-no-files-found: warn
+
+      - name: Publier dans la Release elements-v3 (persistance entre dispatches)
+        if: ${{ always() && (github.event.inputs.publier_release || 'oui') == 'oui' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test -f data/elements_v3.csv || { echo "Pas de fichier a publier."; exit 0; }
+          gh release view elements-v3 >/dev/null 2>&1 || \
+            gh release create elements-v3 --title "Pont elements v3 (catalogue on-chain, silence)" \
+              --notes "elements_v3.csv reconstruit depuis CollectChain. Identite on-chain, colonnes off-chain reportees de elements.csv. NON branche en prod : phase double-silence."
+          gh release upload elements-v3 data/elements_v3.csv --clobber
+          echo "Publie dans la Release elements-v3."
