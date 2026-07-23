@@ -17,28 +17,39 @@ name: Pont elements v3 (catalogue depuis la chaine — moisson silence)
 # reelle des ecarts d'identite sur tout l'univers on-chain avant de trancher
 # le libelle des comics et d'envisager une bascule.
 #
-# ⚠️ Sandbox local n'atteint pas l'API en volume -> la moisson pleine tourne
-#    ICI. La profondeur d'un run est bornee par le budget (timeout) : les
-#    types ACTIFS sont couverts ; la couverture des types dormants se
-#    completera en repliant la capture metadata dans le scan profond.
+# DEUX MODES (input `mode`) :
+#  * tete    : repart du sommet, arret sur couverture (plateau). Entretien —
+#              attrape les nouveaux drops, rafraichit la metadata. ~2 h.
+#  * profond : REPREND au curseur du state (Release), descend PLUS BAS sans
+#              re-scanner le haut, plateau desarme. Relancer 'profond' a chaque
+#              fois jusqu'au message « BALAYAGE INTEGRAL TERMINE » -> univers
+#              on-chain COMPLET (2021->auj.), sans toucher le scan profond de prod.
+# L'accumulation (graine CSV en memoire) + le curseur (state) garantissent qu'AUCUN
+# type n'est reperdu et qu'aucune page n'est re-balayee inutilement entre dispatches.
 
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: "tete = repart du sommet (entretien, arret couverture) · profond = REPREND au curseur pour descendre plus bas (balayage integral, plateau desarme). Relancer 'profond' jusqu'a 'BALAYAGE INTEGRAL TERMINE'."
+        required: false
+        default: "tete"
+        type: choice
+        options: ["tete", "profond"]
       lookback_days:
-        description: "Profondeur MAX du balayage (jours). L'arret-couverture stoppe bien avant en general."
+        description: "Profondeur MAX (jours). Vide = defaut selon le mode (tete 120, profond 3650)."
         required: false
-        default: "120"
+        default: ""
       plateau_pages:
-        description: "Arret quand N pages defilent sans nouveau type (0 = desarme). Baisser = plus rapide."
+        description: "Arret quand N pages sans nouveau type. Vide = defaut selon le mode (tete 300, profond 0=desarme)."
         required: false
-        default: "300"
+        default: ""
       max_pages:
         description: "Plafond dur de pages /transfers (securite budget)."
         required: false
         default: "20000"
       publier_release:
-        description: "Publier elements_v3.csv dans la Release elements-v3 (oui/non)."
+        description: "Publier elements_v3.csv + le state dans la Release elements-v3 (oui/non)."
         required: false
         default: "oui"
 
@@ -61,26 +72,29 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
 
-      # Reprise : on part de la Release elements-v3 si elle existe, pour que
-      # des dispatches successifs ACCUMULENT la couverture (les types deja
-      # moissonnes ne sont pas reperdus si un run ne va pas au bout).
-      - name: Graine de couverture (Release elements-v3, si presente)
+      # Reprise : on part de la Release elements-v3 (graine CSV + STATE de
+      # curseur) pour que des dispatches successifs CUMULENT la couverture ET,
+      # en mode profond, REPRENNENT la pagination la ou elle s'etait arretee.
+      - name: Graine + state (Release elements-v3, si presents)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release download elements-v3 --pattern elements_v3.csv --dir data 2>/dev/null \
-            && echo "Graine chargee depuis la Release." \
-            || echo "Pas de Release elements-v3 encore — premiere moisson."
+            && echo "Graine CSV chargee." || echo "Pas de graine CSV (1re moisson)."
+          gh release download elements-v3 --pattern elements_v3_state.json --dir data 2>/dev/null \
+            && echo "State de reprise charge." || echo "Pas de state (repart du sommet)."
 
       - name: Moisson metadata chaine -> data/elements_v3.csv
         env:
-          ELEMENTS_V3_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '120' }}
-          ELEMENTS_V3_PLATEAU_PAGES: ${{ github.event.inputs.plateau_pages || '300' }}
+          ELEMENTS_V3_MODE: ${{ github.event.inputs.mode || 'tete' }}
+          ELEMENTS_V3_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days }}
+          ELEMENTS_V3_PLATEAU_PAGES: ${{ github.event.inputs.plateau_pages }}
           ELEMENTS_V3_MAX_PAGES: ${{ github.event.inputs.max_pages || '20000' }}
           # ⭐ GARANTIE : budget-temps INTERNE (240) < timeout du job (300). La
           # moisson s'arrete PROPREMENT avant le couperet GitHub, donc l'ecriture
           # + l'upload Release ci-dessous s'executent (un timeout GitHub saute
-          # meme les steps `if: always()`). Le reste se recolte au run suivant.
+          # meme les steps `if: always()`). En profond, le curseur du state
+          # permet au run suivant de continuer plus bas sans re-scanner le haut.
           ELEMENTS_V3_TIME_BUDGET_MIN: "240"
           ELEMENTS_V3_FLUSH_EVERY: "200"
           ELEMENTS_V3_ACCUMULATE: "1"
@@ -115,4 +129,8 @@ jobs:
             gh release create elements-v3 --title "Pont elements v3 (catalogue on-chain, silence)" \
               --notes "elements_v3.csv reconstruit depuis CollectChain. Identite on-chain, colonnes off-chain reportees de elements.csv. NON branche en prod : phase double-silence."
           gh release upload elements-v3 data/elements_v3.csv --clobber
-          echo "Publie dans la Release elements-v3."
+          # STATE de reprise (curseur du mode profond) : indispensable pour que
+          # le prochain 'profond' continue plus bas au lieu de re-scanner le haut.
+          test -f data/elements_v3_state.json && \
+            gh release upload elements-v3 data/elements_v3_state.json --clobber || true
+          echo "Publie dans la Release elements-v3 (csv + state)."
