@@ -70,6 +70,25 @@ jobs:
           REFRESH_DYNAMIC: "true"
         run: python -m scraper.run
 
+      # 🗃️ Commit du cache d'enrichissement TOUT DE SUITE apres le step 1.
+      # Le step 1 (sheets.sync_catalogue) ECRIT data/enrichissement.csv ; si on le
+      # laissait non commite, il resterait "unstaged" quand les steps suivants
+      # (registre, catalogue) font `git pull --rebase` -> "cannot pull with rebase:
+      # You have unstaged changes" (vu le 23/07). On le commite donc ici, isole :
+      # chaque fichier est commite dans le step qui le produit, l'arbre reste propre.
+      - name: "1b) Commit du cache enrichissement (data/)"
+        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'catalogue')) }}
+        run: |
+          git config user.name "veve-daily-bot"
+          git config user.email "actions@users.noreply.github.com"
+          [ -f data/enrichissement.csv ] && git add data/enrichissement.csv
+          git diff --cached --quiet && { echo "Rien a committer."; exit 0; }
+          git commit -m "cache: maj enrichissement (daily)"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && break
+            sleep $((i * 5))
+          done
+
       - name: 2) CollectChain (activity + escrow deposits)
         if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'chain')) }}
         env:
@@ -133,20 +152,14 @@ jobs:
         if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'comics')) }}
         run: python -m scraper.export_elements
 
-      - name: "9) Commit des CSV catalogue (pont v1 + cache enrichissement)"
-        # Fire aussi sur 'catalogue' seul : le cache d'enrichissement est ecrit
-        # par le step 1 (sheets.sync_catalogue), pas par le step 8.
-        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'comics') || contains(env.STEPS, 'catalogue')) }}
+      - name: "9) Commit du CSV catalogue"
+        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'comics')) }}
         run: |
           git config user.name "veve-daily-bot"
           git config user.email "actions@users.noreply.github.com"
           [ -f data/elements.csv ] && git add data/elements.csv
-          # 🗃️ Cache d'enrichissement (etape 4 pont elements) : ecrit par le
-          # step 1 (catalogue) au meme instant que les onglets. On le commite au
-          # meme titre que le pont v1 pour que le builder v2 le relise.
-          [ -f data/enrichissement.csv ] && git add data/enrichissement.csv
           git diff --cached --quiet && { echo "Rien a committer."; exit 0; }
-          git commit -m "catalogue: export du pont + cache enrichissement"
+          git commit -m "catalogue: export du pont (alertes)"
           for i in 1 2 3; do
             git pull --rebase origin main && git push && break
             sleep $((i * 5))
