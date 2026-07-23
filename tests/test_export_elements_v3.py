@@ -7,15 +7,10 @@ officiel. On verifie que le collapse re-derive l'identite on-chain a l'identique
 et reporte proprement les colonnes off-chain.
 """
 
-import importlib.util
-import os
-
-_SPEC = importlib.util.spec_from_file_location(
-    "export_elements_v3",
-    os.path.join(os.path.dirname(__file__), "export_elements_v3.py"),
-)
-v3 = importlib.util.module_from_spec(_SPEC)
-_SPEC.loader.exec_module(v3)
+# Le module vit dans scraper/ (le test dans tests/) : import par le PAQUET,
+# comme les autres tests du repo (`from scraper import ...`). pytest lance
+# depuis la racine du depot.
+from scraper import export_elements_v3 as v3
 
 
 # --- transferts BRUTS reels (metadata telle que rendue par l'API) -----------
