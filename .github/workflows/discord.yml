@@ -36,10 +36,10 @@ on:
       modules:
         description: "Modules a lancer"
         required: false
-        default: "stats,blog,drops,retour"
+        default: "stats,blog,drops,retour,feed"
         type: choice
-        options: ["stats,blog,drops,retour", "stats", "blog", "drops", "retour",
-                  "drops,retour"]
+        options: ["stats,blog,drops,retour,feed", "stats", "blog", "drops",
+                  "retour", "feed", "drops,retour"]
       blocs:
         description: "Stats : quels messages (annees,mois,jours_court,jours)"
         required: false
@@ -103,7 +103,7 @@ jobs:
           DISCORD_HUB_WEBHOOK: ${{ secrets.DISCORD_HUB_WEBHOOK }}
           DISCORD_STATS_WEBHOOK: ${{ secrets.DISCORD_STATS_WEBHOOK }}
           DISCORD_BLOG_WEBHOOK: ${{ secrets.DISCORD_BLOG_WEBHOOK }}
-          DISCORD_MODULES: ${{ github.event.inputs.modules || 'stats,blog,drops,retour' }}
+          DISCORD_MODULES: ${{ github.event.inputs.modules || 'stats,blog,drops,retour,feed' }}
           # Le token du BOT ne sert QU'AUX REACTIONS. S'il manque, les cartes
           # partent quand meme — sans sondage, et le log le dit.
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
@@ -133,6 +133,17 @@ jobs:
           # et poser l'URL ici.
           DISCORD_RETOUR_IMAGE_COMIC_DAY: ${{ vars.DISCORD_RETOUR_IMAGE_COMIC_DAY || '' }}
           DISCORD_RETOUR_IMAGE_FAIBLES: ${{ vars.DISCORD_RETOUR_IMAGE_FAIBLES || '' }}
+          # ═══ FEED INVESTOR — le comparatif hebdo (dimanche) ═══
+          # SALON NORMAL (pas un post de forum) : DISCORD_FEED_THREAD reste VIDE.
+          # Son propre webhook (secret). Le module se garde LUI-MEME au dimanche
+          # (le hub passe tous les jours) et ne publie qu'une fois par semaine.
+          DISCORD_FEED_WEBHOOK: ${{ secrets.DISCORD_FEED_WEBHOOK }}
+          DISCORD_FEED_THREAD: ${{ vars.DISCORD_FEED_THREAD || '' }}
+          # Le lien « Détails » du message -> le post « 📊 STATS ».
+          DISCORD_FEED_DETAILS_URL: ${{ vars.DISCORD_FEED_DETAILS_URL || 'https://discord.com/channels/310073753709182977/1526491450538196992' }}
+          # 6 = dimanche (lun=0 … dim=6). Vide de role = ne ping personne.
+          DISCORD_FEED_JOUR: ${{ vars.DISCORD_FEED_JOUR || '6' }}
+          DISCORD_FEED_ROLE: ${{ vars.DISCORD_FEED_ROLE || '' }}
         run: python -m scraper.discord_hub
 
       # L'etat porte les ids des messages (stats) et les slugs deja annonces
@@ -143,7 +154,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add data/discord_stats_state.json data/discord_blog_state.json data/discord_drops_state.json data/discord_retour_state.json 2>/dev/null || true
+          git add data/discord_stats_state.json data/discord_blog_state.json data/discord_drops_state.json data/discord_retour_state.json data/discord_feed_state.json 2>/dev/null || true
           git diff --cached --quiet || git commit -m "discord: etats (ids des messages, slugs annonces)"
           # ⚠️ REBASER + REESSAYER : un `git push || true` seul PERDAIT l'etat quand
           # un autre workflow (daily, etc.) avait pousse entre les 2 crons -> le run
