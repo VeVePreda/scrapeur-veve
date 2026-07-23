@@ -195,6 +195,22 @@ def test_harvest_arret_sur_plateau():
     assert cc._i <= 4        # arrete au plateau, n'a pas lu les 6 pages
 
 
+def test_harvest_arret_sur_budget_temps_et_flush(tmp_path):
+    """Deadline dans le passe -> arret propre au 1er tour ; le flush a bien
+    sauvegarde le partiel (garantie anti-timeout)."""
+    import datetime as _dt, time as _time
+    cc = _FauxCC([[COLLECTIBLE_TMNT]] * 50)     # bien plus que ce qu'on lira
+    flushes = []
+    def flush(best):
+        flushes.append(len(best))
+    cat = v3.harvest(cc, _dt.datetime(2000, 1, 1), plateau_pages=0,
+                     deadline=_time.monotonic() - 1,   # deja depassee
+                     flush=flush, flush_every=1)
+    assert TMNT_UUID in cat          # ce qui a ete vu est conserve
+    assert cc._i <= 2                # arret quasi immediat, pas les 50 pages
+    assert flushes and flushes[0] >= 1   # le flush de secours a tourne
+
+
 def test_comic_supply_max_par_serie():
     """Deux couvertures de la meme serie : supply = MAX (regle v1/v2)."""
     c1 = COMIC_STARWARS
