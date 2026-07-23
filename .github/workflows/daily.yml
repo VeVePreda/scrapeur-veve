@@ -148,9 +148,18 @@ jobs:
       # jetonveve (repo public), qui n'a AUCUN acces au Sheet — et c'est tres
       # bien ainsi. On exporte donc un CSV minimal (comics ET collectibles), que
       # jetonveve lit en lecture seule avec PREDA_TOKEN.
-      - name: "8) Export du catalogue (pont vers les alertes)"
+      # 🌉 BASCULE (etape 5, 23/07) : l'export officiel data/elements.csv est
+      # desormais fabrique par le BUILDER v2 (tracker + cache enrichissement),
+      # plus par les onglets froids. Consequences : atl/ath viennent du tracker
+      # (FIN du ×100 immortel), listings du jour meme, supply/first_public/note
+      # inchanges (identite prouvee = 0 sur 3 rapports). L'ancien export reste
+      # dans le repo : ROLLBACK = remettre `python -m scraper.export_elements`
+      # (et retirer le bloc env ci-dessous).
+      - name: "8) Export du catalogue (pont alertes) — BUILDER v2 (bascule)"
         if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'comics')) }}
-        run: python -m scraper.export_elements
+        env:
+          ELEMENTS_V2: data/elements.csv
+        run: python -m scraper.export_elements_v2
 
       - name: "9) Commit du CSV catalogue"
         if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'comics')) }}
