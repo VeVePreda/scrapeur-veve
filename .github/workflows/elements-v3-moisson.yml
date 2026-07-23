@@ -90,6 +90,11 @@ jobs:
         env:
           ELEMENTS_V2: data/elements_v3.csv
           COMPARE_SEUIL_STABLE: "-1"     # -1 = desarme : on MESURE, run vert
+          # Colonnes tirees de la chaine PAR CHOIX (Preda 23/07) : sorties du
+          # verdict (ecart voulu, jamais 0 face a l'officiel). Le verdict ne
+          # compte plus que l'identite OFF-CHAIN : series_uuid, category,
+          # first_public, note -> doit tomber a 0 pour justifier une bascule.
+          COMPARE_ADOPTE: "name,brand,rarity,licensor,supply,edition_type"
         run: python -m scraper.compare_elements
 
       - name: Artifact du run
