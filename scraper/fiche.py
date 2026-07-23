@@ -112,6 +112,22 @@ def _build(colmap: Dict[str, str], row0: int, default):
         put(3, 2 * i + 1, f"={IDX(col)}")
         if fmt != "#,##0":                         # #,##0 vient du reset global
             numfmt.append((R0 + 3, 1, 2 * i + 1, 1, fmt))
+    # DROPPEURS DIAMANT (fusion 23/07) : combien de droppeurs detiennent encore
+    # cet item sans l'avoir JAMAIS vendu (une mise en vente non conclue ne compte
+    # pas). Ne s'affiche QUE si le ledger porte les colonnes -> degrade proprement
+    # tant que l'entrepot ne les a pas ecrites. % recalcule ici (regle Preda : un
+    # derive doit etre recalculable). La note dit si l'item est "proxy" (vrai drop
+    # pre-IMX : mesure depuis la genese IMX, pas depuis le drop d'origine).
+    if "drop_diamant" in colmap:
+        put(3, 10, "Droppeurs");  put(3, 11, f"={IDX('drop_distribues')}")
+        put(3, 12, "◇ Diamant");  put(3, 13, f"={IDX('drop_diamant')}")
+        put(3, 14, "% diamant")
+        put(3, 15, f"=IFERROR({IDX('drop_diamant')}/{IDX('drop_distribues')};0)")
+        numfmt.append((R0 + 3, 1, 15, 1, "0.0%"))
+        put(4, 10, f"=IF({IDX('drop_proxy')}=1;"
+                   f"\"◇ détenteurs d'origine encore là — estimé depuis la genèse"
+                   f" IMX (drop pré-2022, vrai droppeur hors-chaîne)\";"
+                   f"\"◇ droppeurs qui n'ont jamais vendu — depuis le vrai drop\")")
 
     def table(top, left, fam, titre, labels, pers_pref, sup_pref):
         titles.append((R0 + top, left, TW, fam))
@@ -308,7 +324,7 @@ def write(sh, ws, row0: int) -> int:
     reqs.append(_merge(sid, br0, 0, bnc))
     # ligne KPI : gras + alignee a GAUCHE (demande Preda) — la valeur colle a son
     # libelle (« Supply 4 266 ») au lieu d'etre calee a droite de sa case.
-    reqs.append(_bg(sid, meta["kpi_row"], 1, 0, 10,
+    reqs.append(_bg(sid, meta["kpi_row"], 1, 0, 16,   # 16 : inclut les KPI droppeurs
                     {"textFormat": {"bold": True},
                      "horizontalAlignment": "LEFT"}))
     # menu de l'item : surligne (demande Preda) + label en gras

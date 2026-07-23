@@ -329,7 +329,12 @@ CORNER_HEADER = (
     + [f"ws_sup_{s}" for s in QTY_ORDER]
     + [f"hold_pers_{s}" for s in HOLD_ORDER]
     + [f"hold_sup_{s}" for s in HOLD_ORDER]
-    + ["hm_prof_act", "hm_prof_ws", "hm_act_ws"])
+    + ["hm_prof_act", "hm_prof_ws", "hm_act_ws"]
+    # DROPPEURS DIAMANT (23/07) : calculees dans l'entrepot (ledger_derived.py,
+    # les deux eres) et servies via corner_full.csv.gz. Ce chemin lourd est
+    # dormant depuis le 16/07 : il ecrit des cellules VIDES ici (valeurs =
+    # entrepot), l'en-tete doit juste rester aligne pour le writer leger.
+    + ["drop_distribues", "drop_diamant", "drop_proxy"])
 
 
 def hold_bucket(c: int) -> str:
@@ -1427,6 +1432,10 @@ def build_all(folder: str, snap_folder: str, sh, top: int, today: _dt.date,
                      for p in PROFILE_ORDER),
             "|".join(";".join(str(hm_aw.get((a, q), 0)) for q in QTY_ORDER)
                      for a in ACTIVITY_ORDER)]
+        # drop_distribues / drop_diamant / drop_proxy : servies par l'entrepot
+        # (ledger_derived.py). Ce chemin dormant laisse VIDE plutot que d'ecrire
+        # un faux 0 (il n'a pas la lignee IMX par token pour les recalculer).
+        row += ["", "", ""]
         corner.append(row)
     corner.sort(key=lambda r: -r[3])
 
