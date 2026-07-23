@@ -77,6 +77,12 @@ jobs:
           ELEMENTS_V3_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '120' }}
           ELEMENTS_V3_PLATEAU_PAGES: ${{ github.event.inputs.plateau_pages || '300' }}
           ELEMENTS_V3_MAX_PAGES: ${{ github.event.inputs.max_pages || '20000' }}
+          # ⭐ GARANTIE : budget-temps INTERNE (240) < timeout du job (300). La
+          # moisson s'arrete PROPREMENT avant le couperet GitHub, donc l'ecriture
+          # + l'upload Release ci-dessous s'executent (un timeout GitHub saute
+          # meme les steps `if: always()`). Le reste se recolte au run suivant.
+          ELEMENTS_V3_TIME_BUDGET_MIN: "240"
+          ELEMENTS_V3_FLUSH_EVERY: "200"
           ELEMENTS_V3_ACCUMULATE: "1"
         run: python -m scraper.export_elements_v3
 
