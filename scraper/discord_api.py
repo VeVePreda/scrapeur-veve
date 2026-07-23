@@ -133,6 +133,12 @@ def mentions(roles: Optional[List[str]] = None) -> Dict:
 # ---------------------------------------------------------------------------
 
 def _q(base: str, **params) -> str:
+    # Un parametre vide (thread_id="") ne doit PAS etre serialise : poster dans
+    # un SALON NORMAL (pas un post de forum) se fait SANS thread_id — l'ajouter
+    # vide ferait echouer la requete. On ne garde que les params renseignes.
+    params = {k: v for k, v in params.items() if v not in (None, "")}
+    if not params:
+        return base
     return base + ("&" if "?" in base else "?") + urlencode(params)
 
 
@@ -151,7 +157,10 @@ def _429(r) -> bool:
 
 
 def poster(wh: str, thread: str, payload: Dict) -> Optional[str]:
-    """POST dans le THREAD -> l'id du message cree (`wait=true`)."""
+    """POST -> l'id du message cree (`wait=true`).
+
+    `thread` = id du post de forum ; **laisse-le vide pour poster dans un salon
+    normal** (le module feed, par exemple). `_q` retire un thread_id vide."""
     if not _quota_ok("un nouveau message"):
         return None
     url = _q(wh, thread_id=thread, wait="true")
