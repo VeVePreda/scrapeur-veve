@@ -186,18 +186,27 @@ def lire_officiel(chemin: str) -> Dict[str, Dict[str, str]]:
 def construire_v3(catalogue: Dict[str, Dict[str, Any]],
                   officiel: Dict[str, Dict[str, str]]) -> List[List]:
     """Le catalogue on-chain + les colonnes off-chain reportees -> lignes ENTETE."""
-    # tirage des comics = MAX par serie (comme v1/v2), calcule sur la CHAINE.
+    # ⭐ Tirage d'un COMIC = MAX par SERIE (comme v1/v2). CLE DE GROUPE = le
+    # `series_uuid` OFFICIEL qu'on reporte deja (fin), avec repli sur la chaine
+    # de serie on-chain. Grouper sur la chaine `series` seule SUR-AGREGEAIT
+    # (plusieurs series_uuid partagent un meme libelle -> MAX gonfle : 30000 vs
+    # 7500, cf. 1er rapport 23/07). La cle officielle recolle au decoupage v1.
+    def _serie_key(uid: str, c: Dict[str, Any]) -> str:
+        su = (officiel.get(uid, {}).get("series_uuid") or "").strip()
+        return su or ("~" + c["series"])       # ~ = repli libelle si hors officiel
+
     max_par_serie: Dict[str, int] = {}
-    for c in catalogue.values():
-        if c["category"] == "comic" and c["series"] and c["supply"]:
-            s = c["series"]
-            max_par_serie[s] = max(max_par_serie.get(s, 0), c["supply"])
+    for uid, c in catalogue.items():
+        if c["category"] == "comic" and c["supply"]:
+            k = _serie_key(uid, c)
+            if k not in ("", "~"):
+                max_par_serie[k] = max(max_par_serie.get(k, 0), c["supply"])
 
     rows: List[List] = []
     for uid, c in catalogue.items():
         off = officiel.get(uid, {})
         if c["category"] == "comic":
-            supply = max_par_serie.get(c["series"], c["supply"])
+            supply = max_par_serie.get(_serie_key(uid, c), c["supply"])
         else:
             supply = c["supply"]
         if SUPPLY_MAX and supply and supply > SUPPLY_MAX:

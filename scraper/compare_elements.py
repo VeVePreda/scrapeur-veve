@@ -46,6 +46,17 @@ IDENTITE = ["series_uuid", "name", "category", "rarity",
 SOURCE = ["edition_type", "brand", "licensor"]
 VIVANTES = ["listings", "atl", "atl_date", "ath", "ath_date"]
 
+# ⭐ COLONNES « ADOPTEES » (v3, catalogue depuis la chaine — Preda 23/07) : ces
+# colonnes viennent desormais de la CHAINE par CHOIX (name/brand = titre canonique,
+# rarity/licensor = verite VeVe au mint). Elles NE reviendront jamais a 0 face a
+# l'officiel : c'est voulu. Listees pour l'oeil (paires groupees), mais SORTIES du
+# verdict bloquant — sinon « identite 0 » serait inatteignable. Vide par defaut
+# (v2 inchange). Ex v3 : COMPARE_ADOPTE="name,brand,rarity,licensor,supply,edition_type".
+ADOPTE = [c.strip() for c in os.environ.get("COMPARE_ADOPTE", "").split(",")
+          if c.strip()]
+IDENTITE = [c for c in IDENTITE if c not in ADOPTE]
+SOURCE = [c for c in SOURCE if c not in ADOPTE]
+
 
 def _lire(chemin: str) -> Dict[str, Dict[str, str]]:
     out: Dict[str, Dict[str, str]] = {}
@@ -92,9 +103,13 @@ def main() -> int:
               + ", ".join(u[:8] for u in seulement_v2[:5]))
 
     total_identite = 0
-    for fam, cols in (("IDENTITE (0 ecart exige — compte au verdict)", IDENTITE),
-                      ("SOURCE (tracker fait foi — non bloquant)", SOURCE),
-                      ("VIVANTES (drift temporel tolere)", VIVANTES)):
+    familles = [("IDENTITE (0 ecart exige — compte au verdict)", IDENTITE),
+                ("SOURCE (tracker fait foi — non bloquant)", SOURCE)]
+    if ADOPTE:
+        familles.append(
+            ("ADOPTE (chaine fait foi — hors verdict, ecart VOULU)", ADOPTE))
+    familles.append(("VIVANTES (drift temporel tolere)", VIVANTES))
+    for fam, cols in familles:
         print(f"  ── {fam} " + "─" * max(40 - len(fam), 3))
         for col in cols:
             diffs: List[str] = [u for u in communs
@@ -104,9 +119,10 @@ def main() -> int:
                 total_identite += len(diffs)
             pct = 100.0 * len(diffs) / max(len(communs), 1)
             marque = " " if not diffs else \
-                ("⚠️" if col in IDENTITE else ("≠" if col in SOURCE else "≈"))
+                ("⚠️" if col in IDENTITE else
+                 ("≠" if col in SOURCE else ("↪" if col in ADOPTE else "≈")))
             print(f"  {marque} {col:<14} {len(diffs):>6} ecart(s) ({pct:.2f} %)")
-            if col in SOURCE and diffs:
+            if (col in SOURCE or col in ADOPTE) and diffs:
                 # Divergences de source ASSUMEES : on regroupe par PAIRE de
                 # valeurs — la liste COMPLETE tient en quelques lignes et se
                 # relit d'un coup d'oeil a chaque rapport (une paire NOUVELLE
