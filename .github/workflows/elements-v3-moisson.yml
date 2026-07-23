@@ -26,11 +26,15 @@ on:
   workflow_dispatch:
     inputs:
       lookback_days:
-        description: "Profondeur du balayage transferts (jours). 400 couvre l'essentiel des types actifs."
+        description: "Profondeur MAX du balayage (jours). L'arret-couverture stoppe bien avant en general."
         required: false
-        default: "400"
+        default: "120"
+      plateau_pages:
+        description: "Arret quand N pages defilent sans nouveau type (0 = desarme). Baisser = plus rapide."
+        required: false
+        default: "300"
       max_pages:
-        description: "Plafond de pages /transfers (garde-fou budget)."
+        description: "Plafond dur de pages /transfers (securite budget)."
         required: false
         default: "20000"
       publier_release:
@@ -70,7 +74,8 @@ jobs:
 
       - name: Moisson metadata chaine -> data/elements_v3.csv
         env:
-          ELEMENTS_V3_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '400' }}
+          ELEMENTS_V3_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '120' }}
+          ELEMENTS_V3_PLATEAU_PAGES: ${{ github.event.inputs.plateau_pages || '300' }}
           ELEMENTS_V3_MAX_PAGES: ${{ github.event.inputs.max_pages || '20000' }}
           ELEMENTS_V3_ACCUMULATE: "1"
         run: python -m scraper.export_elements_v3
