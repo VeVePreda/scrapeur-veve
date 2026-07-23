@@ -216,4 +216,23 @@ def test_comic_supply_max_par_serie():
          "publisher": "Marvel", "rarity": "Common", "totalEditions": 3000})
     rows = v3.construire_v3(v3.collapse([c1, c2]), {})
     for r in rows:
-        assert dict(zip(v3.ENTETE, r))["supply"] == 3000   # MAX de la serie
+        assert dict(zip(v3.ENTETE, r))["supply"] == 3000   # MAX de la serie (repli libelle)
+
+
+def test_comic_supply_groupe_par_series_uuid_officiel():
+    """Deux comics au MEME libelle chaine mais series_uuid officiels DIFFERENTS
+    ne doivent PAS fusionner (sinon MAX gonfle : le bug 30000 vs 7500 du 23/07)."""
+    a = _transfer(1, 0, "x/comic_cover."
+                  "aaaaaaaa-0000-0000-0000-000000000001.z.full.webp",
+                  {"comicNumber": "1", "series": "Amazing Spider-Man Vol. 1",
+                   "publisher": "Marvel", "rarity": "Common", "totalEditions": 7500})
+    b = _transfer(2, 0, "x/comic_cover."
+                  "bbbbbbbb-0000-0000-0000-000000000002.z.full.webp",
+                  {"comicNumber": "9", "series": "Amazing Spider-Man Vol. 1",
+                   "publisher": "Marvel", "rarity": "Common", "totalEditions": 30000})
+    off = {"aaaaaaaa-0000-0000-0000-000000000001": {"series_uuid": "SERIE-A"},
+           "bbbbbbbb-0000-0000-0000-000000000002": {"series_uuid": "SERIE-B"}}
+    rows = v3.construire_v3(v3.collapse([a, b]), off)
+    d = {r[0]: dict(zip(v3.ENTETE, r)) for r in rows}
+    assert d["aaaaaaaa-0000-0000-0000-000000000001"]["supply"] == 7500   # pas 30000
+    assert d["bbbbbbbb-0000-0000-0000-000000000002"]["supply"] == 30000
