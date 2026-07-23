@@ -50,6 +50,8 @@ ENTETE = ["veve_uuid", "series_uuid", "name", "category", "rarity",
 
 CSV_V3 = os.environ.get("ELEMENTS_V3", "data/elements_v3.csv")
 CSV_OFFICIEL = os.environ.get("ELEMENTS_CSV", "data/elements.csv")
+# Etat de reprise (mode profond) : curseur de pagination + flag balayage complet.
+STATE_V3 = os.environ.get("ELEMENTS_V3_STATE", "data/elements_v3_state.json")
 SUPPLY_MAX = int(os.environ.get("ELEMENTS_SUPPLY_MAX", "0"))   # 0 = tout
 
 # Les 8 colonnes OFF-CHAIN reportees de l'officiel (cf. docstring).
@@ -241,6 +243,49 @@ def ecrire(rows: List[List], chemin: str) -> None:
         w.writerows(rows)
 
 
+def charger_graine(chemin: str) -> Dict[str, List]:
+    """La graine (CSV_V3 d'un run precedent) -> {veve_uuid: ligne ENTETE}.
+    Chargee EN MEMOIRE avant la moisson : le flush de secours ecrase ensuite
+    CSV_V3 avec la tranche courante, donc on ne peut plus la relire du disque."""
+    out: Dict[str, List] = {}
+    if not os.path.exists(chemin):
+        return out
+    with open(chemin, encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            uid = (r.get("veve_uuid") or "").strip()
+            if uid:
+                out[uid] = [r.get(c, "") for c in ENTETE]
+    return out
+
+
+def fusion(rows: List[List], graine: Dict[str, List]) -> List[List]:
+    """rows du run + lignes de la graine ABSENTES du run (types non revus) — on
+    ne reperd JAMAIS un type. Le run courant fait foi pour un uuid revu."""
+    vus = {r[0] for r in rows}
+    out = list(rows) + [g for uid, g in graine.items() if uid not in vus]
+    out.sort(key=lambda l: (l[3], _num(l[6]) if l[6] != "" else 0, l[2]))
+    return out
+
+
+def lire_state(chemin: str) -> Dict[str, Any]:
+    """Etat de reprise : {cursor, swept, oldest, ...} — {} si absent/illisible."""
+    import json
+    if not os.path.exists(chemin):
+        return {}
+    try:
+        with open(chemin, encoding="utf-8") as f:
+            return json.load(f) or {}
+    except Exception:                                          # noqa: BLE001
+        return {}
+
+
+def ecrire_state(chemin: str, state: Dict[str, Any]) -> None:
+    import json
+    os.makedirs(os.path.dirname(chemin) or ".", exist_ok=True)
+    with open(chemin, "w", encoding="utf-8") as f:
+        json.dump(state, f)
+
+
 def main() -> int:
     """Moissonne la metadata chaine, reporte l'off-chain, ecrit elements_v3.csv.
 
@@ -255,38 +300,75 @@ def main() -> int:
 
     import datetime as _dt
     import time as _time
-    days = int(os.environ.get("ELEMENTS_V3_LOOKBACK_DAYS", "120"))
+    # ── MODE ──────────────────────────────────────────────────────────────
+    # 'tete'   : repart du sommet, arret sur couverture (plateau). Entretien
+    #            quotidien : attrape les nouveaux drops, rafraichit la metadata.
+    # 'profond': REPREND au curseur du state (descend plus bas sans re-scanner
+    #            le haut), plateau DESARME. Repete jusqu'a swept -> univers COMPLET.
+    mode = os.environ.get("ELEMENTS_V3_MODE", "tete").strip().lower()
+    profond = mode == "profond"
+    state = lire_state(STATE_V3)
+    start_params = None
+    if profond and state.get("cursor") and not state.get("swept"):
+        start_params = state["cursor"]
+        print(f"  mode PROFOND : reprise au curseur du state "
+              f"(deja descendu jusqu'a {state.get('oldest', '?')}).", flush=True)
+    elif profond and state.get("swept"):
+        print("  mode PROFOND : state deja 'swept' (univers complet balaye) — "
+              "on repart du sommet pour rafraichir.", flush=True)
+
+    # profond : fenetre large par defaut (on veut tout) + plateau desarme.
+    # `... or default` : un env ABSENT *ou VIDE* (input workflow non renseigne)
+    # retombe sur le defaut du mode — sinon int("") planterait.
+    days = int(os.environ.get("ELEMENTS_V3_LOOKBACK_DAYS")
+               or ("3650" if profond else "120"))
     cutoff = _dt.datetime.utcnow() - _dt.timedelta(days=days)
-    plateau = int(os.environ.get("ELEMENTS_V3_PLATEAU_PAGES", "300"))
+    plateau = int(os.environ.get("ELEMENTS_V3_PLATEAU_PAGES")
+                  or ("0" if profond else "300"))
     # ⭐ GARANTIE ANTI-TIMEOUT : budget-temps INTERNE < timeout du job GitHub
     # (300 min). On s'arrete PROPREMENT avant le couperet -> l'ecriture + l'upload
     # Release s'executent (sur un timeout GitHub, meme les steps `if: always()`
     # sont sautes). Le reste se recolte au dispatch suivant (accumulation).
-    budget_min = int(os.environ.get("ELEMENTS_V3_TIME_BUDGET_MIN", "240"))
+    budget_min = int(os.environ.get("ELEMENTS_V3_TIME_BUDGET_MIN") or "240")
     deadline = _time.monotonic() + budget_min * 60 if budget_min > 0 else None
-    flush_every = int(os.environ.get("ELEMENTS_V3_FLUSH_EVERY", "200"))
+    flush_every = int(os.environ.get("ELEMENTS_V3_FLUSH_EVERY") or "200")
 
-    # officiel charge AVANT la moisson : sert au flush de secours periodique.
+    # officiel + GRAINE charges AVANT la moisson. La graine en memoire est LA
+    # reference d'accumulation : le flush ecrase ensuite CSV_V3 avec la tranche
+    # courante, donc on ne peut plus la relire du disque (bug evite en profond).
     officiel = lire_officiel(CSV_OFFICIEL)
+    accumule = os.environ.get("ELEMENTS_V3_ACCUMULATE", "").strip() in (
+        "1", "true", "oui")
+    graine = charger_graine(CSV_V3) if accumule else {}
+    if graine:
+        print(f"  graine chargee en memoire : {len(graine)} types (reference "
+              f"d'accumulation).", flush=True)
 
     def _flush(best: Dict[str, Dict[str, Any]]) -> None:
-        """Sauvegarde de secours : ecrit le CSV partiel en cours de route (belt-
-        and-suspenders si le process tombe hors timeout). Le run normal reecrit
-        proprement + accumule a la fin."""
+        """Sauvegarde de secours : ecrit le CSV COMPLET (tranche courante FUSION
+        graine) en cours de route -> meme une chute hors timeout ne perd rien."""
         try:
             partiel = construire_v3(best, officiel)
             if partiel:
-                ecrire(partiel, CSV_V3)
+                ecrire(fusion(partiel, graine), CSV_V3)
         except Exception as e:                                 # noqa: BLE001
             print(f"    (flush de secours ignore : {e})", file=sys.stderr)
 
-    print(f"Moisson metadata chaine depuis {cutoff:%Y-%m-%d} · arret sur "
-          f"couverture ({plateau} pages sans nouveau) ou budget-temps "
-          f"({budget_min} min) · flush /{flush_every} pages …", flush=True)
+    arret = "curseur/fin (plateau desarme)" if plateau == 0 \
+        else f"couverture ({plateau} pages sans nouveau)"
+    print(f"Moisson metadata chaine [{mode}] depuis {cutoff:%Y-%m-%d} · arret sur "
+          f"{arret} ou budget-temps ({budget_min} min) · flush /{flush_every} "
+          f"pages …", flush=True)
 
-    catalogue = harvest(cc, cutoff, plateau, deadline=deadline,
-                        flush=_flush, flush_every=flush_every)
-    if len(catalogue) < 50:
+    catalogue, meta = harvest(cc, cutoff, plateau, deadline=deadline,
+                              flush=_flush, flush_every=flush_every,
+                              start_params=start_params)
+    # tete : la tranche DOIT voir l'univers actif -> <50 = quelque chose a casse.
+    # profond : une tranche est bornee par le budget, elle peut etre petite ;
+    # on rejette seulement une tranche VIDE (API muette). L'accumulation + le
+    # curseur completent le reste au fil des dispatches.
+    seuil = 1 if profond else 50
+    if len(catalogue) < seuil:
         print(f"⛔ moisson trop maigre ({len(catalogue)} types) — rien d'ecrit.",
               file=sys.stderr)
         return 3
@@ -294,71 +376,77 @@ def main() -> int:
     if not rows:
         print("⛔ 0 ligne — rien d'ecrit.", file=sys.stderr)
         return 3
-    # ACCUMULATION : des dispatches successifs cumulent la couverture. Les items
-    # deja moissonnes lors d'un run PRECEDENT (presents dans le CSV_V3 graine)
-    # mais PAS revus cette fois sont conserves — on ne reperd jamais un type.
-    if os.environ.get("ELEMENTS_V3_ACCUMULATE", "").strip() in ("1", "true", "oui"):
-        rows = _accumuler(rows, CSV_V3)
+    # ACCUMULATION : fusion avec la graine EN MEMOIRE (chargee avant le flush).
+    # Les types d'un run precedent PAS revus cette fois sont conserves.
+    if accumule:
+        rows = fusion(rows, graine)
     ecrire(rows, CSV_V3)
+
+    # ── STATE de reprise : curseur pour descendre plus bas au prochain profond.
+    if profond:
+        new_state = {
+            "cursor": meta["cursor"],
+            "swept": bool(meta["swept"]),
+            "oldest": meta["oldest"] or state.get("oldest", ""),
+            "pages_last": meta["pages"],
+            "updated": _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        ecrire_state(STATE_V3, new_state)
+        if meta["swept"]:
+            print("  ✅ BALAYAGE INTEGRAL TERMINE (swept) — l'univers on-chain "
+                  "est couvert. Passe en mode 'tete' pour l'entretien.", flush=True)
+        else:
+            print(f"  ↪ state sauve : curseur pose (descendu jusqu'a "
+                  f"{new_state['oldest']}). Relancer en PROFOND continue plus "
+                  f"bas.", flush=True)
+
     nc = sum(1 for r in rows if r[3] == "comic")
     print(f"🌉 v3 : {len(rows)} elements ({nc} comics, {len(rows) - nc} "
-          f"collectibles) depuis {len(catalogue)} items on-chain -> {CSV_V3}",
-          flush=True)
+          f"collectibles) · +{meta['types']} vus ce run -> {CSV_V3}", flush=True)
     return 0
 
 
-def _accumuler(rows: List[List], graine_csv: str) -> List[List]:
-    """Fusionne la moisson du run avec la graine (CSV_V3 d'un run precedent) :
-    les uuid de la graine ABSENTS du run courant sont conserves tels quels.
-    Le run courant fait foi pour un uuid revu (metadata plus recente)."""
-    if not os.path.exists(graine_csv):
-        return rows
-    vus = {r[0] for r in rows}
-    gardes = 0
-    with open(graine_csv, encoding="utf-8") as f:
-        for r in csv.DictReader(f):
-            uid = (r.get("veve_uuid") or "").strip()
-            if not uid or uid in vus:
-                continue
-            rows.append([r.get(c, "") for c in ENTETE])
-            gardes += 1
-    if gardes:
-        print(f"  accumulation : +{gardes} type(s) conserve(s) d'un run "
-              f"precedent (couverture cumulee : {len(rows)}).", flush=True)
-    rows.sort(key=lambda l: (l[3], _num(l[6]) if l[6] != "" else 0, l[2]))
-    return rows
-
-
 def harvest(cc, cutoff, plateau_pages: int = 300, deadline=None,
-            flush=None, flush_every: int = 0) -> Dict[str, Dict[str, Any]]:
+            flush=None, flush_every: int = 0, start_params=None
+            ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
     """Pagine /transfers newest-first et COLLECTE la metadata catalogue au vol,
     avec des garde-fous pour ne jamais balayer des millions de lignes pour rien
     NI perdre une recolte sur un couperet :
 
+      * REPRISE PAR CURSEUR : `start_params` = curseur d'ou REPRENDRE (mode
+        profond) au lieu du sommet -> des dispatches successifs descendent PLUS
+        BAS sans re-scanner le haut. None = repart du sommet.
       * arret sur COUVERTURE : si `plateau_pages` pages defilent sans AUCUN
-        nouveau veve_uuid, l'univers actif est couvert -> on s'arrete (0 =
-        desarme). Les types dormants se completeront via le scan profond.
-      * arret sur BUDGET-TEMPS : `deadline` (time.monotonic) atteinte -> arret
-        PROPRE avant le timeout du job (l'appelant ecrit alors normalement).
-      * flush de SECOURS : tous les `flush_every` pages, `flush(best)` sauvegarde
-        le CSV partiel (regle « une recolte ne se perd jamais »).
-      * arret sur CUTOFF, plafond dur `ELEMENTS_V3_MAX_PAGES`.
+        nouveau veve_uuid -> arret (0 = DESARME, pour un balayage integral).
+      * arret sur BUDGET-TEMPS : `deadline` (time.monotonic) -> arret PROPRE
+        avant le timeout du job.
+      * flush de SECOURS tous les `flush_every` pages ; plafond dur
+        `ELEMENTS_V3_MAX_PAGES` ; arret sur CUTOFF.
 
-    Retourne {veve_uuid: catalogue le plus recent} — collapse integre a la
-    pagination. Journalise sa progression (sinon un run long semble plante)."""
+    Retourne (best, meta). meta = {cursor, swept, pages, oldest, types} :
+      * `cursor` = curseur pour REPRENDRE plus bas au prochain dispatch (None si
+        `swept`), pour ne pas re-scanner le sommet.
+      * `swept` = True quand toute l'histoire est balayee (plus de page suivante).
+    Journalise sa progression (sinon un run long semble plante)."""
     import time
     session = cc._session()
-    params: Dict[str, Any] = {}
+    params: Dict[str, Any] = dict(start_params) if start_params else {}
     pages = 0
-    max_pages = int(os.environ.get("ELEMENTS_V3_MAX_PAGES", "20000"))
+    max_pages = int(os.environ.get("ELEMENTS_V3_MAX_PAGES") or "20000")
     best: Dict[str, Dict[str, Any]] = {}
     best_ord: Dict[str, Tuple[int, int]] = {}
     since_new = 0
     newest_date = ""
+    swept = False
+    last_nxt = start_params      # si 0 page traitee, on reprend au meme point
+    oldest = ""
     while pages < max_pages:
         data = cc._get(session, cc.TRANSFERS_URL, params)
         items = data.get("items", [])
         if not items:
+            swept = True
+            print(f"  ✓ plus aucun transfert -> BALAYAGE COMPLET "
+                  f"({len(best)} types).", flush=True)
             break
         new_this = 0
         stop = False
@@ -382,34 +470,41 @@ def harvest(cc, cutoff, plateau_pages: int = 300, deadline=None,
                 best_ord[uid] = o
         pages += 1
         since_new = 0 if new_this else since_new + 1
+        try:
+            oldest = str(items[-1].get("timestamp"))[:10]
+        except Exception:
+            pass
+        nxt = data.get("next_page_params")
+        last_nxt = nxt                       # curseur de la page SUIVANTE
         if pages % 25 == 0:
-            oldest = "?"
-            try:
-                oldest = str(items[-1].get("timestamp"))[:10]
-            except Exception:
-                pass
             print(f"    … {pages} pages · {len(best)} types · "
                   f"{since_new} page(s) sans nouveau · jusqu'a {oldest}",
                   flush=True)
         if flush and flush_every and pages % flush_every == 0:
             flush(best)          # sauvegarde de secours du CSV partiel
+        if stop:
+            print(f"  ✓ cutoff atteint -> arret ({len(best)} types, "
+                  f"{pages} pages).", flush=True)
+            break
+        if not nxt:
+            swept = True
+            print(f"  ✓ fin des transferts -> BALAYAGE COMPLET "
+                  f"({len(best)} types, {pages} pages).", flush=True)
+            break
         if plateau_pages and since_new >= plateau_pages:
             print(f"  ✓ couverture plafonnee : {plateau_pages} pages sans "
                   f"nouveau type -> arret ({len(best)} types).", flush=True)
             break
         if deadline is not None and time.monotonic() >= deadline:
             print(f"  ⏱️ budget-temps atteint -> arret PROPRE ({len(best)} "
-                  f"types, {pages} pages). Le reste au prochain dispatch "
-                  f"(accumulation).", flush=True)
-            break
-        nxt = data.get("next_page_params")
-        if stop or not nxt:
-            print(f"  ✓ {'cutoff' if stop else 'fin des transferts'} atteint "
-                  f"-> arret ({len(best)} types, {pages} pages).", flush=True)
+                  f"types, {pages} pages). Reprise au curseur au prochain "
+                  f"dispatch.", flush=True)
             break
         params = dict(nxt)
         time.sleep(cc.PAUSE_BETWEEN_PAGES)
-    return best
+    meta = {"cursor": None if swept else last_nxt, "swept": swept,
+            "pages": pages, "oldest": oldest, "types": len(best)}
+    return best, meta
 
 
 if __name__ == "__main__":
