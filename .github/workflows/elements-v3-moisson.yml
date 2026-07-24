@@ -98,6 +98,11 @@ jobs:
           ELEMENTS_V3_TIME_BUDGET_MIN: "240"
           ELEMENTS_V3_FLUSH_EVERY: "200"
           ELEMENTS_V3_ACCUMULATE: "1"
+          # COMPLETUDE (Preda 23/07) : la traine DORMANTE (types non tradees
+          # recemment) est reprise de elements.csv (tracker) au lieu de balayer
+          # jusqu'a 2021. elements_v3 est COMPLET des le 1er run ; les runs
+          # profonds convertissent la traine en chaine au fil du temps. 0 = pur chaine.
+          ELEMENTS_V3_COMBLER_OFFICIEL: "1"
         run: python -m scraper.export_elements_v3
 
       - name: Comparer a l'export officiel (mesure, ne bloque jamais)
