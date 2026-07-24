@@ -230,6 +230,26 @@ def test_harvest_reprise_curseur_et_swept():
                          "00000000-0000-0000-0000-000000000004"}
 
 
+def test_comble_traine_depuis_officiel():
+    """Un uuid de l'officiel non moissonne est repris tel quel (completude) ;
+    un uuid deja couvert par la chaine n'est PAS ecrase."""
+    off = {
+        TMNT_UUID: {"veve_uuid": TMNT_UUID, "name": "NE DOIT PAS ECRASER",
+                    "category": "collectible", "rarity": "COMMON"},
+        "dormant-uuid-000000000000000000000001": {
+            "veve_uuid": "dormant-uuid-000000000000000000000001",
+            "name": "Vieux Comic Dormant", "category": "comic",
+            "rarity": "RARE", "supply": "500"},
+    }
+    rows = v3.construire_v3(v3.collapse([COLLECTIBLE_TMNT]), off)  # chaine: TMNT
+    rows = v3.combler_depuis_officiel(rows, off)
+    d = {r[0]: dict(zip(v3.ENTETE, r)) for r in rows}
+    # le dormant est ajoute depuis l'officiel
+    assert d["dormant-uuid-000000000000000000000001"]["name"] == "Vieux Comic Dormant"
+    # le TMNT garde la valeur CHAINE, pas celle de l'officiel
+    assert d[TMNT_UUID]["name"] == "Donatello - IncogNinja"
+
+
 def test_comic_supply_max_par_serie():
     """Deux couvertures de la meme serie : supply = MAX (regle v1/v2)."""
     c1 = COMIC_STARWARS
