@@ -267,6 +267,26 @@ def fusion(rows: List[List], graine: Dict[str, List]) -> List[List]:
     return out
 
 
+def reattacher_offchain(rows: List[List],
+                        officiel: Dict[str, Dict[str, str]]) -> List[List]:
+    """Rattache le OFF-CHAIN (series_uuid, first_public, listings, note, atl/ath)
+    depuis l'officiel FRAIS, pour CHAQUE ligne connue de l'officiel — quelle que
+    soit sa provenance (chaine, graine, comblage). Indispensable apres un
+    rapatriement d'un catalogue CHAINE-ONLY (off-chain vide) : sinon les lignes
+    dormantes garderaient un off-chain vide et pollueraient le verdict d'identite.
+    Sans officiel (ex. run astronema chaine-only) : no-op."""
+    if not officiel:
+        return rows
+    idx = {c: ENTETE.index(c) for c in OFFCHAIN_COLS}
+    for r in rows:
+        o = officiel.get(r[0])
+        if not o:
+            continue
+        for c in OFFCHAIN_COLS:
+            r[idx[c]] = (o.get(c) or "").strip()
+    return rows
+
+
 def combler_depuis_officiel(rows: List[List],
                             officiel: Dict[str, Dict[str, str]]) -> List[List]:
     """COMPLETUDE : tout uuid de l'officiel (elements.csv) pas encore couvert par
@@ -406,6 +426,9 @@ def main() -> int:
     # inutile de balayer jusqu'a 2021 pour les dormants, le tracker les porte.
     if os.environ.get("ELEMENTS_V3_COMBLER_OFFICIEL", "1").strip() != "0":
         rows = combler_depuis_officiel(rows, officiel)
+    # OFF-CHAIN toujours frais depuis l'officiel (répare un catalogue chaîne-only
+    # rapatrié dont l'off-chain serait vide). No-op si pas d'officiel (astronema).
+    rows = reattacher_offchain(rows, officiel)
     ecrire(rows, CSV_V3)
 
     # ── STATE de reprise : curseur pour descendre plus bas au prochain profond.
@@ -415,6 +438,8 @@ def main() -> int:
             "swept": bool(meta["swept"]),
             "oldest": meta["oldest"] or state.get("oldest", ""),
             "pages_last": meta["pages"],
+            # compteur de dispatches (garde-fou d'auto-relance cote workflow).
+            "runs": int(state.get("runs", 0)) + 1,
             "updated": _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
         }
         ecrire_state(STATE_V3, new_state)
