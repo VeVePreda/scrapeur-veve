@@ -230,6 +230,29 @@ def test_harvest_reprise_curseur_et_swept():
                          "00000000-0000-0000-0000-000000000004"}
 
 
+def test_reattache_offchain_depuis_officiel():
+    """Une ligne à off-chain VIDE (catalogue chaîne-only rapatrié) récupère le
+    off-chain de l'officiel ; l'identité chaîne n'est pas touchée."""
+    # ligne chaîne-only : identité OK, off-chain vide
+    rows = v3.construire_v3(v3.collapse([COLLECTIBLE_TMNT]), {})   # officiel {} -> off-chain vide
+    assert dict(zip(v3.ENTETE, rows[0]))["series_uuid"] == ""
+    off = {TMNT_UUID: {"veve_uuid": TMNT_UUID, "series_uuid": "S-UUID",
+                       "first_public": "21", "listings": "27", "note": "N",
+                       "atl": "29", "atl_date": "2026-07-04", "ath": "45",
+                       "ath_date": "2026-07-05"}}
+    rows = v3.reattacher_offchain(rows, off)
+    d = dict(zip(v3.ENTETE, rows[0]))
+    assert d["series_uuid"] == "S-UUID" and d["first_public"] == "21"
+    assert d["listings"] == "27" and d["atl"] == "29" and d["note"] == "N"
+    assert d["name"] == "Donatello - IncogNinja"        # identité chaîne intacte
+
+
+def test_reattache_sans_officiel_noop():
+    rows = v3.construire_v3(v3.collapse([COLLECTIBLE_TMNT]), {})
+    avant = [list(r) for r in rows]
+    assert v3.reattacher_offchain(rows, {}) == avant     # no-op (astronema)
+
+
 def test_comble_traine_depuis_officiel():
     """Un uuid de l'officiel non moissonne est repris tel quel (completude) ;
     un uuid deja couvert par la chaine n'est PAS ecrase."""
