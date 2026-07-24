@@ -267,6 +267,27 @@ def fusion(rows: List[List], graine: Dict[str, List]) -> List[List]:
     return out
 
 
+def combler_depuis_officiel(rows: List[List],
+                            officiel: Dict[str, Dict[str, str]]) -> List[List]:
+    """COMPLETUDE : tout uuid de l'officiel (elements.csv) pas encore couvert par
+    la chaine est repris TEL QUEL (tracker). elements_v3 est alors COMPLET des le
+    1er run — chaine pour l'actif, tracker pour la traine DORMANTE (jamais tradee
+    recemment). Les runs profonds convertissent progressivement la traine en
+    chaine (le uuid passe alors dans `rows`, il fait foi). Auto-cicatrisant."""
+    vus = {r[0] for r in rows}
+    ajout = 0
+    for uid, r in officiel.items():
+        if uid in vus:
+            continue
+        rows.append([r.get(c, "") for c in ENTETE])
+        ajout += 1
+    if ajout:
+        print(f"  completude : +{ajout} type(s) DORMANT(s) repris de l'officiel "
+              f"(tracker) — catalogue complet ({len(rows)}).", flush=True)
+    rows.sort(key=lambda l: (l[3], _num(l[6]) if l[6] != "" else 0, l[2]))
+    return rows
+
+
 def lire_state(chemin: str) -> Dict[str, Any]:
     """Etat de reprise : {cursor, swept, oldest, ...} — {} si absent/illisible."""
     import json
@@ -380,6 +401,11 @@ def main() -> int:
     # Les types d'un run precedent PAS revus cette fois sont conserves.
     if accumule:
         rows = fusion(rows, graine)
+    # COMPLETUDE : combler la traine dormante depuis l'officiel (defaut ON —
+    # ELEMENTS_V3_COMBLER_OFFICIEL=0 pour un run chaine-pur). Decision Preda 23/07 :
+    # inutile de balayer jusqu'a 2021 pour les dormants, le tracker les porte.
+    if os.environ.get("ELEMENTS_V3_COMBLER_OFFICIEL", "1").strip() != "0":
+        rows = combler_depuis_officiel(rows, officiel)
     ecrire(rows, CSV_V3)
 
     # ── STATE de reprise : curseur pour descendre plus bas au prochain profond.
