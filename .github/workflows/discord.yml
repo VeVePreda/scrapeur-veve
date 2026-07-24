@@ -19,17 +19,18 @@ name: Hub Discord
 # Il ne COLLECTE RIEN : il lit ce que le pipeline a deja ecrit dans le Sheet
 # (page 📊 STATS et onglet 📝C-BLOG). Aucune requete vers VeVe ou StackR.
 #
-# DEUX PASSAGES, et c'est voulu — les messages de stats sont EDITES, pas
-# empiles, donc un 2e passage ne coute rien :
-#   * 03:45 UTC (05:45 Paris) : apres le daily (04:15) et le blog (04:00) —
-#     tout est pret quand Preda se leve ;
-#   * 07:45 UTC (09:45 Paris) : apres chain-catchup, quand la journee PT est
-#     enfin CLOSE (elle ne se ferme qu'a 09:00 Paris) : le tableau gagne son
-#     dernier jour. Le blog, lui, n'aura rien de neuf a dire (son etat le sait).
+# UN SEUL PASSAGE (decision Preda 24/07) : 07:45 UTC (09:45 Paris), apres
+# chain-catchup, quand la journee PT est enfin CLOSE (elle ne se ferme qu'a
+# 09:00 Paris) -> le tableau STATS gagne son dernier jour, et les drops/blog
+# sont annonces une seule fois.
+#   * L'ancien passage du matin (03:45 UTC ~ 8h Paris) est RETIRE : il faisait
+#     une 2e publication par jour, or les stats sont editees (2e passage inutile)
+#     et surtout un push concurrent entre les 2 crons pouvait faire perdre l'etat
+#     des drops -> RE-ANNONCE du meme drop (vecu le 24/07 : 8h13 + 12h). Un seul
+#     run/jour supprime cette classe de doublon.
 
 on:
   schedule:
-    - cron: "45 3 * * *"
     - cron: "45 7 * * *"
   workflow_dispatch:
     inputs:
