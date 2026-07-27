@@ -40,7 +40,9 @@ import argparse
 import datetime as _dt
 import json
 import os
+import re
 import sys
+import unicodedata
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 try:                                    # PyYAML : déjà présent (requirements.txt)
@@ -175,14 +177,33 @@ def _read_tab_values(sh, title: str) -> List[List[str]]:
 # ---------------------------------------------------------------------------
 # Transformation (PUR — aucune I/O réseau, entièrement testable).
 # ---------------------------------------------------------------------------
+def _canon_header(h: Any) -> str:
+    """Nom d'en-tête CANONIQUE : minuscule, sans accent, tout séparateur
+    (espace, tab, tiret, ponctuation) -> `_`, bords nettoyés.
+
+    ⭐ POURQUOI (payé le 27/07) : le Sheet live est HÉTÉROGÈNE d'un onglet à
+    l'autre — History/Acronyms sont déjà en `titre_en`, mais Glossary/Blog sont
+    saisis « Description EN », Brands porte `premier_drop_AUTO` et un `\\tpublie`
+    avec tabulation. Le consommateur (editorial.mjs) attend une clé stable
+    (`description_en`, `publie`, `premier_drop_auto`). On normalise donc ICI, une
+    fois : « Description EN » -> `description_en`, « Mots Clés » -> `mots_cles`,
+    « \\tpublie » -> `publie`, `premier_drop_AUTO` -> `premier_drop_auto`. Le code
+    s'adapte au Sheet, pas l'inverse — et un simple renommage humain d'en-tête ne
+    casse plus le build."""
+    s = unicodedata.normalize("NFKD", str(h or "")).encode("ascii", "ignore").decode("ascii")
+    s = s.lower()
+    s = re.sub(r"[^a-z0-9]+", "_", s).strip("_")
+    return s
+
+
 def _clean_headers(raw: Sequence[str]) -> List[str]:
-    """Nettoie la ligne d'en-têtes : retire tabulations/espaces parasites (bug
-    `\\tpublie` vu le 24/07), et rend les noms uniques (colonnes en double ->
-    `nom`, `nom__2`, …). Une colonne d'en-tête vide devient `col_<n>`."""
+    """Canonicalise la ligne d'en-têtes (voir `_canon_header`) puis rend les noms
+    uniques (colonnes en double -> `nom`, `nom__2`, …). Une colonne d'en-tête
+    vide devient `col_<n>`."""
     seen: Dict[str, int] = {}
     out: List[str] = []
     for i, h in enumerate(raw):
-        name = str(h or "").replace("\t", " ").strip()
+        name = _canon_header(h)
         if not name:
             name = f"col_{i + 1}"
         if name in seen:
@@ -234,6 +255,13 @@ def merge_snapshot(old_records: List[Dict[str, Any]],
       (file d'attente vivante — pas de mémoire à préserver).
     """
     if key is None:
+        return list(new_records)
+
+    # Garde-fou : si AUCUNE ligne lue ne donne de clé (la colonne-clé a disparu
+    # de l'onglet — ex. un Glossary live sans `id`), le Sheet fait foi et on
+    # remplace tout. Sinon on ré-appenderait éternellement d'anciennes lignes
+    # clées qui ne peuvent plus être rapprochées -> doublement à chaque run.
+    if not any(_key_of(r, key) is not None for r in new_records):
         return list(new_records)
 
     old_by_key: Dict[str, Dict[str, Any]] = {}
