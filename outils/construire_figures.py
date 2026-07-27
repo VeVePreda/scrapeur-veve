@@ -166,13 +166,161 @@ def figure_premier_drop() -> dict:
     }
 
 
+# ── figure 5 — combien d'exemplaires derrière un numéro de mint ─────────────
+def figure_tirages(rows) -> dict:
+    """Distribution des TIRAGES du catalogue — le dénominateur d'un numéro de mint.
+
+    ⭐ POURQUOI CETTE FIGURE, ET PAS UNE AUTRE, SOUS L'ARTICLE « mint number ».
+    L'article dit qu'un « low mint » est un numéro sous 100, souvent sous 50.
+    Il ne dit nulle part SOUS COMBIEN. Or un numéro n'a de sens que rapporté au
+    tirage de son objet : 42/50 et 42/30 000 n'ont rien à voir. La figure donne
+    exactement le dénominateur que la prose n'a pas — sans qu'aucun chiffre soit
+    recopié dans le texte.
+
+    ⚠️ « exactement 1 000 » a SA propre barre, et ce n'est pas un caprice de
+    présentation : 13 381 objets valent pile 1 000. Noyés dans un intervalle
+    « 1 001-5 000 » ou « 501-1 000 », ils feraient croire à un étalement là où il
+    y a en réalité un standard. Un histogramme à intervalles réguliers aurait été
+    plus orthodoxe et aurait caché le seul fait intéressant.
+    """
+    tir = [n for n in (lire_entier(r['tirage']) for r in rows) if n]
+    total = len(tir)
+    seuils = [
+        ('1 – 99',            lambda t: t < 100),
+        ('100 – 999',         lambda t: 100 <= t < 1000),
+        ('1 000',             lambda t: t == 1000),
+        ('1 001 – 10 000',    lambda t: 1000 < t <= 10000),
+        ('> 10 000',          lambda t: t > 10000),
+    ]
+    LIBELLES = {
+        '1 – 99':         {'en': '1 – 99',          'fr': '1 – 99'},
+        '100 – 999':      {'en': '100 – 999',       'fr': '100 – 999'},
+        '1 000':          {'en': 'exactly 1,000',   'fr': 'exactement 1 000'},
+        '1 001 – 10 000': {'en': '1,001 – 10,000',  'fr': '1 001 – 10 000'},
+        '> 10 000':       {'en': '> 10,000',        'fr': '> 10 000'},
+    }
+    donnees = [{'label': LIBELLES[lab], 'valeur': sum(1 for t in tir if test(t))}
+               for lab, test in seuils]
+    mille = next(d['valeur'] for d in donnees if d['label']['fr'] == 'exactement 1 000')
+    sous100 = next(d['valeur'] for d in donnees if d['label']['fr'] == '1 – 99')
+    sans = len(rows) - total
+    # ⚠️ Formater le NOMBRE seul, jamais la phrase : `f'{x:,}'.replace(',', ' ')`
+    #    appliqué à une phrase lui mange aussi sa ponctuation (piège du lot 7).
+    part = round(10 * mille / total)          # « sept objets sur dix »
+    MOTS = {7: ('Seven', 'Sept'), 6: ('Six', 'Six'), 8: ('Eight', 'Huit')}
+    mot_en, mot_fr = MOTS.get(part, (str(part), str(part)))
+    return {
+        'id': 'tirages-catalogue',
+        'type': 'barres',
+        'titre': {'en': 'How many copies sit behind a mint number',
+                  'fr': "Combien d'exemplaires derrière un numéro de mint"},
+        'note': {'en': f'{fmt(total, "en")} catalogue entries whose supply is known'
+                       f' ({fmt(sans, "en")} without).',
+                 'fr': f'{fmt(total, "fr")} entrées du catalogue dont le tirage est connu'
+                       f' ({fmt(sans, "fr")} sans).'},
+        'legende': {'en': f'{mot_en} objects in ten are issued in a run of exactly 1,000 — that '
+                          f'thousand is what gives a mint number its scale. Only {fmt(sous100, "en")} '
+                          f'objects have a total supply under 100.',
+                    'fr': f'{mot_fr} objets sur dix sortent à exactement 1 000 exemplaires : '
+                          f"c'est ce millier qui donne son échelle à un numéro de mint. "
+                          f'Seuls {fmt(sous100, "fr")} objets ont un tirage total inférieur à 100.'},
+        'source': {'en': 'VeVe catalogue (all object types)',
+                   'fr': 'catalogue VeVe (tous types d’objets)'},
+        'collecte': COLLECTE_ENTREPOT,
+        'donnees': donnees,
+    }
+
+
+# ── figure 6 — les comics numériques, année par année ───────────────────────
+def figure_comics_annee(rows) -> dict:
+    """Comics publiés par ANNÉE COMPLÈTE.
+
+    ⚠️⚠️ L'ANNÉE EN COURS EST VOLONTAIREMENT EXCLUE, et c'est le point délicat.
+    Le catalogue s'arrête au 23/07/2026 : porter « 2026 » sur une courbe à côté
+    d'années pleines dessine une CHUTE qui n'existe pas — l'œil compare des
+    douze-mois à des sept-mois. Et une figure voyage sans sa page : personne ne
+    sera là pour expliquer la nuance. Le compte partiel n'est pas perdu pour
+    autant, il est DIT dans la note, où il ne peut pas être lu comme un point de
+    la courbe.
+    """
+    par_an = Counter()
+    for r in rows:
+        if r['kind'] != 'Comic':
+            continue
+        d = lire_date(r['release_date'])
+        if d:
+            par_an[d.year] += 1
+    if not par_an:
+        sys.exit('ABANDON : aucun comic daté dans le catalogue — la source a changé ?')
+    dernier = max(par_an)                       # année incomplète (celle de la collecte)
+    pleines = sorted(y for y in par_an if y < dernier)
+    partiel = par_an[dernier]
+    mois = max(lire_date(r['release_date']).month for r in rows
+               if r['kind'] == 'Comic' and lire_date(r['release_date'])
+               and lire_date(r['release_date']).year == dernier)
+
+    # La légende cite un fait CALCULÉ : l'année qui bascule l'échelle.
+    bascule = max(pleines, key=lambda y: par_an[y] - par_an.get(y - 1, 0))
+    avant = sum(par_an[y] for y in pleines if y < bascule)
+    fois = par_an[bascule] / avant if avant else 0
+    return {
+        'id': 'comics-par-annee',
+        'type': 'series',
+        'titre': {'en': 'Digital comics published on VeVe, by year',
+                  'fr': 'Comics numériques publiés sur VeVe, par année'},
+        'note': {'en': f'Complete years only. {dernier} is still running and is not plotted: '
+                       f'{fmt(partiel, "en")} issues over its first {mois} months.',
+                 'fr': f'Années complètes seulement. {dernier}, en cours, n’est pas tracée : '
+                       f'{fmt(partiel, "fr")} numéros sur ses {mois} premiers mois.'},
+        'legende': {'en': f'{bascule} alone published {fois:.0f} times more issues than every '
+                          f'year before it put together.',
+                    'fr': f'{bascule} a publié à elle seule {fois:.0f} fois plus de numéros que '
+                          f'toutes les années précédentes réunies.'},
+        'source': {'en': 'VeVe catalogue (comics, release date)',
+                   'fr': 'catalogue VeVe (comics, date de sortie)'},
+        'collecte': COLLECTE_ENTREPOT,
+        'donnees': [{'label': str(y), 'valeur': par_an[y]} for y in pleines],
+    }
+
+
+def lire_entier(v):
+    v = str(v or '').strip().replace(' ', '').replace(',', '')
+    return int(v) if v.isdigit() and int(v) > 0 else None
+
+
+def lire_date(v):
+    v = str(v or '').strip()
+    for f in ('%d/%m/%Y %H:%M:%S', '%d/%m/%Y', '%Y-%m-%d'):
+        try:
+            return datetime.strptime(v, f)
+        except ValueError:
+            pass
+    return None
+
+
+def fmt(n: int, lang: str) -> str:
+    """Le NOMBRE seul, jamais la phrase (cf. le piège du lot 7)."""
+    return f'{n:,}' if lang == 'en' else f'{n:,}'.replace(',', '\u202f')
+
+
+def charger_catalogue() -> list:
+    if not CATALOGUE.exists():
+        sys.exit(f'{CATALOGUE} introuvable — la seule source qui porte le tirage et le type.')
+    with gzip.open(CATALOGUE, 'rt', encoding='utf-8') as f:
+        rows = list(csv.DictReader(f))
+    if len(rows) < 10000:
+        sys.exit(f'ABANDON : {len(rows)} lignes de catalogue seulement — source tronquée ?')
+    return rows
+
+
 def main() -> int:
     agg = charger_agregats()
     if len(agg) < 20:
         sys.exit(f'ABANDON : {len(agg)} licences seulement — la source est-elle muette ?')
 
+    rows = charger_catalogue()
     figures = [figure_poids(agg), figure_arrivees(agg), figure_pionnieres(agg),
-               figure_premier_drop()]
+               figure_premier_drop(), figure_tirages(rows), figure_comics_annee(rows)]
 
     SORTIE.mkdir(parents=True, exist_ok=True)
     for fig in figures:
