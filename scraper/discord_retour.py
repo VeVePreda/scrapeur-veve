@@ -20,8 +20,13 @@ CE QU'ON MESURE, ET AVEC QUOI
 * **Note de classement** = onglet 🏆A-CLASSEMENT (chantier du 13/07). Lue par NOM
   de colonne, jamais par position — et si l'onglet ou la colonne manque, la
   ligne disparait de la carte au lieu de tout faire echouer.
-* **Le sondage** : le bot relit les reactions de la carte d'annonce (le module
-  `drops` a memorise son id). Le vote du bot lui-meme est deduit.
+* **Le sondage — DEUX LIGNES depuis le 28/07** : la carte d'annonce vit
+  desormais dans DEUX salons, le post 📦DROP (partie INVESTISSEUR) et
+  📘⎮sondage-drop (PUBLIC). Le bot relit les VOTANTS des deux (pas les
+  compteurs : voir `fusionner_votes`), et affiche une ligne par population.
+  **Une personne qui a vote des deux cotes ne compte que cote investisseur** —
+  elle disparait du decompte public, et le nombre de retires est ECRIT sur la
+  carte. Les votes des bots sont exclus a la source (`user.bot`).
 
 LE COMIC DU MERCREDI : GROUPE, PAS JETE (idee de Preda, 14/07)
 --------------------------------------------------------------
@@ -467,6 +472,93 @@ def toutes_les_cles(sh) -> List[str]:
 
 
 # ---------------------------------------------------------------------------
+# LE SONDAGE — DEUX SALONS, DEUX POPULATIONS, UNE SEULE VOIX PAR PERSONNE
+# ---------------------------------------------------------------------------
+# La carte d'annonce vit maintenant a DEUX endroits : le post 📦DROP (partie
+# INVESTISSEUR du serveur) et le salon 📘sondage-drop (PUBLIC). Preda est clair
+# sur ce qu'il veut en tirer :
+#   * DEUX LIGNES SEPAREES dans le retour — les investisseurs et le public ne
+#     sont pas le meme monde, et melanger leurs pronostics detruirait justement
+#     l'information qu'on cherche (« qui a vu juste ? ») ;
+#   * UNE PERSONNE, UNE VOIX — celui qui vote des deux cotes ne compte QUE cote
+#     investisseur, et disparait du decompte public.
+#
+# ⚠️ CE CALCUL EST IMPOSSIBLE AVEC DES COMPTEURS. Additionner « 12 » et « 7 »
+# ne dira jamais combien de personnes sont dans les deux. D'ou `lire_votants`
+# (discord_api), qui rend des IDENTITES. Un total dedoublonne a partir de
+# compteurs serait un chiffre faux qui a l'air juste.
+
+ORDRE_VOTES = [e.strip() for e in
+               os.environ.get("DISCORD_DROPS_REACTIONS", "🇩,🇲,❌").split(",")
+               if e.strip()]
+
+
+def _ranger(votes: Dict[str, int]) -> Dict[str, int]:
+    """Les emojis dans l'ordre du sondage (🇩 / 🇲 / ❌), les inconnus a la fin.
+    Un ordre d'affichage qui change d'une carte a l'autre se lit mal."""
+    connus = {e: votes[e] for e in ORDRE_VOTES if e in votes}
+    autres = {e: n for e, n in votes.items() if e not in connus}
+    return {**connus, **autres}
+
+
+def fusionner_votes(prive: Dict[str, Any], public: Dict[str, Any]) -> Dict:
+    """{emoji: votants} x2 -> {'prive': {emoji: n}, 'public': {emoji: n},
+    'doublons': n}.
+
+    FONCTION PURE (aucun reseau) : c'est elle qui porte la regle, donc c'est
+    elle qu'on teste. Le cote PRIVE est compte tel quel ; le cote PUBLIC est
+    ampute de **tous** ceux qui ont vote cote investisseur — quel que soit
+    l'emoji choisi la-bas. Voter 🇩 en prive et ❌ en public n'ajoute donc pas
+    une voix au public : la personne s'est deja exprimee.
+    """
+    deja: set = set()
+    for gens in (prive or {}).values():
+        deja |= set(gens or ())
+
+    v_prive = {e: len(set(g or ())) for e, g in (prive or {}).items()}
+    v_public, doublons = {}, set()
+    for e, g in (public or {}).items():
+        g = set(g or ())
+        doublons |= (g & deja)
+        v_public[e] = len(g - deja)
+
+    return {"prive": _ranger(v_prive), "public": _ranger(v_public),
+            "doublons": len(doublons)}
+
+
+def normaliser_sondage(s: Any) -> Dict:
+    """Un sondage memorise -> la forme a deux lignes.
+
+    ⚠️ COMPATIBILITE ASCENDANTE : l'etat en production contient des sondages de
+    l'ANCIEN format (`{emoji: nombre}`, le post investisseur seul). Les relire
+    comme la nouvelle forme rendrait des lignes vides — les cartes deja posees
+    perdraient leur sondage a la premiere reecriture. Un ancien format est donc
+    lu comme « tout en investisseur », ce qu'il est.
+    """
+    if not isinstance(s, dict):
+        return {"prive": {}, "public": {}, "doublons": 0}
+    if "prive" in s or "public" in s:
+        return {"prive": _ranger(s.get("prive") or {}),
+                "public": _ranger(s.get("public") or {}),
+                "doublons": int(s.get("doublons") or 0)}
+    return {"prive": _ranger({e: int(n or 0) for e, n in s.items()}),
+            "public": {}, "doublons": 0}
+
+
+def lire_sondage(mid_prive: str, mid_public: str) -> Dict:
+    """Les deux cartes relues par le bot, fusionnees. Sans token de bot ou sans
+    carte, on rend des lignes vides — jamais une exception."""
+    prive = (api.lire_votants(dd.THREAD, mid_prive) if mid_prive else {})
+    public = (api.lire_votants(dd.salon_miroir(), mid_public)
+              if mid_public else {})
+    fusion = fusionner_votes(prive, public)
+    if fusion["doublons"]:
+        print(f"  🗳️ {fusion['doublons']} votant(s) present(s) dans les DEUX "
+              f"salons — comptes cote investisseur uniquement.", flush=True)
+    return fusion
+
+
+# ---------------------------------------------------------------------------
 # La carte
 # ---------------------------------------------------------------------------
 
@@ -488,8 +580,32 @@ def couleur(pct: float) -> int:
     return VERT if pct >= 50 else (ORANGE if pct >= 15 else ROUGE)
 
 
+def lignes_sondage(sondage: Any) -> List[str]:
+    """Les DEUX lignes du sondage — investisseurs, puis public.
+
+    Une ligne sans le moindre vote ne s'affiche pas : « 🇩 0 · 🇲 0 · ❌ 0 »
+    n'apprend rien et fait croire a un desinteret alors que, le plus souvent,
+    c'est simplement que le salon n'existait pas encore quand la carte est
+    partie. Le nombre de votants retires du public est ECRIT : un dedoublonnage
+    silencieux ferait passer un chiffre ampute pour un chiffre brut.
+    """
+    s = normaliser_sondage(sondage)
+    out = []
+    if sum(s["prive"].values()):
+        detail = " · ".join(f"{e} **{n}**" for e, n in s["prive"].items() if n)
+        out.append(f"🗳️ **Sondage investisseurs** : {detail}")
+    if sum(s["public"].values()):
+        detail = " · ".join(f"{e} **{n}**" for e, n in s["public"].items() if n)
+        ligne = f"🗳️ **Sondage public** : {detail}"
+        if s["doublons"]:
+            ligne += (f"\n*({s['doublons']} votant(s) déjà compté(s) côté "
+                      f"investisseurs, retirés d'ici — une personne, une voix)*")
+        out.append(ligne)
+    return out
+
+
 def carte(d: Dict, chaine: Dict[str, Dict[str, int]], note: str,
-          sondage: Dict[str, int], suivi=None) -> Dict:
+          sondage: Any, suivi=None) -> Dict:
     vendus = sum(chaine.get(l["uuid"], {}).get("mints", 0) for l in d["lignes"])
     market = sum(chaine.get(l["uuid"], {}).get("market", 0) for l in d["lignes"])
     pct = _pct(vendus, d["total"])
@@ -531,9 +647,7 @@ def carte(d: Dict, chaine: Dict[str, Dict[str, int]], note: str,
     bas = []
     if note:
         bas.append(f"🏆 **Classement** : {note}")
-    if sondage and sum(sondage.values()):
-        detail = " · ".join(f"{e} **{n}**" for e, n in sondage.items() if n)
-        bas.append(f"🗳️ **Le sondage disait** : {detail}")
+    bas += lignes_sondage(sondage)
     if bas:
         lignes += [""] + bas
 
@@ -547,7 +661,7 @@ def carte(d: Dict, chaine: Dict[str, Dict[str, int]], note: str,
     return e
 
 
-def message(d: Dict, chaine, note: str, sondage: Dict[str, int],
+def message(d: Dict, chaine, note: str, sondage: Any,
             ping: bool, suivi=None) -> Dict:
     tete = "🔍 **Retour sur drop**"
     contenu = f"<@&{ROLE}> {tete}" if (ping and ROLE) else tete
@@ -638,9 +752,14 @@ def run() -> int:
     jours = sorted({j for d in neufs for j in _jours_pt(d["jour"], 4)})
     chaine = chaine_par_uuid(sh, jours)
     notes = notes_de_classement(sh)
-    # Les ids des cartes d'annonce, poses par le module `drops`.
-    annonces = api.load_state(dd.STATE_PATH, api.webhook(dd.MODULE),
-                              dd.THREAD).get("messages", {})
+    # Les ids des cartes d'annonce, poses par le module `drops`. DEUX jeux
+    # depuis le 28/07 : le post investisseur (`messages`) et le miroir du salon
+    # public (`miroir`). Une cle absente du miroir = une carte anterieure au
+    # salon public : sa ligne « Sondage public » sera simplement absente.
+    etat_drops = api.load_state(dd.STATE_PATH, api.webhook(dd.MODULE),
+                                dd.THREAD)
+    annonces = etat_drops.get("messages", {})
+    miroirs = etat_drops.get("miroir", {})
     # Les cartes EN COURS : posees, mais dont les paliers ne sont pas tous la.
     # Elles seront REECRITES a 48 h puis 72 h.
     cartes = state.setdefault("cartes", {})
@@ -678,11 +797,10 @@ def run() -> int:
         # ce qui s'est passe depuis. Un pronostic qu'on corrige apres coup n'est
         # plus un pronostic.
         if "sondage" in deja:
-            sondage = deja["sondage"]
+            sondage = normaliser_sondage(deja["sondage"])
         else:
-            mid_annonce = annonces.get(d["cle"])
-            sondage = (api.lire_reactions(dd.THREAD, mid_annonce)
-                       if mid_annonce else {})
+            sondage = lire_sondage(annonces.get(d["cle"]),
+                                   miroirs.get(d["cle"]))
 
         note = notes.get(d["cle"], "")
         suivi = paliers(sh, d["jour"], [l["uuid"] for l in d["lignes"]])
@@ -793,5 +911,6 @@ def _log(sheet_id: str, statut: str, resume: Dict) -> None:
 if __name__ == "__main__":
     sys.exit(run())
 
-# FIN discord_retour.py v10 — les ventes viennent de la CHAINE, le ratio dit ce
-# que le chiffre brut cache, et le sondage est confronte a la realite.
+# FIN discord_retour.py v11 — les ventes viennent de la CHAINE, le ratio dit ce
+# que le chiffre brut cache, et le sondage est confronte a la realite — en DEUX
+# lignes (investisseurs / public), une personne ne comptant jamais deux fois.

@@ -53,11 +53,23 @@ LES GARDE-FOUS
    la fiche sera enrichie). Mieux vaut rien qu'une carte a trous.
 7. **429** respecte, cartes espacees (cf. scraper/discord_api.py).
 
+LE MIROIR PUBLIC (28/07/2026)
+-----------------------------
+📦DROP est dans la partie INVESTISSEUR du serveur. La meme carte part desormais
+aussi dans **📘⎮sondage-drop**, qui est PUBLIC — sans ping, avec ses propres
+reactions. Les deux salons sont deux POPULATIONS, pas un seul sondage coupe en
+deux : `discord_retour` en tire DEUX lignes, et une personne qui a vote des deux
+cotes n'est comptee que du cote investisseur (cf. `fusionner_votes`).
+**Sans `DISCORD_SONDAGE_WEBHOOK`, le miroir est simplement muet** — il ne
+retombe JAMAIS sur le webhook du hub (voir le commentaire de MIROIR_WEBHOOK).
+
 Env :
   DISCORD_DROPS_THREAD (id du post) · DISCORD_DROPS_ROLE (role SONDAGE)
   DISCORD_BOT_TOKEN (SECRET — pour les reactions ; sans lui : pas de reactions)
   DISCORD_DROPS_STATE · DISCORD_DROPS_MAX_NEUFS (8) · DISCORD_DROPS_MAX_CARTES (5)
   DISCORD_DROPS_EMOJI_VEVE · DISCORD_DROPS_EMOJI_MARQUES (JSON marque -> emoji)
+  DISCORD_SONDAGE_WEBHOOK (SECRET, salon public) · DISCORD_SONDAGE_SALON
+  DISCORD_SONDAGE_THREAD (vide : salon normal, pas un post de forum)
 """
 
 from __future__ import annotations
@@ -81,6 +93,33 @@ STATE_PATH = os.environ.get("DISCORD_DROPS_STATE",
                             "data/discord_drops_state.json")
 
 TABS = [("🟢C-COMICS", "comic"), ("🔵C-COLLECTIBLE", "collectible")]
+
+# ═══ LE MIROIR PUBLIC : 📘⎮sondage-drop ═══
+# 📦DROP vit dans la partie INVESTISSEUR du serveur ; 📘sondage-drop est PUBLIC.
+# La meme carte part dans les deux, pour que tout le monde puisse voter — mais
+# les deux populations sont comptees SEPAREMENT dans le retour sur drop (deux
+# lignes), et une personne qui vote des deux cotes n'est comptee que du cote
+# investisseur. Le dedoublonnage vit dans `discord_retour.fusionner_votes`.
+#
+# ⚠️ LE PIEGE, ET IL EST GRAVE : on n'appelle **PAS** `api.webhook("sondage")`.
+# Cette fonction RETOMBE sur `DISCORD_HUB_WEBHOOK` quand le secret du module
+# manque — et le miroir irait alors deverser toutes les cartes dans le forum du
+# hub, sans qu'aucune erreur ne soit levee. Un miroir mal configure doit rester
+# MUET, pas se tromper de salon. On lit donc la variable en direct : pas de
+# secret, pas de miroir.
+MIROIR_WEBHOOK = os.environ.get("DISCORD_SONDAGE_WEBHOOK", "").strip()
+# Le salon public est un salon NORMAL, pas un post de forum -> thread vide pour
+# le webhook. (S'il devenait un post de forum un jour, poser le thread ici.)
+MIROIR_THREAD = os.environ.get("DISCORD_SONDAGE_THREAD", "").strip()
+# L'id du SALON, lui, sert aux REACTIONS et a la relecture des votes : l'API des
+# reactions parle en `channel_id` (dans un forum, c'est l'id du post).
+MIROIR_SALON = os.environ.get("DISCORD_SONDAGE_SALON",
+                              "1531670469319852082").strip()
+
+
+def salon_miroir() -> str:
+    """L'id de salon a donner a l'API des reactions pour le miroir."""
+    return MIROIR_THREAD or MIROIR_SALON
 
 MAX_NEUFS = int(os.environ.get("DISCORD_DROPS_MAX_NEUFS", "8"))
 # Rattrapage : oublier les drops A VENIR deja memorises, pour les (re)annoncer.
@@ -538,6 +577,65 @@ def texte(d: Dict, ping: bool) -> str:
     return "\n".join(lignes)
 
 
+def poster_miroir(d: Dict, state: Dict) -> str:
+    """La MEME carte dans 📘sondage-drop, **sans aucun ping**.
+
+    Le salon public voit passer la carte et peut voter ; il n'est pas reveille
+    pour autant (choix de Preda) — la vague est deja annoncee une fois cote
+    investisseur. `ping=False` suffit : `message()` n'ajoute alors ni mention ni
+    `allowed_mentions` autorisant un role.
+
+    N'EMET AUCUNE EXCEPTION et ne rend jamais le run en echec : le miroir est un
+    BONUS. Une carte publiee dans 📦DROP mais pas dans le public est un manque ;
+    un run en echec parce que le miroir a hoquete serait une regression.
+    """
+    if not MIROIR_WEBHOOK:
+        return ""
+    try:
+        mid = api.poster(MIROIR_WEBHOOK, MIROIR_THREAD, message(d, ping=False))
+        if not mid:
+            print(f"  ⚠️ miroir public : « {d['nom']} » n'a pas pu etre poste "
+                  f"— la carte de 📦DROP, elle, est bien la.", flush=True)
+            return ""
+        state.setdefault("miroir", {})[d["cle"]] = mid
+        n = api.reagir(salon_miroir(), mid, REACTIONS)
+        if n < len(REACTIONS):
+            print(f"  ⚠️ miroir public : {n}/{len(REACTIONS)} reactions posees "
+                  f"sur « {d['nom']} » — sans elles, ce salon ne pourra pas "
+                  f"voter (le bot est-il dans 📘sondage-drop ?).", flush=True)
+        api.souffler()
+        return mid
+    except Exception as e:                                  # noqa: BLE001
+        print(f"  ⚠️ miroir public KO pour « {d['nom']} » ({e}) — ignore.",
+              flush=True)
+        return ""
+
+
+def marquer_miroir(state: Dict, dates: Dict[str, int]) -> int:
+    """Le « ✅ DROP SORTI » repercute sur les cartes du salon public.
+
+    Meme mecanique que cote investisseur, mais sur `state['miroir']` et avec sa
+    PROPRE liste de cles deja marquees (`state['miroir_sortis']`) : les deux
+    salons ne sont pas au meme rythme, et partager la liste ferait sauter le
+    marquage de l'un des deux — silencieusement.
+    """
+    if not MIROIR_WEBHOOK or not state.get("miroir"):
+        return 0
+    try:
+        sous_etat = state.setdefault("miroir_sortis", {})
+        return sortis.marquer(
+            state.get("miroir", {}), dates, sous_etat,
+            lire=lambda mid: api.lire_message(salon_miroir(), mid),
+            editer=lambda mid, charge: api.editer(MIROIR_WEBHOOK, MIROIR_THREAD,
+                                                  mid, charge),
+            mentions_vides=api.mentions([]),
+            souffler=api.souffler,
+            journal=lambda m: print(f"[miroir] {m}", flush=True))
+    except Exception as e:                                  # noqa: BLE001
+        print(f"⚠️ marquage du miroir KO ({e}) — ignore.", flush=True)
+        return 0
+
+
 def dates_par_cle(sh) -> Dict[str, int]:
     """{cle_serie: timestamp du drop}, SANS filtre de fenetre.
 
@@ -634,8 +732,9 @@ def run() -> int:
     # ne part jamais »). La lecon etait ecrite ; elle n'avait pas ete
     # appliquee une branche plus loin.
     if wh:
+        dates = dates_par_cle(sh)
         n_sortis = sortis.marquer(
-            state.get("messages", {}), dates_par_cle(sh), state,
+            state.get("messages", {}), dates, state,
             lire=lambda mid: api.lire_message(THREAD, mid),
             editer=lambda mid, charge: api.editer(wh, THREAD, mid, charge),
             mentions_vides=api.mentions([]),
@@ -643,6 +742,10 @@ def run() -> int:
         if n_sortis:
             print(f"📦 {n_sortis} carte(s) marquee(s) « drop sorti ».",
                   flush=True)
+        n_miroir = marquer_miroir(state, dates)
+        if n_miroir:
+            print(f"📘 {n_miroir} carte(s) du salon public marquee(s) "
+                  f"« drop sorti ».", flush=True)
 
     if not neufs:
         # ⚠️ Le Comic Book Day doit etre annonce MEME s'il n'y a aucun autre
@@ -689,6 +792,8 @@ def run() -> int:
                       f"« {d['nom']} » — la carte est publiee quand meme.",
                       flush=True)
             api.souffler()
+            # ═══ LE MIROIR PUBLIC (📘sondage-drop), sans ping ═══
+            poster_miroir(d, state)
 
     if sautes:
         print(f"⚠️ {len(sautes)} drop(s) SAUTE(S), fiche incomplete — ils "
@@ -757,5 +862,6 @@ def _log(sheet_id: str, statut: str, resume: Dict) -> None:
 if __name__ == "__main__":
     sys.exit(run())
 
-# FIN discord_drops.py v8 — une serie = une carte, une vague = un ping, et les
-# reactions posees par le bot (un webhook ne sait pas reagir).
+# FIN discord_drops.py v9 — une serie = une carte, une vague = un ping, les
+# reactions posees par le bot (un webhook ne sait pas reagir), et la meme carte
+# en miroir MUET dans le salon public 📘sondage-drop.

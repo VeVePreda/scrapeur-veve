@@ -340,6 +340,76 @@ def lire_reactions(channel: str, message_id: str) -> Dict[str, int]:
     return {}
 
 
+def lire_votants(channel: str, message_id: str,
+                 max_pages: int = 10) -> Dict[str, set]:
+    """QUI a vote quoi : {emoji: {user_id, ...}} — les bots exclus.
+
+    ⚠️ POURQUOI CETTE FONCTION EXISTE, alors que `lire_reactions` renvoie deja
+    des compteurs : **un compteur ne se deduplique pas.** Depuis que la meme
+    carte de drop est postee dans DEUX salons (le post investisseur 📦DROP et le
+    salon public 📘sondage-drop), la meme personne peut voter deux fois. Pour
+    n'en compter qu'une, il faut son IDENTITE — pas un nombre. Additionner deux
+    compteurs donnerait un total faux **qui a l'air juste** : le pire des bugs.
+
+    ⚠️ LE BOT NE SE SOUSTRAIT PLUS « -1 ». `lire_reactions` retire 1 a chaque
+    compteur en supposant que la seule reaction non-humaine est celle que le bot
+    a posee pour ouvrir le sondage. Ici on filtre sur `user["bot"]` : c'est le
+    FAIT, pas une supposition. Si un jour un second bot reagit, le « -1 »
+    mentirait en silence ; ce filtre-ci, non.
+
+    Rend {} sans token de bot (comme le reste de ce fichier : un sondage
+    illisible ne fait jamais echouer une publication).
+    """
+    if not BOT:
+        return {}
+    message = lire_message(channel, message_id)
+    if not message:
+        return {}
+
+    from urllib.parse import quote
+    entetes = {"Authorization": f"Bot {BOT}"}
+    out: Dict[str, set] = {}
+    for re_ in (message.get("reactions") or []):
+        emo = re_.get("emoji") or {}
+        nom = emo.get("name") or ""
+        if not nom:
+            continue
+        # Un emoji PERSONNALISE se demande sous la forme `nom:id` ; un emoji
+        # unicode, sous son seul caractere. Confondre les deux rend 400.
+        cle_api = f"{nom}:{emo['id']}" if emo.get("id") else nom
+        gens: set = set()
+        apres = ""
+        for _page in range(max_pages):
+            url = _q(f"{API}/channels/{channel}/messages/{message_id}"
+                     f"/reactions/{quote(cle_api)}", limit="100", after=apres)
+            try:
+                r = requests.get(url, headers=entetes, timeout=TIMEOUT)
+            except Exception as e:                          # noqa: BLE001
+                print(f"votants {nom} KO ({e})", file=sys.stderr)
+                break
+            if _429(r):
+                continue
+            if r.status_code >= 400:
+                print(f"votants {nom} : {r.status_code} {r.text[:200]}",
+                      file=sys.stderr)
+                break
+            lot = r.json() or []
+            for u in lot:
+                if u.get("bot"):
+                    continue              # le bot qui a ouvert le sondage
+                if u.get("id"):
+                    gens.add(str(u["id"]))
+            if len(lot) < 100:
+                break                     # derniere page
+            apres = str(lot[-1].get("id") or "")
+            if not apres:
+                break
+            time.sleep(0.35)
+        out[nom] = gens
+        time.sleep(0.35)          # on ne mitraille pas l'API de lecture
+    return out
+
+
 def reagir(channel: str, message_id: str, emojis: List[str]) -> int:
     """Pose les reactions une par une. Renvoie le nombre de reussites."""
     if not BOT:
