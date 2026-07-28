@@ -6,10 +6,13 @@ name: Hub Discord
 #   blog  -> les nouveaux articles dans le post « ✍️BLOG », avec ping du role
 #   drops -> les drops a venir dans le post « 📦DROP » : une carte par serie,
 #            un ping par vague, et 3 reactions (D / M / ❌) posees par le BOT
-#            (un webhook ne sait pas reagir — c'est la seule raison du token)
+#            (un webhook ne sait pas reagir — c'est la seule raison du token).
+#            La MEME carte part aussi, SANS ping, dans « 📘⎮sondage-drop »
+#            (public) : deux salons, deux populations de votants.
 #   retour -> 24 h apres un drop, le post « 🔍 RETOUR DROP » : ventes reelles
 #            (mints on-chain), taux d'ecoulement, note de classement, et le
-#            SONDAGE de la carte d'annonce relu par le bot et confronte aux faits
+#            SONDAGE relu par le bot DANS LES DEUX SALONS et confronte aux
+#            faits — deux lignes, et une personne ne compte jamais deux fois
 #   calendrier -> le PNG du calendrier des drops, TELEVERSE chaque SAMEDI dans
 #            le salon de CHAQUE marque (VeVe France, VeVe Insights), avec son
 #            propre webhook et sa propre langue. Le module se garde lui-meme au
@@ -121,7 +124,11 @@ jobs:
           # PLAFOND : nb TOTAL de messages par run (au-dela, on refuse et on le
           # dit). PAUSE : secondes entre deux envois. Une rafale est exactement
           # ce qui fait bannir un webhook.
-          DISCORD_MAX_MESSAGES: ${{ vars.DISCORD_MAX_MESSAGES || '15' }}
+          # ⚠️ MONTE A 25 LE 28/07 : chaque carte de drop part DEUX fois (📦DROP
+          # + le miroir public 📘sondage-drop). Le plafond de 15 aurait coupe la
+          # publication en plein milieu — et le message coupe serait justement
+          # le miroir, donc un sondage public a moitie ouvert.
+          DISCORD_MAX_MESSAGES: ${{ vars.DISCORD_MAX_MESSAGES || '25' }}
           DISCORD_PAUSE_S: ${{ vars.DISCORD_PAUSE_S || '3' }}
           DISCORD_HUB_WEBHOOK: ${{ secrets.DISCORD_HUB_WEBHOOK }}
           DISCORD_STATS_WEBHOOK: ${{ secrets.DISCORD_STATS_WEBHOOK }}
@@ -142,6 +149,19 @@ jobs:
           # sert pas de fichiers : depose la banniere dans un salon, copie son
           # lien, et pose-le ici (variable de repo). Sans elle : pas d'image.
           DISCORD_DROPS_IMAGE_COMIC_DAY: ${{ vars.DISCORD_DROPS_IMAGE_COMIC_DAY || '' }}
+          # ═══ 📘⎮sondage-drop — LE MIROIR PUBLIC DES CARTES DE DROP ═══
+          # 📦DROP est cote INVESTISSEUR ; ce salon-ci est PUBLIC. La meme carte
+          # y part, SANS ping, avec ses 3 reactions — et `retour` en tire une
+          # 2e ligne de sondage, dedoublonnee de ceux qui ont vote en prive.
+          # SALON NORMAL (pas un post de forum) : DISCORD_SONDAGE_THREAD vide.
+          # ⚠️ Sans le secret, le miroir est MUET (il ne retombe jamais sur le
+          # webhook du hub — ce serait deverser les cartes dans le mauvais salon).
+          # ⚠️ Le BOT doit etre dans ce salon avec « Voir le salon », « Lire
+          # l'historique » et « Ajouter des reactions » : sans lui, pas de
+          # boutons de vote, donc pas de sondage public.
+          DISCORD_SONDAGE_WEBHOOK: ${{ secrets.DISCORD_SONDAGE_WEBHOOK }}
+          DISCORD_SONDAGE_SALON: ${{ vars.DISCORD_SONDAGE_SALON || '1531670469319852082' }}
+          DISCORD_SONDAGE_THREAD: ${{ vars.DISCORD_SONDAGE_THREAD || '' }}
           DISCORD_RETOUR_WEBHOOK: ${{ secrets.DISCORD_RETOUR_WEBHOOK }}
           DISCORD_RETOUR_THREAD: ${{ vars.DISCORD_RETOUR_THREAD || '1526557575875924119' }}
           # Vide = le retour ne ping personne (choix par defaut : c'est une
