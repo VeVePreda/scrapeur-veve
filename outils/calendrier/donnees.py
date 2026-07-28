@@ -170,9 +170,20 @@ def lignes_xlsx(chemin: str) -> List[dict]:
 
 
 def lignes_sheet() -> List[dict]:
-    """Les memes lignes, mais depuis le Google Sheet en direct."""
+    """Les memes lignes, mais depuis le Google Sheet en direct.
+
+    ⚠️ `_client()` rend un CLIENT gspread, pas un classeur : il faut
+    `.open_by_key(SHEET_ID)`. La v1 appelait `.worksheet()` sur le client — ce
+    chemin n'ayant jamais tourne (le local passe par le miroir xlsx), le bug
+    serait apparu au PREMIER run en CI, la ou on ne le voit pas venir. C'est la
+    rancon d'un chemin de code qu'on ne teste jamais : il n'echoue qu'en prod.
+    """
+    import os as _os
     from scraper.sheets import _client                  # import tardif : secrets
-    classeur = _client()
+    sheet_id = _os.environ.get("SHEET_ID", "").strip()
+    if not sheet_id:
+        raise RuntimeError("SHEET_ID env var is not set (mode --sheet).")
+    classeur = _client().open_by_key(sheet_id)
     sorties: List[dict] = []
     for onglet, nature in ONGLETS:
         feuille = classeur.worksheet(onglet)

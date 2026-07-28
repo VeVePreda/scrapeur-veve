@@ -176,6 +176,54 @@ def poster(wh: str, thread: str, payload: Dict) -> Optional[str]:
     return None
 
 
+def poster_fichier(wh: str, thread: str, payload: Dict, chemin: str,
+                   nom: str = "", type_mime: str = "image/png") -> Optional[str]:
+    """POST avec une PIECE JOINTE -> l'id du message cree.
+
+    ⚠️ POURQUOI CE N'EST PAS `poster()` AVEC UNE URL
+    ------------------------------------------------
+    On pourrait poster un embed dont l'image pointe vers un lien. Mais **une URL
+    de piece jointe Discord est SIGNEE et EXPIRE** (`ex/is/hm`) : au bout de
+    quelques heures l'image ne s'affiche plus — piege deja paye sur les images
+    du module `retour`. Un calendrier qu'on republie chaque samedi et que les
+    gens gardent dans leurs favoris ne peut pas dependre d'un lien perissable :
+    on TELEVERSE le fichier, il vit dans le message.
+
+    ⚠️ `json=` DEVIENT `payload_json` : en multipart, Discord attend le corps du
+    message dans un champ de formulaire nomme `payload_json`, pas dans le corps
+    JSON de la requete. Envoyer les deux, ou l'un a la place de l'autre, rend un
+    400 laconique.
+
+    Les garde-fous restent ceux de la maison : quota, 429, mentions bridees.
+    """
+    if not _quota_ok(f"un message avec le fichier {os.path.basename(chemin)}"):
+        return None
+    if not os.path.exists(chemin):
+        print(f"fichier introuvable : {chemin}", file=sys.stderr)
+        return None
+    url = _q(wh, thread_id=thread, wait="true")
+    nom = nom or os.path.basename(chemin)
+    for _ in range(ESSAIS):
+        # Le fichier est rouvert a CHAQUE essai : un flux deja lu jusqu'au bout
+        # renverrait un corps VIDE au 2e tour, et Discord accepterait un message
+        # sans image sans se plaindre.
+        with open(chemin, "rb") as f:
+            r = requests.post(
+                url,
+                data={"payload_json": json.dumps(payload)},
+                files={"files[0]": (nom, f, type_mime)},
+                timeout=max(TIMEOUT, 60),          # un PNG de 1 Mo prend plus
+            )
+        if _429(r):
+            continue
+        if r.status_code >= 400:
+            print(f"Discord POST fichier {r.status_code} : {r.text[:300]}",
+                  file=sys.stderr)
+            return None
+        return str(r.json().get("id") or "")
+    return None
+
+
 def editer(wh: str, thread: str, mid: str, payload: Dict) -> Optional[str]:
     """PATCH. 404 = message supprime a la main -> on le RECREE."""
     if not _quota_ok(f"la reecriture du message {mid}"):

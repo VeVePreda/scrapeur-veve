@@ -29,8 +29,9 @@ import sys
 import traceback
 from typing import Callable, Dict
 
-from scraper import (discord_blog, discord_drops, discord_feed,
-                     discord_retour, discord_stats, discord_veille)
+from scraper import (discord_blog, discord_calendrier, discord_drops,
+                     discord_feed, discord_retour, discord_stats,
+                     discord_veille)
 
 # Le registre. Ajouter un module = ajouter une ligne ICI (et rien d'autre).
 # `feed` : le comparatif hebdo du salon « Feed investor ». Il tourne comme les
@@ -38,6 +39,9 @@ from scraper import (discord_blog, discord_drops, discord_feed,
 # retient la semaine deja publiee — voir scraper/discord_feed.py.
 # `veille` : les nouveaux articles des blogs partenaires (ElmonX, Candy) dans
 # leur post de forum — un flux RSS par source, voir scraper/discord_veille.py.
+# `calendrier` : le PNG du calendrier des drops, TELEVERSE chaque samedi dans le
+# salon de chaque marque (VeVe France, VeVe Insights) — se garde lui-meme au
+# samedi et retient la semaine ISO publiee, voir scraper/discord_calendrier.py.
 MODULES: Dict[str, Callable[[], int]] = {
     "stats": discord_stats.run,
     "blog": discord_blog.run,
@@ -45,6 +49,7 @@ MODULES: Dict[str, Callable[[], int]] = {
     "retour": discord_retour.run,
     "feed": discord_feed.run,
     "veille": discord_veille.run,
+    "calendrier": discord_calendrier.run,
 }
 
 DEMANDES = [m.strip() for m in
