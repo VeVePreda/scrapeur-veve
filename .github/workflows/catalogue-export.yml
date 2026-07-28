@@ -28,11 +28,29 @@ jobs:
       - name: Dependances
         run: pip install -r requirements.txt
 
+      # 🪪 IDENTITE CHAINE — INACTIVE tant que la variable de depot
+      # CATALOG_IDENTITE_CHAINE != '1'. Sans elle, `catalog_export` est
+      # rigoureusement identique a la veille (meme en-tete, meme contenu) et le
+      # telechargement ci-dessous n'a meme pas lieu.
+      # REVENIR : remettre la variable a 0 — le catalogue est RECONSTRUIT depuis
+      # le Sheet a chaque run, donc zero residu des le lendemain.
+      # Garde-fous cote code : elements_v3 absent, ou SANS colonne `source`
+      # -> identite chaine ignoree, catalogue 100 % Sheet ; churn plafonne par
+      # colonne ; volumetrie verifiee PAR FAMILLE.
       - name: "Exporter le catalogue depuis le Sheet"
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           SHEET_ID: ${{ secrets.SHEET_ID }}
+          ELEMENTS_V3: data/elements_v3.csv
+          CATALOG_IDENTITE_CHAINE: ${{ vars.CATALOG_IDENTITE_CHAINE }}
+          CATALOG_CHURN_AUTORISE: ${{ vars.CATALOG_CHURN_AUTORISE }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          if [ "${CATALOG_IDENTITE_CHAINE}" = "1" ]; then
+            mkdir -p data
+            gh release download elements-v3 --pattern elements_v3.csv --dir data --clobber 2>/dev/null \
+              || echo "catalogue chaine indisponible — catalogue 100 % Sheet."
+          fi
           python -m scraper.catalog_export
           ls -lh catalogue.csv.gz
 
