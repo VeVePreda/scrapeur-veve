@@ -20,6 +20,15 @@ name: Pont elements v3 (catalogue depuis la chaine — moisson silence)
 # DEUX MODES (input `mode`) :
 #  * tete    : repart du sommet, arret sur couverture (plateau). Entretien —
 #              attrape les nouveaux drops, rafraichit la metadata. ~2 h.
+#  * integral: part du SOMMET, plateau DESARME, fenetre 3650 j. C'est le SEUL
+#              run qui peut PROUVER la provenance (colonne `source`) des lignes
+#              heritees d'une graine ecrite avant le 28/07/2026 : ce qu'un
+#              balayage complet n'a pas produit, la chaine ne le connait pas.
+#              Un mode NOMME plutot que trois reglages a saisir a la main —
+#              c'est ce genre de saisie qui donne des runs verts mais faux.
+#              ⚠️ Le code verifie lui-meme les deux conditions (parti du sommet
+#              ET arrive au bout) : un run tronque par le budget-temps laisse la
+#              provenance a INCONNU, il n'invente rien. Le relancer suffit.
 #  * profond : REPREND au curseur du state (Release), descend PLUS BAS sans
 #              re-scanner le haut, plateau desarme. Relancer 'profond' a chaque
 #              fois jusqu'au message « BALAYAGE INTEGRAL TERMINE » -> univers
@@ -31,17 +40,17 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "tete = repart du sommet (entretien, arret couverture) · profond = REPREND au curseur pour descendre plus bas (balayage integral, plateau desarme). Relancer 'profond' jusqu'a 'BALAYAGE INTEGRAL TERMINE'."
+        description: "tete = repart du sommet (entretien, arret couverture) · profond = REPREND au curseur pour descendre plus bas, plateau desarme (relancer jusqu'a 'BALAYAGE INTEGRAL TERMINE') · integral = SOMMET + plateau desarme + 3650 j : le SEUL run qui tranche la colonne `source` des lignes heritees."
         required: false
         default: "tete"
         type: choice
-        options: ["tete", "profond"]
+        options: ["tete", "profond", "integral"]
       lookback_days:
-        description: "Profondeur MAX (jours). Vide = defaut selon le mode (tete 120, profond 3650)."
+        description: "Profondeur MAX (jours). Vide = defaut selon le mode (tete 120, profond/integral 3650)."
         required: false
         default: ""
       plateau_pages:
-        description: "Arret quand N pages sans nouveau type. Vide = defaut selon le mode (tete 300, profond 0=desarme)."
+        description: "Arret quand N pages sans nouveau type. Vide = defaut selon le mode (tete 300, profond/integral 0=desarme)."
         required: false
         default: ""
       max_pages:
