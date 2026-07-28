@@ -1,0 +1,68 @@
+# ⚠️ DEPOT : VeVePreda/scrapeur-veve   ·   CHEMIN : .github/workflows/medium-vers-blog.yml
+name: Medium -> 📝C-BLOG (verser l'archive)
+
+# Verse les 471 articles Medium (2020 -> avril 2023) dans l'onglet 📝C-BLOG, aux
+# cotes des articles veve.me (2023 ->). Les deux sources ne se recouvrent pas :
+# ensemble, elles donnent la chronologie complete du blog de VeVe.
+#
+# ⛔ A LANCER UNE FOIS. La source Medium est FIGEE depuis avril 2023 : aucun cron,
+# rien a rafraichir. Relancer est sans danger (upsert par slug) mais inutile.
+#
+# ⛔ SEUL. Le quota Sheets/minute est PARTAGE : ne pas lancer en meme temps que le
+# daily, une reparation ou une moisson.
+#
+# ⭐ APERCU PAR DEFAUT. Le 1er run ne touche a rien : il DIT combien de lignes il
+# ajouterait, et surtout quelles collisions de slug il a evitees. On n'ecrit
+# qu'au second run, en connaissance de cause.
+#
+# PREALABLE : `data/medium_corpus.jsonl` doit etre dans le depot (glisser-deposer,
+# 1,8 Mo). Ce depot est PRIVE : le corpus y est a sa place, et ca lui donne enfin
+# un domicile durable — l'artifact d'astronema, lui, expire au bout de 90 jours.
+#
+# CE QUI A ETE VERIFIE AVANT (et qu'il ne faut pas re-craindre) :
+#   · Discord ne debordera pas : discord_blog.py ne poste que les articles parus
+#     dans les 3 derniers jours. Ceux de 2020-2023 sont hors fenetre.
+#   · Aucune troncature : le plus long article fait 15 672 car., blog.py coupe a
+#     45 000 et une cellule tient 50 000.
+#   · Les lignes survivent au cron : sync_blog() relit l'existant et le reecrit.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ecrire:
+        description: "Écrire pour de vrai ? (non = aperçu, ne touche à rien)"
+        required: false
+        default: "non"
+        type: choice
+        options: ["non", "oui"]
+      corpus:
+        description: "Chemin du corpus dans le dépôt"
+        required: false
+        default: "data/medium_corpus.jsonl"
+
+concurrency:
+  group: veve-blog          # ⭐ MEME groupe que blog.yml : les deux ecrivent dans
+                            #    le meme onglet, ils ne doivent JAMAIS se croiser.
+  cancel-in-progress: false
+
+jobs:
+  verser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verser Medium dans 📝C-BLOG
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          MEDIUM_BLOG_CORPUS: ${{ github.event.inputs.corpus || 'data/medium_corpus.jsonl' }}
+          MEDIUM_BLOG_ECRIRE: ${{ github.event.inputs.ecrire == 'oui' && '1' || '' }}
+        run: python -m scraper.medium_vers_blog
