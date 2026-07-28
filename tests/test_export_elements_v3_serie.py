@@ -44,7 +44,7 @@ def test_serie_ajoutee_en_FIN_sans_toucher_aux_16_premieres():
     # Les 16 premieres colonnes doivent rester dans le MEME ordre : les index
     # de `reattacher_offchain` sont positionnels.
     assert ENTETE[:16] == SEIZE
-    assert ENTETE[16] == "series" and len(ENTETE) == 17
+    assert ENTETE[16] == "series"
 
 
 def test_les_index_offchain_restent_valides():
@@ -93,11 +93,11 @@ def test_une_serie_deja_presente_nest_jamais_ecrasee():
     assert r[ENTETE.index("series")] == "Vraie Serie"
 
 
-def test_une_ligne_a_16_colonnes_est_complétée_a_17():
+def test_une_ligne_a_16_colonnes_est_complétée_a_la_largeur_de_lentete():
     r = ligne16("u1")
     assert len(r) == 16
     combler_series([r])
-    assert len(r) == 17
+    assert len(r) == len(ENTETE)
 
 
 def test_un_comic_sans_brand_reste_vide_plutot_que_faux():

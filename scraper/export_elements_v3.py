@@ -25,7 +25,11 @@ ELEMENTS_V2=data/elements_v3.csv) : identite a 0 sur plusieurs jours, comme le
 pont elements. export_elements.py (v1) et export_elements_v2.py (tracker)
 restent en repli.
 
-En-tete OCTET POUR OCTET identique a v1/v2.
+En-tete : les 16 colonnes de v1/v2 OCTET POUR OCTET, puis deux colonnes AJOUTEES
+EN FIN — `series` (28/07, la serie on-chain, qui commande les adresses des sites)
+et `source` (28/07, `chaine`|`tracker`|vide=inconnu, la provenance de la ligne).
+Ajouter en fin, et jamais au milieu : `reattacher_offchain` indexe par POSITION,
+et `compare_elements` lit par NOM — il ignore donc les deux nouvelles.
 
 --- ALIMENTATION ---
 La metadata catalogue n'est PAS dans l'archive des transferts (schema reduit).
@@ -43,7 +47,7 @@ import re
 import sys
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-# En-tete identique v1/v2/v3.
+# Les 16 premieres colonnes = l'en-tete v1/v2, inchange. Puis les ajouts EN FIN.
 ENTETE = ["veve_uuid", "series_uuid", "name", "category", "rarity",
           "edition_type", "supply", "first_public", "listings", "note",
           "brand", "licensor", "atl", "atl_date", "ath", "ath_date",
@@ -55,7 +59,30 @@ ENTETE = ["veve_uuid", "series_uuid", "name", "category", "rarity",
           # basculer. Ajoutee EN FIN : les index de `reattacher_offchain` et
           # l'ordre des 16 premieres colonnes ne bougent pas d'un octet, et
           # `compare_elements` lit par NOM (DictReader) — il l'ignore.
-          "series"]
+          "series",
+          # 🆕 18e colonne (28/07/2026) — LA PROVENANCE DE LA LIGNE.
+          # Sans elle, une fois `combler_depuis_officiel` passe, plus RIEN ne
+          # distingue une ligne moissonnee sur la chaine d'une ligne recopiee du
+          # tracker. Or la doctrine du 28/07 en depend entierement : la chaine
+          # fait autorite Y COMPRIS PAR SON SILENCE, mais seulement sur les
+          # objets qu'elle a VUS. (Cas reel : `Robocop: Jetpack Edition` portait
+          # un `edition_type=FE` FAUX au tracker ; la chaine, elle, ne lui en
+          # donnait aucun — et la regle « une valeur vide ne remplace jamais »
+          # a conserve l'erreur, faute de savoir que la chaine l'avait vu.)
+          # Ajoutee EN FIN, pour la meme raison que `series` : les 17 premieres
+          # colonnes ne bougent pas d'un octet.
+          "source"]
+
+# Le vocabulaire de `source` — declare ici, nulle part ailleurs.
+#   "chaine"  : la ligne SORT de la moisson CollectChain de ce run.
+#   "tracker" : la ligne a ete recopiee de l'officiel par `combler_depuis_officiel`.
+#   ""        : INCONNU. Ligne heritee d'une graine ecrite AVANT le 28/07/2026 :
+#               sa provenance n'est plus reconstituable a posteriori, et on ne la
+#               DEVINE PAS (⭐ un trou n'est pas une information).
+SRC_CHAINE = "chaine"
+SRC_TRACKER = "tracker"
+SRC_INCONNU = ""
+VOCAB_SOURCE = (SRC_CHAINE, SRC_TRACKER, SRC_INCONNU)
 
 CSV_V3 = os.environ.get("ELEMENTS_V3", "data/elements_v3.csv")
 CSV_OFFICIEL = os.environ.get("ELEMENTS_CSV", "data/elements.csv")
@@ -240,6 +267,7 @@ def construire_v3(catalogue: Dict[str, Dict[str, Any]],
             (off.get("ath") or "").strip(),
             (off.get("ath_date") or "").strip(),
             c["series"],                               # 🆕 CHAINE
+            SRC_CHAINE,                                # 🆕 provenance : moisson
         ])
     rows.sort(key=lambda l: (l[3], l[6] if l[6] != "" else 0, l[2]))
     return rows
@@ -270,7 +298,7 @@ def combler_series(rows: List[List]) -> int:
                              ENTETE.index("series"))
     n = 0
     for r in rows:
-        while len(r) < len(ENTETE):        # ligne d'une graine a 16 colonnes
+        while len(r) < len(ENTETE):        # ligne d'une graine plus ancienne
             r.append("")
         if not (r[i_ser] or "").strip() and (r[i_cat] or "").strip() == "comic":
             b = (r[i_brand] or "").strip()
@@ -278,6 +306,34 @@ def combler_series(rows: List[List]) -> int:
                 r[i_ser] = b
                 n += 1
     return n
+
+
+def compter_sources(rows: List[List]) -> Dict[str, int]:
+    """{source: nb} sur les lignes. Rend la couverture chaine MESURABLE.
+
+    ⭐ Pourquoi c'est ici et pas dans un rapport separe : jusqu'au 28/07/2026 la
+    couverture chaine ne pouvait qu'etre ESTIMEE par une empreinte indirecte (les
+    doubles espaces des noms du tracker). Un chiffre qu'on estime est un chiffre
+    qu'on finit par croire. Desormais chaque run l'IMPRIME, exactement.
+    """
+    i_src = ENTETE.index("source")
+    out: Dict[str, int] = {}
+    for r in rows:
+        v = (r[i_src] if len(r) > i_src else "") or SRC_INCONNU
+        out[v] = out.get(v, 0) + 1
+    return out
+
+
+def valider_sources(rows: List[List]) -> None:
+    """Garde-fou : aucune valeur de `source` hors vocabulaire ne sort d'ici.
+
+    Une provenance inventee serait pire que pas de provenance : c'est elle qui
+    autorisera la chaine a EFFACER un champ du tracker (autorite du silence).
+    """
+    hors = {s for s in compter_sources(rows) if s not in VOCAB_SOURCE}
+    if hors:
+        raise ValueError(
+            f"source hors vocabulaire {sorted(hors)} — attendu {VOCAB_SOURCE}.")
 
 
 def ecrire(rows: List[List], chemin: str) -> None:
@@ -288,6 +344,14 @@ def ecrire(rows: List[List], chemin: str) -> None:
     if n:
         print(f"  serie : {n} comic(s) completes depuis brand "
               f"(meme texte on-chain, aucune moisson requise).", flush=True)
+    # ⛔ On ne DEVINE aucune provenance ici : `combler_series` a deja allonge les
+    # lignes courtes (graine < 18 colonnes) avec des "" — soit exactement
+    # INCONNU, qui est la verite pour elles.
+    valider_sources(rows)
+    src = compter_sources(rows)
+    print("  source : "
+          + " · ".join(f"{k or 'inconnu'}={src.get(k, 0)}" for k in VOCAB_SOURCE)
+          + f"  (total {len(rows)})", flush=True)
     os.makedirs(os.path.dirname(chemin) or ".", exist_ok=True)
     with open(chemin, "w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
@@ -347,17 +411,60 @@ def combler_depuis_officiel(rows: List[List],
     recemment). Les runs profonds convertissent progressivement la traine en
     chaine (le uuid passe alors dans `rows`, il fait foi). Auto-cicatrisant."""
     vus = {r[0] for r in rows}
+    i_src = ENTETE.index("source")
     ajout = 0
     for uid, r in officiel.items():
         if uid in vus:
             continue
-        rows.append([r.get(c, "") for c in ENTETE])
+        ligne = [r.get(c, "") for c in ENTETE]
+        # ⭐ MARQUAGE EXPLICITE, et non `r.get("source")` : l'officiel n'a pas
+        # cette colonne, la recopie donnerait "" (INCONNU) et on perdrait
+        # precisement l'information qu'on vient d'ajouter la colonne pour avoir.
+        ligne[i_src] = SRC_TRACKER
+        rows.append(ligne)
         ajout += 1
     if ajout:
         print(f"  completude : +{ajout} type(s) DORMANT(s) repris de l'officiel "
               f"(tracker) — catalogue complet ({len(rows)}).", flush=True)
     rows.sort(key=lambda l: (l[3], _num(l[6]) if l[6] != "" else 0, l[2]))
     return rows
+
+
+def balayage_integral(meta: Dict[str, Any], start_params: Any) -> bool:
+    """Ce run a-t-il vu TOUTE la chaine ? La question qui autorise l'elimination.
+
+    ⚠️ `swept` seul NE SUFFIT PAS, et c'est le piege : un run `profond` REPREND
+    au curseur, donc il peut atteindre le bout de l'histoire — et sortir
+    `swept=True` — en n'ayant balaye que le BAS. Le prendre pour un balayage
+    integral marquerait `tracker` des milliers de lignes que la chaine connait.
+    Il faut AUSSI etre parti du SOMMET (`start_params is None`).
+    """
+    return bool(meta.get("swept")) and start_params is None
+
+
+def resoudre_source_inconnue(rows: List[List],
+                             officiel: Dict[str, Dict[str, str]]) -> int:
+    """Apres un balayage INTEGRAL parti du SOMMET : leve l'INCONNU par elimination.
+
+    ⛔ A n'appeler QUE si la machine a prouve les deux conditions (cf. `main`) :
+       `meta['swept']` (l'API n'avait plus de page) ET un depart du SOMMET
+       (`start_params is None`). Un `profond` qui REPREND au curseur peut tres
+       bien finir « swept » en n'ayant balaye que le BAS de l'histoire : croire
+       son verdict marquerait `tracker` des milliers de lignes que la chaine
+       connait parfaitement.
+
+    Le raisonnement, une fois ces conditions tenues : si un balayage complet n'a
+    PAS produit cet uuid, la chaine ne le connait pas ; s'il est par ailleurs
+    dans l'officiel, sa ligne v3 vient donc du tracker. Un uuid inconnu des DEUX
+    reste INCONNU — on ne comble jamais un trou par une supposition.
+    """
+    i_src = ENTETE.index("source")
+    n = 0
+    for r in rows:
+        if (r[i_src] or "") == SRC_INCONNU and r[0] in officiel:
+            r[i_src] = SRC_TRACKER
+            n += 1
+    return n
 
 
 def lire_state(chemin: str) -> Dict[str, Any]:
@@ -398,8 +505,15 @@ def main() -> int:
     #            quotidien : attrape les nouveaux drops, rafraichit la metadata.
     # 'profond': REPREND au curseur du state (descend plus bas sans re-scanner
     #            le haut), plateau DESARME. Repete jusqu'a swept -> univers COMPLET.
+    # 'integral': part du SOMMET (comme 'tete') mais plateau DESARME et fenetre
+    #            large — le seul run qui peut PROUVER la provenance des lignes
+    #            heritees (cf. `balayage_integral`). Un mode nomme plutot que
+    #            trois reglages a saisir a la main : c'est justement ce genre de
+    #            saisie qui produit des runs verts mais faux.
     mode = os.environ.get("ELEMENTS_V3_MODE", "tete").strip().lower()
     profond = mode == "profond"
+    integral_demande = mode == "integral"
+    balaye_tout = profond or integral_demande
     state = lire_state(STATE_V3)
     start_params = None
     if profond and state.get("cursor") and not state.get("swept"):
@@ -414,10 +528,10 @@ def main() -> int:
     # `... or default` : un env ABSENT *ou VIDE* (input workflow non renseigne)
     # retombe sur le defaut du mode — sinon int("") planterait.
     days = int(os.environ.get("ELEMENTS_V3_LOOKBACK_DAYS")
-               or ("3650" if profond else "120"))
+               or ("3650" if balaye_tout else "120"))
     cutoff = _dt.datetime.utcnow() - _dt.timedelta(days=days)
     plateau = int(os.environ.get("ELEMENTS_V3_PLATEAU_PAGES")
-                  or ("0" if profond else "300"))
+                  or ("0" if balaye_tout else "300"))
     # ⭐ GARANTIE ANTI-TIMEOUT : budget-temps INTERNE < timeout du job GitHub
     # (300 min). On s'arrete PROPREMENT avant le couperet -> l'ecriture + l'upload
     # Release s'executent (sur un timeout GitHub, meme les steps `if: always()`
@@ -481,6 +595,27 @@ def main() -> int:
     # OFF-CHAIN toujours frais depuis l'officiel (répare un catalogue chaîne-only
     # rapatrié dont l'off-chain serait vide). No-op si pas d'officiel (astronema).
     rows = reattacher_offchain(rows, officiel)
+
+    # ── PROVENANCE : lever l'INCONNU, mais SEULEMENT si la machine l'a prouve.
+    # Les lignes heritees d'une graine ecrite avant le 28/07/2026 sont INCONNUES
+    # et le restent, run apres run, tant qu'un balayage INTEGRAL parti du SOMMET
+    # n'a pas tranche. Les deux conditions sont VERIFIEES ici, pas declarees par
+    # l'operateur : `swept` (plus aucune page cote API) ET depart du sommet.
+    # Un run tronque (budget-temps, plateau, plafond de pages) laisse donc
+    # l'INCONNU tel quel — c'est le bon sens de la panne : on degrade vers « je
+    # ne sais pas », jamais vers un `tracker` invente.
+    integral = balayage_integral(meta, start_params)
+    if integral and os.environ.get(
+            "ELEMENTS_V3_RESOUDRE_SOURCE", "1").strip() != "0":
+        n = resoudre_source_inconnue(rows, officiel)
+        if n:
+            print(f"  source : balayage INTEGRAL depuis le sommet -> {n} "
+                  f"ligne(s) INCONNUE(s) tranchee(s) en 'tracker' (la chaine ne "
+                  f"les a pas produites, l'officiel les porte).", flush=True)
+    elif not integral:
+        print("  source : balayage NON integral (ou reprise au curseur) — "
+              "l'INCONNU herite reste INCONNU, rien n'est devine.", flush=True)
+
     ecrire(rows, CSV_V3)
 
     # ── STATE de reprise : curseur pour descendre plus bas au prochain profond.
