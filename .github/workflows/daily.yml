@@ -161,6 +161,31 @@ jobs:
           ELEMENTS_V2: data/elements.csv
         run: python -m scraper.export_elements_v2
 
+      # 🔀 BASCULE v3 (REVERSIBLE, gated) — identite depuis la chaine.
+      # INACTIVE tant que la variable de depot BASCULE_IDENTITE_CHAINE != '1'.
+      # Elle POST-TRAITE data/elements.csv fabrique par l'etape 8 : remplace les
+      # seules colonnes d'IDENTITE (name, category, rarity, edition_type, supply,
+      # brand, licensor) par celles du catalogue on-chain, et laisse INTACT tout
+      # l'off-chain frais du jour (first_public, listings, note, atl/ath, dates).
+      # Garde-fous dans scraper/bascule_identite.py : v3 absent ou < 15 000 lignes
+      # -> on ne touche a rien ; une valeur chaine vide n'efface jamais le tracker ;
+      # retour 0 systematique (un garde-fou ne casse jamais le daily).
+      # REVENIR : remettre la variable a 0 — le daily reconstruit elements.csv
+      # depuis le tracker AVANT cette etape, donc zero residu le lendemain.
+      - name: "8bis) Identite depuis la chaine (bascule v3)"
+        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'comics')) }}
+        env:
+          ELEMENTS_CSV: data/elements.csv
+          ELEMENTS_V3: data/elements_v3.csv
+          BASCULE_IDENTITE_CHAINE: ${{ vars.BASCULE_IDENTITE_CHAINE }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${BASCULE_IDENTITE_CHAINE}" = "1" ]; then
+            gh release download elements-v3 --pattern elements_v3.csv --dir data --clobber 2>/dev/null \
+              || echo "catalogue chaine indisponible — identite tracker conservee."
+          fi
+          python -m scraper.bascule_identite
+
       - name: "9) Commit du CSV catalogue"
         if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'comics')) }}
         run: |
