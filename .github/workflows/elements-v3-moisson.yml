@@ -20,15 +20,15 @@ name: Pont elements v3 (catalogue depuis la chaine — moisson silence)
 # DEUX MODES (input `mode`) :
 #  * tete    : repart du sommet, arret sur couverture (plateau). Entretien —
 #              attrape les nouveaux drops, rafraichit la metadata. ~2 h.
-#  * integral: part du SOMMET, plateau DESARME, fenetre 3650 j. C'est le SEUL
-#              run qui peut PROUVER la provenance (colonne `source`) des lignes
-#              heritees d'une graine ecrite avant le 28/07/2026 : ce qu'un
-#              balayage complet n'a pas produit, la chaine ne le connait pas.
-#              Un mode NOMME plutot que trois reglages a saisir a la main —
-#              c'est ce genre de saisie qui donne des runs verts mais faux.
-#              ⚠️ Le code verifie lui-meme les deux conditions (parti du sommet
-#              ET arrive au bout) : un run tronque par le budget-temps laisse la
-#              provenance a INCONNU, il n'invente rien. Le relancer suffit.
+# 🔴 LE MODE `integral` A ETE RETIRE DU MENU (28/07/2026, apres le run #14).
+#    Il existe encore dans le code (ELEMENTS_V3_MODE=integral) mais il n'est plus
+#    proposable d'un clic, parce qu'il n'est PAS realisable : le run #14 a tape
+#    le plafond de 20 000 pages en n'etant redescendu qu'au 16/04. La cause est
+#    mesurable — le versement de MIGRATION du 28/01/2026 pese a lui seul
+#    12,05 MILLIONS de transferts (les autres mois : 121 000 a 756 000), soit
+#    ~236 000 pages pour atteindre la genese. Une douzaine de dispatches.
+#    ➡️ La provenance des lignes heritees est desormais posee HORS LIGNE, par
+#    `data/source_backfill_2026-07-28.csv.gz` (cf. `appliquer_backfill_source`).
 #  * profond : REPREND au curseur du state (Release), descend PLUS BAS sans
 #              re-scanner le haut, plateau desarme. Relancer 'profond' a chaque
 #              fois jusqu'au message « BALAYAGE INTEGRAL TERMINE » -> univers
@@ -40,11 +40,11 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "tete = repart du sommet (entretien, arret couverture) · profond = REPREND au curseur pour descendre plus bas, plateau desarme (relancer jusqu'a 'BALAYAGE INTEGRAL TERMINE') · integral = SOMMET + plateau desarme + 3650 j : le SEUL run qui tranche la colonne `source` des lignes heritees."
+        description: "tete = repart du sommet (entretien, arret couverture) · profond = REPREND au curseur pour descendre plus bas, plateau desarme (relancer jusqu'a 'BALAYAGE INTEGRAL TERMINE')."
         required: false
         default: "tete"
         type: choice
-        options: ["tete", "profond", "integral"]
+        options: ["tete", "profond"]
       lookback_days:
         description: "Profondeur MAX (jours). Vide = defaut selon le mode (tete 120, profond/integral 3650)."
         required: false
