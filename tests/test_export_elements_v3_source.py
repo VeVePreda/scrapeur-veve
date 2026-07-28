@@ -19,13 +19,14 @@ rien ne disait d'ou elles venaient. Consequences mesurees :
 L'inconnu s'ecrit "" et ne se devine pas — c'est la meme discipline que le
 comblage de `series`, et la meme lecon que `verifier_churn`.
 """
+import collections
 import csv
 
 import pytest
 
 from scraper.export_elements_v3 import (
     ENTETE, OFFCHAIN_COLS, SRC_CHAINE, SRC_INCONNU, SRC_TRACKER, VOCAB_SOURCE,
-    balayage_integral,
+    appliquer_backfill_source, balayage_integral, charger_backfill_source,
     charger_graine, combler_depuis_officiel, combler_series, compter_sources,
     construire_v3, ecrire, fusion, reattacher_offchain, resoudre_source_inconnue,
     valider_sources,
@@ -183,6 +184,90 @@ def test_lelimination_ne_retouche_pas_une_provenance_deja_connue():
     assert rows[0][I_SRC] == SRC_CHAINE
 
 
+# --- le rattrapage de l'herite (instantane du 28/07/2026) ------------------
+
+def _table(tmp_path, lignes, gz=True):
+    import gzip as _gz
+    p = tmp_path / ("t.csv.gz" if gz else "t.csv")
+    ouvre = _gz.open if gz else open
+    with ouvre(p, "wt", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["veve_uuid", "source"])
+        w.writerows(lignes)
+    return str(p)
+
+
+def test_le_rattrapage_pose_la_provenance_des_lignes_heritees(tmp_path):
+    r1, r2 = ligne_heritee("u1"), ligne_heritee("u2")
+    combler_series([r1, r2])
+    t = charger_backfill_source(
+        _table(tmp_path, [("u1", SRC_CHAINE), ("u2", SRC_TRACKER)]))
+    assert appliquer_backfill_source([r1, r2], t) == {SRC_CHAINE: 1,
+                                                     SRC_TRACKER: 1}
+    assert r1[I_SRC] == SRC_CHAINE and r2[I_SRC] == SRC_TRACKER
+
+
+def test_le_rattrapage_n_EXTRAPOLE_pas():
+    # ⛔ La table est un INSTANTANE de lignes precises, pas la regle « tout ce
+    # qui n'y est pas vient du tracker ». Sinon une graine restauree d'une
+    # vieille sauvegarde se ferait massivement estampiller en silence.
+    r = ligne_heritee("u_absent_de_la_table")
+    combler_series([r])
+    assert appliquer_backfill_source([r], {"u1": SRC_CHAINE}) == {SRC_CHAINE: 0,
+                                                                 SRC_TRACKER: 0}
+    assert r[I_SRC] == SRC_INCONNU
+
+
+def test_le_rattrapage_n_ecrase_jamais_une_provenance_prouvee():
+    # La moisson fait foi : si le run a VU l'objet, la table de 28/07 ne peut
+    # pas le contredire.
+    rows = construire_v3({"u1": brut("u1")}, {})
+    assert appliquer_backfill_source(rows, {"u1": SRC_TRACKER}) == {
+        SRC_CHAINE: 0, SRC_TRACKER: 0}
+    assert rows[0][I_SRC] == SRC_CHAINE
+
+
+def test_le_rattrapage_est_idempotent(tmp_path):
+    r = ligne_heritee("u1")
+    combler_series([r])
+    t = charger_backfill_source(_table(tmp_path, [("u1", SRC_CHAINE)]))
+    assert appliquer_backfill_source([r], t)[SRC_CHAINE] == 1
+    assert appliquer_backfill_source([r], t)[SRC_CHAINE] == 0
+
+
+@pytest.mark.parametrize("gz", [True, False])
+def test_la_table_se_lit_gzippee_ou_non(tmp_path, gz):
+    assert charger_backfill_source(
+        _table(tmp_path, [("u1", SRC_CHAINE)], gz)) == {"u1": SRC_CHAINE}
+
+
+def test_une_table_absente_ne_casse_rien_et_DIT_ou_elle_a_cherche(capsys):
+    # ⭐ Un module qui reclame un fichier sans dire lequel a deja coute un 1er
+    # run en echec (lecon du 28/07 sur le corpus Medium).
+    assert charger_backfill_source("/introuvable/table.csv.gz") == {}
+    assert "/introuvable/table.csv.gz" in capsys.readouterr().err
+
+
+def test_une_valeur_hors_vocabulaire_dans_la_table_est_IGNOREE(tmp_path):
+    t = charger_backfill_source(_table(tmp_path, [("u1", "on-chain"),
+                                                  ("u2", SRC_CHAINE)]))
+    assert t == {"u2": SRC_CHAINE}
+
+
+def test_la_vraie_table_livree_est_coherente():
+    """Le fichier EMBARQUE dans le lot, pas une invention de test."""
+    import pathlib
+    p = (pathlib.Path(__file__).resolve().parents[1]
+         / "data" / "source_backfill_2026-07-28.csv.gz")
+    if not p.exists():                      # depot sans la donnee : on n'echoue pas
+        pytest.skip("table de rattrapage absente du depot")
+    t = charger_backfill_source(str(p))
+    n = collections.Counter(t.values())
+    assert len(t) == 7794, "l'instantane porte les 7 794 lignes INCONNUES du run #14"
+    assert n[SRC_CHAINE] == 7658 and n[SRC_TRACKER] == 136
+    assert all(len(u) == 36 and u == u.lower() for u in t)
+
+
 # --- les garde-fous ---------------------------------------------------------
 
 def test_valider_sources_refuse_une_provenance_inventee():
@@ -316,6 +401,8 @@ def _decor(tmp_path, monkeypatch, mode, state=None):
     monkeypatch.setattr(v3, "CSV_V3", str(graine))
     monkeypatch.setattr(v3, "CSV_OFFICIEL", str(officiel))
     monkeypatch.setattr(v3, "STATE_V3", str(st))
+    # hermetique : le bout-en-bout teste l'ELIMINATION, pas la table du 28/07.
+    monkeypatch.setattr(v3, "BACKFILL_SOURCE", str(tmp_path / "pas_de_table.csv.gz"))
     monkeypatch.setenv("ELEMENTS_V3_MODE", mode)
     monkeypatch.setenv("ELEMENTS_V3_ACCUMULATE", "1")
     monkeypatch.setenv("ELEMENTS_V3_TIME_BUDGET_MIN", "0")

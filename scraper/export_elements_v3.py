@@ -42,6 +42,7 @@ n'importe quel iterable de transferts bruts (API live, JSONL moissonne...).
 from __future__ import annotations
 
 import csv
+import gzip
 import os
 import re
 import sys
@@ -83,6 +84,12 @@ SRC_CHAINE = "chaine"
 SRC_TRACKER = "tracker"
 SRC_INCONNU = ""
 VOCAB_SOURCE = (SRC_CHAINE, SRC_TRACKER, SRC_INCONNU)
+
+# Table de RATTRAPAGE de la provenance, etablie le 28/07/2026 (cf.
+# `appliquer_backfill_source`). Un INSTANTANE, pas une regle : elle ne porte que
+# les 7 794 lignes qui etaient INCONNUES apres le run #14, et rien d'autre.
+BACKFILL_SOURCE = os.environ.get("ELEMENTS_V3_BACKFILL_SOURCE",
+                                 "data/source_backfill_2026-07-28.csv.gz")
 
 CSV_V3 = os.environ.get("ELEMENTS_V3", "data/elements_v3.csv")
 CSV_OFFICIEL = os.environ.get("ELEMENTS_CSV", "data/elements.csv")
@@ -430,6 +437,71 @@ def combler_depuis_officiel(rows: List[List],
     return rows
 
 
+def charger_backfill_source(chemin: str) -> Dict[str, str]:
+    """{veve_uuid: source} de la table de rattrapage. {} si absente.
+
+    Accepte .csv comme .csv.gz. DIT OU ELLE A CHERCHE quand elle ne trouve pas :
+    un module qui reclame un fichier sans dire lequel a deja coute un 1er run.
+    """
+    if not os.path.exists(chemin):
+        print(f"  backfill source : table absente ({os.path.abspath(chemin)}) — "
+              f"aucun rattrapage, l'INCONNU reste INCONNU.", file=sys.stderr)
+        return {}
+    ouvre = gzip.open if chemin.endswith(".gz") else open
+    out: Dict[str, str] = {}
+    with ouvre(chemin, "rt", encoding="utf-8") as f:      # type: ignore[operator]
+        for r in csv.DictReader(f):
+            uid = (r.get("veve_uuid") or "").strip().lower()
+            src = (r.get("source") or "").strip()
+            if uid and src in (SRC_CHAINE, SRC_TRACKER):
+                out[uid] = src
+    return out
+
+
+def appliquer_backfill_source(rows: List[List],
+                              table: Dict[str, str]) -> Dict[str, int]:
+    """Pose la provenance des lignes HERITEES depuis l'instantane du 28/07/2026.
+
+    ── D'OU VIENT CETTE TABLE, ET POURQUOI ELLE EST FIABLE ──────────────────
+    Le run #14 (mode `integral`) a prouve la provenance de 11 467 lignes en
+    moissonnant 3 mois de chaine — puis il a tape le plafond de 20 000 pages.
+    Descendre jusqu'a la genese CollectChain n'etait pas l'affaire d'un run :
+    le versement de MIGRATION du 28/01/2026 pese a lui seul 12,05 MILLIONS de
+    transferts (les autres mois : 121 000 a 756 000), soit ~236 000 pages. Une
+    douzaine de dispatches pour re-apprendre ce qu'on sait deja.
+
+    L'archive locale des transferts CollectChain repond a la meme question hors
+    ligne — et le run #14 l'a VALIDEE, ligne a ligne :
+      * aucune des 11 467 lignes prouvees `chaine` ne manque a l'archive, sauf
+        222 drops posterieurs au 15/07 (sa date d'arret) : 0 contre-exemple ;
+      * son angle mort (apres le 15/07) et l'ensemble a classer (rien depuis
+        3 mois) NE SE RECOUVRENT PAS — c'est ce qui la rend valide ici, alors
+        qu'elle ne l'etait pas pour classer les lignes recentes ;
+      * l'invariant de composition (`name == "{brand} #{n} (annee)"`) echoue sur
+        16 des 136 lignes que l'archive dit `tracker`, et sur 0 des 11 467
+        prouvees `chaine`. Deux instruments independants, meme verdict.
+
+    ── CE QUE CETTE FONCTION NE FAIT PAS ────────────────────────────────────
+    ⛔ Elle n'EXTRAPOLE jamais : un uuid absent de la table reste INCONNU. La
+    table est un instantane de 7 794 lignes precises, pas la regle « tout ce qui
+    n'est pas dans l'archive est du tracker » — sinon un jour une graine
+    restauree d'une vieille sauvegarde se ferait massivement estampiller.
+    ⛔ Elle n'ECRASE jamais une provenance deja connue : la moisson fait foi.
+    """
+    i_src = ENTETE.index("source")
+    n = {SRC_CHAINE: 0, SRC_TRACKER: 0}
+    if not table:
+        return n
+    for r in rows:
+        if (r[i_src] or "") != SRC_INCONNU:
+            continue
+        s = table.get((r[0] or "").strip().lower())
+        if s:
+            r[i_src] = s
+            n[s] += 1
+    return n
+
+
 def balayage_integral(meta: Dict[str, Any], start_params: Any) -> bool:
     """Ce run a-t-il vu TOUTE la chaine ? La question qui autorise l'elimination.
 
@@ -596,7 +668,16 @@ def main() -> int:
     # rapatrié dont l'off-chain serait vide). No-op si pas d'officiel (astronema).
     rows = reattacher_offchain(rows, officiel)
 
-    # ── PROVENANCE : lever l'INCONNU, mais SEULEMENT si la machine l'a prouve.
+    # ── PROVENANCE, 1/2 : le RATTRAPAGE de l'herite (instantane du 28/07/2026).
+    # Ne touche QUE les lignes encore INCONNUES, et seulement celles que la table
+    # nomme. Idempotent : une fois posees, elles ne repassent plus ici.
+    bf = appliquer_backfill_source(rows, charger_backfill_source(BACKFILL_SOURCE))
+    if bf[SRC_CHAINE] or bf[SRC_TRACKER]:
+        print(f"  backfill source : {bf[SRC_CHAINE]} ligne(s) heritee(s) posees "
+              f"en 'chaine', {bf[SRC_TRACKER]} en 'tracker' (instantane du "
+              f"28/07/2026, aucune extrapolation).", flush=True)
+
+    # ── PROVENANCE, 2/2 : lever l'INCONNU restant, si la machine l'a prouve.
     # Les lignes heritees d'une graine ecrite avant le 28/07/2026 sont INCONNUES
     # et le restent, run apres run, tant qu'un balayage INTEGRAL parti du SOMMET
     # n'a pas tranche. Les deux conditions sont VERIFIEES ici, pas declarees par
