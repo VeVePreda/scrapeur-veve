@@ -45,6 +45,7 @@ ENV : SHEET_ID · GOOGLE_SERVICE_ACCOUNT_JSON · MEDIUM_BLOG_CORPUS
 
 from __future__ import annotations
 
+import gzip
 import json
 import os
 import re
@@ -103,12 +104,39 @@ def _temps_de_lecture(texte: str) -> str:
     return "%s min" % m.group(1) if m else ""
 
 
+def trouver_corpus(chemin: str) -> str:
+    """Le corpus, gzippé ou non, aux endroits où il peut raisonnablement être.
+
+    ⭐ Pourquoi cette fonction existe : le 1er run a échoué sur « corpus
+    introuvable », parce que le zip livré ne contenait pas le corpus et que
+    l'utilisateur devait aller le chercher ailleurs. Un module qui exige un
+    fichier doit savoir le trouver — et, à défaut, DIRE où il a cherché.
+    """
+    candidats = [chemin, chemin + ".gz",
+                 "data/medium_corpus.jsonl", "data/medium_corpus.jsonl.gz",
+                 "Archive/medium/medium_corpus.jsonl"]
+    for c in candidats:
+        if os.path.exists(c):
+            return c
+    print("⛔ corpus introuvable. Cherché, dans l'ordre :", flush=True)
+    for c in candidats:
+        print("     %s" % c)
+    print("   dossier courant : %s" % os.getcwd())
+    if os.path.isdir("data"):
+        vus = sorted(f for f in os.listdir("data") if "medium" in f.lower())
+        print("   dans data/, fichiers « medium » : %s" % (vus or "AUCUN"))
+    return ""
+
+
 def lignes_depuis_corpus(chemin: str) -> List[Dict[str, Any]]:
-    if not os.path.exists(chemin):
-        print("⛔ corpus introuvable : %s" % chemin, flush=True)
+    chemin = trouver_corpus(chemin)
+    if not chemin:
         return []
+    print("📖 corpus lu : %s" % chemin, flush=True)
+    ouvrir = (lambda p: gzip.open(p, "rt", encoding="utf-8")) \
+        if chemin.endswith(".gz") else (lambda p: open(p, encoding="utf-8"))
     out: List[Dict[str, Any]] = []
-    with open(chemin, encoding="utf-8") as f:
+    with ouvrir(chemin) as f:
         for ligne in f:
             ligne = ligne.strip()
             if not ligne:
