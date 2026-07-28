@@ -36,6 +36,8 @@ from __future__ import annotations
 
 import datetime as _dt
 import re
+import os
+import csv
 import time
 from typing import Any, Dict, List, Optional, Set
 
@@ -435,6 +437,39 @@ def _date_iso(v: Any) -> str:
     return t[:10]                                     # ISO avec une heure collee
 
 
+DATES_CORRIGEES = "data/blog_dates_corrigees.csv"
+
+
+def _dates_corrigees() -> Dict[str, str]:
+    """slug -> vraie date de parution, pour les articles REIMPORTES sur veve.me.
+
+    ⭐⭐ CE QUE CE FICHIER REPARE (mesure le 28/07/2026). 341 articles de
+    veve.me — 33 % du blog — portent tous la meme date : 2024-03-03. Ce n'est
+    pas leur parution, c'est le jour ou VeVe a reimporte son archive sur son
+    site. `blog.py` recopiait fidelement ce faux, puisqu'il lit ce que la page
+    affiche. L'archive Medium, elle, porte la vraie date.
+
+    ⛔ 62 lignes seulement sont corrigees : celles datees EXACTEMENT du
+    2024-03-03 et dont le titre correspond a un article Medium. 7 autres
+    articles existent aussi des deux cotes mais portent deja une date propre —
+    parfois ANTERIEURE a celle de Medium — donc on n'y touche pas. Corriger sur
+    la seule correspondance de titre aurait ecrase 7 dates justes.
+
+    Fichier absent = aucune correction, et le module tourne normalement.
+    Supprimer le fichier suffit a tout annuler au run suivant.
+    """
+    out: Dict[str, str] = {}
+    if not os.path.exists(DATES_CORRIGEES):
+        return out
+    with open(DATES_CORRIGEES, encoding="utf-8", newline="") as f:
+        for row in csv.DictReader(f):
+            sid = str(row.get("slug", "")).strip()
+            d = _date_iso(str(row.get("date", "")).strip())
+            if sid and d:
+                out[sid] = d
+    return out
+
+
 def _read_existing(ws) -> Dict[str, Dict[str, Any]]:
     existing: Dict[str, Dict[str, Any]] = {}
     if ws.row_count > 1:
@@ -502,6 +537,18 @@ def sync_blog(articles: List[Dict[str, Any]], spreadsheet_id: str) -> Dict[str, 
     #    que le Sheet a bien voulu afficher — pas sur la donnee.
     for rec in merged.values():
         rec["date"] = _date_iso(rec.get("date"))
+
+    # ⭐⭐ Les dates de REIMPORT, corrigees depuis l'archive Medium.
+    #    Pourquoi ici et pas une retouche ponctuelle du Sheet : ce module
+    #    re-aspire veve.me tous les jours et ECRASE toute valeur non vide. Une
+    #    correction faite a la main dans l'onglet serait defaite au run suivant,
+    #    en silence. Appliquee ici, elle est idempotente et survit a tout.
+    corrections = _dates_corrigees()
+    n_corr = sum(1 for sid, rec in merged.items()
+                 if sid in corrections and rec.get("date") != corrections[sid]
+                 and not rec.update({"date": corrections[sid]}))
+    if corrections:
+        print(f"    dates corrigees depuis {DATES_CORRIGEES} : {n_corr}", flush=True)
 
     ordered = sorted(merged.values(),
                      key=lambda r: (str(r.get("date", "")), str(r.get("slug", ""))),
