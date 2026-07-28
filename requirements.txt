@@ -2,3 +2,11 @@ requests==2.32.3
 gspread==6.1.2
 google-auth==2.32.0
 beautifulsoup4==4.12.3
+# ⚠️ Pour le module Discord « calendrier » (et outils/calendrier.py) : rendu
+# SVG -> PNG, recadrage des couvertures, controle des glyphes.
+# cairosvg a besoin des bibliotheques cairo du SYSTEME : le workflow installe
+# libcairo2 AVANT le pip — elles ne sont pas garanties sur un runner nu, et
+# l'erreur ne sort qu'a l'import, donc en plein run.
+cairosvg==2.7.1
+Pillow==10.4.0
+fonttools==4.53.1
