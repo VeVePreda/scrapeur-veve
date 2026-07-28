@@ -46,7 +46,16 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 # En-tete identique v1/v2/v3.
 ENTETE = ["veve_uuid", "series_uuid", "name", "category", "rarity",
           "edition_type", "supply", "first_public", "listings", "note",
-          "brand", "licensor", "atl", "atl_date", "ath", "ath_date"]
+          "brand", "licensor", "atl", "atl_date", "ath", "ath_date",
+          # 🆕 17e colonne (28/07/2026) — LA SERIE ON-CHAIN.
+          # `catalogue_from_instance` la calculait deja (`md.series`) mais
+          # l'export la JETAIT : elle ne servait qu'au MAX-par-serie des comics.
+          # Or c'est LA colonne qui commande les adresses des 15 sites
+          # (/comics/<slug(serie)>/<rarete>/). Sans elle, pipeline 2 ne peut pas
+          # basculer. Ajoutee EN FIN : les index de `reattacher_offchain` et
+          # l'ordre des 16 premieres colonnes ne bougent pas d'un octet, et
+          # `compare_elements` lit par NOM (DictReader) — il l'ignore.
+          "series"]
 
 CSV_V3 = os.environ.get("ELEMENTS_V3", "data/elements_v3.csv")
 CSV_OFFICIEL = os.environ.get("ELEMENTS_CSV", "data/elements.csv")
@@ -230,12 +239,55 @@ def construire_v3(catalogue: Dict[str, Dict[str, Any]],
             (off.get("atl_date") or "").strip(),
             (off.get("ath") or "").strip(),
             (off.get("ath_date") or "").strip(),
+            c["series"],                               # 🆕 CHAINE
         ])
     rows.sort(key=lambda l: (l[3], l[6] if l[6] != "" else 0, l[2]))
     return rows
 
 
+def combler_series(rows: List[List]) -> int:
+    """Remplit `series` la ou elle manque, SANS remoissonner. Rend le nb rempli.
+
+    Pourquoi c'est necessaire : les lignes venues d'une GRAINE ecrite avant le
+    28/07/2026, ou reprises du tracker par `combler_depuis_officiel`, n'ont
+    aucune serie. Sans ce comblage il faudrait une moisson COMPLETE (~2 h 31)
+    juste pour repeupler une colonne — alors que la couverture chaine est deja
+    a 99,4 %.
+
+    REGLE, et sa preuve :
+      * COMIC -> `series = brand`. Ce n'est pas une approximation : dans
+        `catalogue_from_instance`, `brand` EST affecte depuis la meme variable
+        `series` (`brand = series`). Les deux colonnes portent le meme texte.
+      * COLLECTIBLE -> on ne devine RIEN, on laisse vide. `brand` y vaut
+        `md.brand`, qui n'est PAS la serie : s'en servir deplacerait 92,4 % des
+        adresses de collectibles pour rien (mesure du 28/07). Une valeur vide
+        laisse le consommateur retomber sur le Sheet — dont la serie coincide
+        avec la chaine a 100 % pour les collectibles (mesure du 28/07).
+
+    ⭐ Un trou n'est pas une information : on ne comble que ce qu'on peut PROUVER.
+    """
+    i_cat, i_brand, i_ser = (ENTETE.index("category"), ENTETE.index("brand"),
+                             ENTETE.index("series"))
+    n = 0
+    for r in rows:
+        while len(r) < len(ENTETE):        # ligne d'une graine a 16 colonnes
+            r.append("")
+        if not (r[i_ser] or "").strip() and (r[i_cat] or "").strip() == "comic":
+            b = (r[i_brand] or "").strip()
+            if b:
+                r[i_ser] = b
+                n += 1
+    return n
+
+
 def ecrire(rows: List[List], chemin: str) -> None:
+    # Point de passage UNIQUE de toutes les ecritures (flush de secours compris)
+    # : c'est ici que le comblage de serie s'applique, pour qu'aucun chemin de
+    # code ne puisse produire un CSV a la serie trouee.
+    n = combler_series(rows)
+    if n:
+        print(f"  serie : {n} comic(s) completes depuis brand "
+              f"(meme texte on-chain, aucune moisson requise).", flush=True)
     os.makedirs(os.path.dirname(chemin) or ".", exist_ok=True)
     with open(chemin, "w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
