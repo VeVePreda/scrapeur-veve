@@ -388,6 +388,53 @@ def _open(spreadsheet_id: str):
     return sh, ws
 
 
+def _date_iso(v: Any) -> str:
+    """Ramene une date a 'AAAA-MM-JJ', quelle que soit sa forme dans le Sheet.
+
+    ⭐⭐ POURQUOI (incident du 28/07/2026). `sync_blog` triait sur `str(date)`.
+    Or le Sheet ne rend PAS toutes les lignes de la meme facon : certaines
+    reviennent en ISO ('2026-07-24'), d'autres au format FR ('31/10/2022'), et
+    une cellule formatee en date peut revenir en NOMBRE DE SERIE (45016).
+    Trier ces chaines revient a trier '31/10/2022' AVANT '2026-07-24' — c'est a
+    dire par JOUR d'abord. Symptome vu par Preda : des articles de 2022 en tete
+    de l'onglet, tous datant d'un 31 ou d'un 30.
+
+    Tant que l'onglet n'avait qu'une seule source, les chaines etaient
+    homogenes et le tri semblait juste : le defaut existait deja, il ne se
+    VOYAIT pas. Verser une 2e source l'a revele.
+
+    ⚠️ Le format FR est JJ/MM/AAAA. C'est la locale du Sheet, pas une
+    supposition : blog.py n'ecrit QUE de l'ISO, donc toute forme a slashs qui
+    revient est un rendu du Sheet.
+    """
+    if v in (None, ""):
+        return ""
+    if isinstance(v, _dt.datetime):
+        return v.date().isoformat()
+    if isinstance(v, _dt.date):
+        return v.isoformat()
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        # numero de serie Sheets : le jour 0 est le 30/12/1899
+        try:
+            return (_dt.date(1899, 12, 30)
+                    + _dt.timedelta(days=int(v))).isoformat()
+        except (ValueError, OverflowError):
+            return ""
+    t = str(v).strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", t):
+        return t
+    m = re.fullmatch(r"(\d{1,2})[/-](\d{1,2})[/-](\d{4})", t)
+    if m:
+        j, mo, a = (int(x) for x in m.groups())
+        try:
+            return _dt.date(a, mo, j).isoformat()
+        except ValueError:
+            return ""
+    if re.fullmatch(r"\d{4,6}(\.\d+)?", t):          # serie arrivee en texte
+        return _date_iso(float(t))
+    return t[:10]                                     # ISO avec une heure collee
+
+
 def _read_existing(ws) -> Dict[str, Dict[str, Any]]:
     existing: Dict[str, Dict[str, Any]] = {}
     if ws.row_count > 1:
@@ -448,6 +495,13 @@ def sync_blog(articles: List[Dict[str, Any]], spreadsheet_id: str) -> Dict[str, 
             merged[sid] = rec
             added += 1
             new_titles.append(art.get("title", "") or sid)
+
+    # ⭐ On NORMALISE la date avant de trier, et on ecrit la forme normalisee :
+    #    l'onglet se repare donc tout seul au premier passage, et il reste
+    #    homogene ensuite. Trier sur le rendu d'une cellule, c'est trier sur ce
+    #    que le Sheet a bien voulu afficher — pas sur la donnee.
+    for rec in merged.values():
+        rec["date"] = _date_iso(rec.get("date"))
 
     ordered = sorted(merged.values(),
                      key=lambda r: (str(r.get("date", "")), str(r.get("slug", ""))),
