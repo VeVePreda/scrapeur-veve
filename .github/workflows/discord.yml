@@ -10,6 +10,13 @@ name: Hub Discord
 #   retour -> 24 h apres un drop, le post « 🔍 RETOUR DROP » : ventes reelles
 #            (mints on-chain), taux d'ecoulement, note de classement, et le
 #            SONDAGE de la carte d'annonce relu par le bot et confronte aux faits
+#   calendrier -> le PNG du calendrier des drops, TELEVERSE chaque SAMEDI dans
+#            le salon de CHAQUE marque (VeVe France, VeVe Insights), avec son
+#            propre webhook et sa propre langue. Le module se garde lui-meme au
+#            samedi et retient la semaine ISO publiee.
+#            ⚠️ Seul module qui a besoin de cairo (SVG -> PNG) : d'ou l'etape
+#            `apt-get install libcairo2` ci-dessous. Sans elle, l'import de
+#            cairosvg echoue EN PLEIN RUN, pas au pip.
 # Ajouter un module demain = une ligne dans scraper/discord_hub.py. Rien ici.
 #
 # ⚠️ REMPLACE `stats-discord.yml` — SUPPRIME l'ancien fichier, sinon les stats
@@ -37,10 +44,11 @@ on:
       modules:
         description: "Modules a lancer"
         required: false
-        default: "stats,blog,drops,retour,feed,veille"
+        default: "stats,blog,drops,retour,feed,veille,calendrier"
         type: choice
-        options: ["stats,blog,drops,retour,feed,veille", "stats", "blog",
-                  "drops", "retour", "feed", "veille", "drops,retour"]
+        options: ["stats,blog,drops,retour,feed,veille,calendrier", "stats",
+                  "blog", "drops", "retour", "feed", "veille", "calendrier",
+                  "drops,retour"]
       blocs:
         description: "Stats : quels messages (annees,mois,jours_court,jours)"
         required: false
@@ -67,6 +75,12 @@ on:
         default: "false"
         type: choice
         options: ["false", "true"]
+      forcer_calendrier:
+        description: "Calendrier : publier meme si on n'est pas samedi (et rejouer la semaine)"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
 
 permissions:
   contents: write
@@ -86,6 +100,14 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+
+      # ⚠️ cairosvg s'installe tres bien par pip SANS que cairo soit present :
+      # l'echec n'arrive qu'a l'IMPORT, donc en plein run, et seulement le jour
+      # ou le module calendrier tourne (le samedi). On installe la lib systeme
+      # ici, une fois pour toutes — 2 s, et un mode de panne en moins.
+      - name: Bibliotheques cairo (module calendrier)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libcairo2
+
       - run: pip install -r requirements.txt
 
       - name: Hub Discord
@@ -157,6 +179,26 @@ jobs:
           DISCORD_CANDY_WEBHOOK: ${{ secrets.DISCORD_CANDY_WEBHOOK }}
           DISCORD_CANDY_THREAD: ${{ vars.DISCORD_CANDY_THREAD || '1526846817931755652' }}
           DISCORD_CANDY_ROLE: ${{ vars.DISCORD_CANDY_ROLE || '' }}
+          # ═══ CALENDRIER — le PNG des drops, chaque SAMEDI, une marque = un salon ═══
+          # UN WEBHOOK PAR MARQUE : les deux marques sont dans DEUX serveurs
+          # differents. Tant qu'un secret est vide, la marque tourne en
+          # SIMULATION (l'image est fabriquee, rien n'est poste, l'etat n'est
+          # PAS ecrit) — de quoi verifier le rendu avant d'ouvrir le robinet.
+          DISCORD_CALENDRIER_WEBHOOK_VEVEFRANCE: ${{ secrets.DISCORD_CALENDRIER_WEBHOOK_VEVEFRANCE }}
+          DISCORD_CALENDRIER_WEBHOOK_VEVEINSIGHTS: ${{ secrets.DISCORD_CALENDRIER_WEBHOOK_VEVEINSIGHTS }}
+          # THREAD : à remplir SEULEMENT si le salon est un POST DE FORUM.
+          # Un salon normal se poste SANS thread_id (laisser vide).
+          DISCORD_CALENDRIER_THREAD_VEVEFRANCE: ${{ vars.DISCORD_CALENDRIER_THREAD_VEVEFRANCE || '' }}
+          DISCORD_CALENDRIER_THREAD_VEVEINSIGHTS: ${{ vars.DISCORD_CALENDRIER_THREAD_VEVEINSIGHTS || '' }}
+          # Vide = ne ping personne. Un id de role ici pour annoncer la sortie.
+          DISCORD_CALENDRIER_ROLE_VEVEFRANCE: ${{ vars.DISCORD_CALENDRIER_ROLE_VEVEFRANCE || '' }}
+          DISCORD_CALENDRIER_ROLE_VEVEINSIGHTS: ${{ vars.DISCORD_CALENDRIER_ROLE_VEVEINSIGHTS || '' }}
+          # 5 = samedi (lun=0 … dim=6). Le hub passe tous les jours : c'est le
+          # module qui se garde lui-meme, comme le feed du dimanche.
+          DISCORD_CALENDRIER_JOUR: ${{ vars.DISCORD_CALENDRIER_JOUR || '5' }}
+          DISCORD_CALENDRIER_SEMAINES: ${{ vars.DISCORD_CALENDRIER_SEMAINES || '5' }}
+          DISCORD_CALENDRIER_MARQUES: ${{ vars.DISCORD_CALENDRIER_MARQUES || 'vevefrance,veveinsights' }}
+          DISCORD_CALENDRIER_FORCE: ${{ github.event.inputs.forcer_calendrier || 'false' }}
         run: python -m scraper.discord_hub
 
       # L'etat porte les ids des messages (stats) et les slugs deja annonces
@@ -167,7 +209,10 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add data/discord_stats_state.json data/discord_blog_state.json data/discord_drops_state.json data/discord_retour_state.json data/discord_feed_state.json data/discord_veille_state.json 2>/dev/null || true
+          # ⚠️ `discord_calendrier_state.json` EST indispensable : c'est lui qui
+          # retient la semaine deja publiee. Non commite, le calendrier
+          # repartirait a chaque passage du samedi.
+          git add data/discord_stats_state.json data/discord_blog_state.json data/discord_drops_state.json data/discord_retour_state.json data/discord_feed_state.json data/discord_veille_state.json data/discord_calendrier_state.json 2>/dev/null || true
           git diff --cached --quiet || git commit -m "discord: etats (ids des messages, slugs annonces)"
           # ⚠️ REBASER + REESSAYER : un `git push || true` seul PERDAIT l'etat quand
           # un autre workflow (daily, etc.) avait pousse entre les 2 crons -> le run
