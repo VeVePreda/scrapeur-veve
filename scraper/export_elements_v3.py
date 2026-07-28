@@ -160,7 +160,10 @@ def catalogue_from_instance(inst: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         comic_no = str(md.get("comicNumber") or "").strip()
         start_year = str(md.get("startYear") or "").strip()
         # name = "{serie} #{numero} ({annee})" (calibre sur l'officiel 23/07).
-        name = f"{series} #{comic_no}"
+        # ⭐ SANS NUMERO, PAS DE `#` (28/07/2026). Composer `#` avec un numero
+        # vide fabriquait 76 noms comme 'DuckTales # (2024)'. Le `#` est un
+        # SEPARATEUR : sans ce qu'il separe, il ne veut plus rien dire.
+        name = f"{series} #{comic_no}" if comic_no else series
         if start_year:
             name = f"{name} ({start_year})"
         edition_type = comic_no                  # comics : edition_type = comicNumber
@@ -315,6 +318,45 @@ def combler_series(rows: List[List]) -> int:
     return n
 
 
+# Un `#` que RIEN ne suit (espace ou fin de chaine) : le separateur orphelin.
+_HASH_ORPHELIN = re.compile(r"\s*#(?=\s|$)")
+
+
+def corriger_hash_orphelin(rows: List[List]) -> int:
+    """Retire le `#` sans numero des noms de comics. Rend le nb corrige.
+
+    `catalogue_from_instance` compose `{serie} #{numero} ({annee})`. Quand la
+    chaine ne porte pas de `comicNumber`, le `#` restait quand meme : 76 noms
+    comme 'DuckTales # (2024)' (52 libelles distincts) au 28/07/2026.
+
+    Pourquoi une correction ICI et pas seulement a la composition : les lignes
+    deja ecrites viennent de la GRAINE. Sans ce rattrapage, il faudrait une
+    moisson complete — qu'on sait desormais hors de portee (cf. `integral`).
+
+    ⚠️ CE QUE CE CORRECTIF NE CHANGE PAS — les ADRESSES. La vraie `slugify` des
+    sites reduit `[^a-z0-9]+` a un seul tiret : 'DuckTales # (2024)' donne deja
+    `ducktales-2024`, exactement comme la version corrigee. Le `duck-tales--2024`
+    que je redoutais n'existe pas. C'est un defaut d'AFFICHAGE (cartes Discord,
+    titres des sites, newsletters), pas d'URL. Verifie dans `dataset.mjs`.
+
+    ⛔ On ne touche QUE le `#` orphelin : un `#` suivi d'un numero est l'ecriture
+    normale d'un comic et ne bouge pas d'un octet.
+    """
+    i_cat, i_nom = ENTETE.index("category"), ENTETE.index("name")
+    n = 0
+    for r in rows:
+        if (r[i_cat] or "").strip() != "comic":
+            continue
+        nom = r[i_nom] or ""
+        if not _HASH_ORPHELIN.search(nom):
+            continue
+        corrige = re.sub(r"\s{2,}", " ", _HASH_ORPHELIN.sub("", nom)).strip()
+        if corrige and corrige != nom:
+            r[i_nom] = corrige
+            n += 1
+    return n
+
+
 def compter_sources(rows: List[List]) -> Dict[str, int]:
     """{source: nb} sur les lignes. Rend la couverture chaine MESURABLE.
 
@@ -351,6 +393,10 @@ def ecrire(rows: List[List], chemin: str) -> None:
     if n:
         print(f"  serie : {n} comic(s) completes depuis brand "
               f"(meme texte on-chain, aucune moisson requise).", flush=True)
+    h = corriger_hash_orphelin(rows)
+    if h:
+        print(f"  nom : {h} comic(s) debarrasses d'un '#' sans numero "
+              f"(separateur orphelin — affichage, pas adresse).", flush=True)
     # ⛔ On ne DEVINE aucune provenance ici : `combler_series` a deja allonge les
     # lignes courtes (graine < 18 colonnes) avec des "" — soit exactement
     # INCONNU, qui est la verite pour elles.
