@@ -1,3 +1,11 @@
+# ⚠️ DEPOT : VeVePreda/scrapeur-veve   ·   CHEMIN : scraper/collectchain.py
+#
+# ⛔ CE FICHIER EXISTE EN TROIS EXEMPLAIRES DIVERGENTS : ici (559 l.),
+# `astronema` et `paolo` (491 l. chacun). Aucun ne portait son adresse, si
+# bien que `etat_reel.py` ne pouvait pas dire lequel un zip visait. Cette
+# copie-ci est la seule instrumentee par la sentinelle (A4) ; les deux
+# autres servent la moisson lourde et gardent leur propre trajectoire.
+# ⛔ NE PAS deposer ce fichier dans astronema ni paolo.
 """
 CollectChain (collectscan.com) on-chain activity collector.
 
@@ -37,6 +45,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 import requests
+from scraper import sentinelle_sources as _ss   # 🩺 A4 : compter ce que la source repond
 
 # Les journees on-chain sont decoupees en heure PACIFIQUE (fuseau metier VeVe),
 # et plus en UTC (changement 2026-07-08 — re-backfill requis pour l'historique).
@@ -99,9 +108,12 @@ def _get(session: requests.Session, url: str, params: Dict[str, Any]) -> Dict[st
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             r = session.get(url, params=params, timeout=REQUEST_TIMEOUT)
+            _ss.noter_reponse("collectscan", r)      # 🩺 avant raise_for_status
             r.raise_for_status()
             return r.json()
         except Exception as e:
+            if not isinstance(e, requests.HTTPError):
+                _ss.noter_reponse("collectscan", erreur=e)
             last = e
             wait = RETRY_BACKOFF * attempt
             print(f"    request failed ({attempt}/{MAX_RETRIES}): {e} — retry in {wait}s",

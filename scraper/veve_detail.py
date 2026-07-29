@@ -26,6 +26,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
 
 import requests
+from scraper import sentinelle_sources as _ss   # 🩺 A4 : compter ce que la source repond
 
 GRAPHQL_URL = "https://web.api.prod.veve.me/graphql"
 
@@ -140,6 +141,15 @@ def _session() -> requests.Session:
     if s is None:
         s = requests.Session()
         s.headers.update(HEADERS)
+        # 🩺 A4 — ON INSTRUMENTE LA FABRIQUE, PAS LES CINQ COPIES.
+        # `GRAPHQL_URL` est interroge a CINQ endroits de ce fichier, tous de
+        # la meme forme. Coudre les cinq a la main, c'est se donner cinq
+        # occasions d'en oublier un — et un site oublie ne fait pas d'erreur,
+        # il rend juste la source invisible a la sentinelle. Un hook de
+        # reponse voit TOUTES les requetes de cette session, y compris celles
+        # qu'on ajoutera demain sans y penser.
+        s.hooks.setdefault("response", []).append(
+            lambda r, *a, **k: _ss.noter_reponse("veve_graphql", r))
         if _use_proxy:
             px = _proxies()
             if px:
@@ -149,7 +159,12 @@ def _session() -> requests.Session:
 
 
 def _maybe_disable_proxy(exc: Exception) -> None:
-    """If a proxy/tunnel error occurs mid-run, drop the proxy and go direct."""
+    """If a proxy/tunnel error occurs mid-run, drop the proxy and go direct.
+
+    🩺 A4 : c'est aussi l'ENTONNOIR des echecs reseau de ce module — les cinq
+    blocs `except` l'appellent, et lui seul. Une requete qui n'a jamais abouti
+    n'a pas declenche le hook de reponse : c'est ici qu'elle se compte."""
+    _ss.noter_reponse("veve_graphql", erreur=exc)
     global _use_proxy
     name = exc.__class__.__name__
     if _use_proxy and ("Proxy" in name or "Tunnel" in str(exc) or "proxy" in str(exc).lower()):

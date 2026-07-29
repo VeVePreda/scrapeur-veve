@@ -28,6 +28,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 import requests
+from scraper import sentinelle_sources as _ss   # 🩺 A4 : compter ce que la source repond
 
 API_BASE = "https://my-nft-tracker-backend.azurewebsites.net"
 NFTS_URL = f"{API_BASE}/api/Nfts"
@@ -79,9 +80,17 @@ def _get(session: requests.Session, params: Dict[str, Any],
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             r = session.get(NFTS_URL, params=params, timeout=REQUEST_TIMEOUT)
+            # 🩺 AVANT `raise_for_status()` : apres, le code est devenu une
+            # exception et un 429 ne se distingue plus d'un timeout.
+            _ss.noter_reponse("tracker", r)
             r.raise_for_status()
             return r.json()
         except Exception as e:  # network hiccup / 5xx / throttling
+            # La requete n'a pas abouti du tout (timeout, DNS) : `noter_reponse`
+            # a deja vu la reponse si elle existait, donc on ne note ici que
+            # l'absence de reponse — sinon on compterait deux fois.
+            if not isinstance(e, requests.HTTPError):
+                _ss.noter_reponse("tracker", erreur=e)
             last_err = e
             if attempt == MAX_RETRIES:
                 break

@@ -46,6 +46,7 @@ from typing import Any, Dict, List
 from zoneinfo import ZoneInfo
 
 import requests
+from scraper import sentinelle_sources as _ss   # 🩺 A4 : compter ce que la source repond
 
 BASE = "https://www.stackr.world/api/trpc/"
 PT = ZoneInfo("America/Los_Angeles")
@@ -85,6 +86,7 @@ def _get(op: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         t_req = time.time()
         try:
             r = requests.get(url, headers=_headers(), timeout=tmo)
+            _ss.noter_reponse("stackr", r)           # 🩺 le code est encore la
             if r.status_code == 200 and "json" in r.headers.get(
                     "content-type", ""):
                 return r.json()
@@ -92,6 +94,7 @@ def _get(op: str, payload: Dict[str, Any]) -> Dict[str, Any]:
                                          r.headers.get("content-type", ""),
                                          r.text[:120])
         except Exception as e:
+            _ss.noter_reponse("stackr", erreur=e)    # 🩺 aucune reponse du tout
             last = "%s (apres %.0fs)" % (type(e).__name__, time.time() - t_req)
         print("    %s tentative %d/4 KO : %s — nouvel essai dans %ds..."
               % (op.split(".")[-1], attempt, last, 5 * attempt), flush=True)
