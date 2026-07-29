@@ -1,3 +1,7 @@
+# ⚠️ DEPOT : VeVePreda/scrapeur-veve   ·   CHEMIN : scraper/floors.py
+# Le projet vit sur 6 depots et DEUX comptes GitHub. Un fichier
+# depose au mauvais endroit ne provoque aucune erreur : il dort.
+
 """
 Collectible FLOOR sync — dedicated per-type script (COLLECTIBLES only, once a day).
 
@@ -45,13 +49,33 @@ def main() -> int:
         return 2
     max_items = int(os.environ.get("FLOORS_MAX", "0") or "0")
 
-    # 🌉 LE PONT (15/07) : le floor collectible peut etre CEDE au pont veille→
+    # 🌉 LE PONT (15/07) : le floor collectible est CEDE au pont veille→
     # 🟠H-PRIX (jetonveve, horaire). Ici on garde le meme fichier, mais on
     # n'ecrit plus `market_lowestOffer` : une seule source par champ (le pont),
     # zero course sur _DynState. `market_totalListings` reste ecrit ici (le pont
-    # ne le connait pas). FLOORS_FLOOR_SOURCE=bridge pour ceder ; "self" (defaut)
-    # = comportement historique, tant que le pont n'est pas verifie.
-    cede_floor = os.environ.get("FLOORS_FLOOR_SOURCE", "self").lower() == "bridge"
+    # ne le connait pas).
+    #
+    # ⭐ LE DEFAUT EST PASSE DE "self" A "bridge" LE 29/07 — la verification que
+    # ce commentaire attendait (« tant que le pont n'est pas verifie ») a ete
+    # FAITE, sur les donnees reelles de 🟠H-PRIX (115 303 lignes, snapshot du
+    # 19/07) et sur le feed du pont (8 291 lignes, 1 848 uuid) :
+    #
+    #   · LE DOUBLON EST REEL. Les deux sources ecrivaient le MEME champ, et
+    #     `sync_dynamic` dedoublonne par uuid SANS colonne de provenance : une
+    #     divergence entre les deux fournisseurs compte donc comme un
+    #     « changement » et s'append. Mesure du va-et-vient A→B→A :
+    #     0,11 % des transitions AVANT le pont, 0,66 % APRES — x6.
+    #     Petit en absolu (6 lignes sur 5 jours), mais c'est un mecanisme qui
+    #     ne peut que grossir, et il salit une serie temporelle.
+    #   · CEDER NE FAIT PERDRE AUCUNE COUVERTURE. C'etait LA question, parce
+    #     que floors.py sait retomber sur le tracker quand VeVe n'a pas encore
+    #     de floor (item encore en vente). Le pont couvre les deux segments au
+    #     MEME taux : 72,6 % des items encore en vente, 73,8 % des sold out.
+    #     Il n'y a pas de trou a boucher.
+    #
+    # Reversible d'un geste : FLOORS_FLOOR_SOURCE=self (champ de lancement ou
+    # variable de depot) rend le floor a floors.py.
+    cede_floor = os.environ.get("FLOORS_FLOOR_SOURCE", "bridge").lower() != "self"
     print(f"Floor collectible : source = {'PONT (cede)' if cede_floor else 'floors.py'}.",
           flush=True)
 
