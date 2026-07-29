@@ -37,6 +37,21 @@ name: Pont elements v3 (catalogue depuis la chaine — moisson silence)
 # type n'est reperdu et qu'aucune page n'est re-balayee inutilement entre dispatches.
 
 on:
+  # ⭐ CRON AJOUTE LE 29/07/2026. AVANT : dispatch seul — et comme
+  # `CATALOG_IDENTITE_CHAINE` est passe a 1 en production, `catalogue-export`
+  # sert l'identite on-chain DEPUIS UN FICHIER QUE PLUS RIEN NE RAFRAICHISSAIT.
+  # Les items frappes depuis la derniere moisson retombaient sur l'identite du
+  # Sheet, en silence, run vert : « valide, seulement faux ».
+  #
+  # POURQUOI 03:30 : le mode `tete` dure ~2 h. Il finit vers 05:30, donc AVANT
+  # `catalogue-export` (06:41) qui telecharge la Release `elements-v3`. La
+  # marge est de ~1 h 10 sur un ordonnanceur qui derive de 2 a 3 h — si la
+  # derive mange la marge, catalogue-export lit la moisson DE LA VEILLE, ce qui
+  # est le comportement d'avant : degrade, jamais faux.
+  # ⛔ NE PAS rapprocher de 06:41 pour gagner de la fraicheur : on echangerait
+  #    une degradation lente contre une collision.
+  schedule:
+    - cron: "30 3 * * *"
   workflow_dispatch:
     inputs:
       mode:

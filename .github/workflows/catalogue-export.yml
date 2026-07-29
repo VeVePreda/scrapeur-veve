@@ -1,3 +1,13 @@
+# ⚠️ DEPOT : VeVePreda/scrapeur-veve   ·   CHEMIN : .github/workflows/catalogue-export.yml
+# Le projet vit sur 6 depots et DEUX comptes GitHub. Un fichier depose au
+# mauvais endroit ne provoque aucune erreur : il dort.
+#
+# 🔴 CE FICHIER A DEJA ETE DEPOSE UNE FOIS AU MAUVAIS ENDROIT (29/07/2026) :
+#    il est parti chez fanablefrance/jetonveve. Il n'y a rien casse — jetonveve
+#    n'a pas `scraper/catalog_export.py`, le run echoue avant de publier — mais
+#    la chaine est restee ouverte une journee entiere pendant que l'etat
+#    affichait « depose ». D'ou cet en-tete : sans lui, `etat_reel.py` ne peut
+#    PAS savoir dans quel depot ce fichier doit vivre.
 name: catalogue-export
 
 # Publie le catalogue (uuid -> nom, rarete, serie, tirage, store, floor du
@@ -10,7 +20,10 @@ name: catalogue-export
 on:
   workflow_dispatch:
   schedule:
-    - cron: "41 6 * * *"        # 06:41 UTC, apres le daily de 04:11
+    - cron: "41 6 * * *"        # 06:41 UTC, apres le daily (02:15 UTC)
+    # ⚠️ Le commentaire disait « apres le daily de 04:11 ». Le daily tourne a
+    #    02:15 depuis un moment : un commentaire qui donne une heure fausse sur
+    #    la chaine critique est pire que pas de commentaire. Corrige le 29/07/2026.
 
 permissions:
   contents: read
@@ -80,3 +93,53 @@ jobs:
           fi
           gh release upload catalogue -R $R catalogue.csv.gz --clobber
           echo "✅ Release catalogue mise a jour."
+
+      # =====================================================================
+      #  ⭐⭐ LE MAILLON LE PLUS SERRE DE LA CHAINE CRITIQUE
+      # =====================================================================
+      #  Chaine reelle des donnees :
+      #     daily (02:15, scrapeur-veve)  ecrit le Sheet
+      #       -> catalogue-export (06:41, ICI)  publie la release `catalogue`
+      #          -> price-history (07:11, jetonveve)  LA TELECHARGE
+      #             -> rebuild-daily (07:41, veve-sites)  construit les sites
+      #
+      #  Entre cette etape et price-history il n'y avait QUE 30 MINUTES d'ecart,
+      #  sur un ordonnanceur GitHub qui derive couramment de 2 a 3 heures. Quand
+      #  la derive depasse l'ecart, price-history telecharge le catalogue DE LA
+      #  VEILLE — et rien ne le signale : le fichier existe, le run est vert,
+      #  les prix sont simplement rattaches a un referentiel d'hier.
+      #
+      #  ⚠️ POURQUOI UN `repository_dispatch` ET PAS UN `workflow_run` :
+      #     `workflow_run` ne franchit PAS la frontiere d'un depot. Ce maillon
+      #     va de VeVePreda/scrapeur-veve a fanablefrance/jetonveve. Le seul
+      #     mecanisme inter-depots est le dispatch — celui-la meme que le pinger
+      #     du VPS utilise deja pour floor-watch.
+      #
+      #  ⭐ LE CRON DE 07:11 RESTE EN PLACE, ET C'EST VOULU. Il devient un FILET
+      #     TARDIF : si ce dispatch echoue (jeton expire, GitHub indisponible),
+      #     price-history tournera quand meme a son heure. Une porte
+      #     d'idempotence, de son cote, l'empeche de refaire le travail deja
+      #     fait — sans quoi on aurait deux collectes par jour vers les memes
+      #     sources, exactement ce qu'on cherche a eviter.
+      #
+      #  ⚠️ CETTE ETAPE NE DOIT JAMAIS FAIRE ECHOUER LE JOB. A ce point, la
+      #     release `catalogue` est DEJA publiee : le travail de ce workflow est
+      #     fait. Sortir en rouge ferait croire que le catalogue a echoue.
+      - name: "Prevenir price-history que le catalogue est pret"
+        env:
+          GH_TOKEN: ${{ secrets.JETONVEVE_TOKEN }}
+        run: |
+          set -u
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "⚠️ JETONVEVE_TOKEN absent — pas de dispatch. Le cron de 07:11 reste le filet."
+            exit 0
+          fi
+          if gh api -X POST repos/fanablefrance/jetonveve/dispatches \
+               -f event_type=catalogue-pret >/dev/null 2>&1; then
+            echo "✅ price-history prevenu (evenement « catalogue-pret »)."
+          else
+            echo "⚠️ Dispatch refuse. Cause la plus probable : le jeton fine-grained"
+            echo "   n'a pas la permission « Contents: write » sur jetonveve, exigee"
+            echo "   par POST /repos/{owner}/{repo}/dispatches."
+            echo "   Ce n'est PAS bloquant : le cron de 07:11 reste le filet."
+          fi
