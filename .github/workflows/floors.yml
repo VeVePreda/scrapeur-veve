@@ -7,11 +7,15 @@ name: VeVe floors sync (collectibles)
 # separate script; this one only touches floor / listings.
 #
 # 🌉 BASCULE DU PONT (FLOORS_FLOOR_SOURCE) :
-#   "self"   (defaut) = floors.py ecrit le floor collectible ET les listings.
-#   "bridge"          = floors.py CEDE le floor au pont veille->🟠H-PRIX (horaire,
-#                       plus frais) et n'ecrit plus que market_totalListings, que
-#                       le pont ne connait pas. Une seule source par champ, zero
-#                       course sur _DynState. Reversible : repasser sur "self".
+#   "bridge" (DEFAUT depuis le 29/07) = floors.py CEDE le floor au pont
+#                       veille->🟠H-PRIX (horaire, plus frais) et n'ecrit plus
+#                       que market_totalListings, que le pont ne connait pas.
+#                       Une seule source par champ, zero course sur _DynState.
+#   "self"            = comportement historique : floors.py ecrit AUSSI le
+#                       floor. ⚠️ Les DEUX sources ecrivent alors le meme champ
+#                       et `sync_dynamic` ne porte pas de colonne de provenance
+#                       -> va-et-vient mesure x6 le 29/07. A ne rallumer que
+#                       si le pont tombe.
 #   Champ de lancement > variable de depot > defaut.
 
 on:
