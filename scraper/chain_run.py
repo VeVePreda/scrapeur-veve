@@ -124,6 +124,42 @@ def main() -> int:
                 cutoff = _dt.datetime.utcnow() - _dt.timedelta(days=2)
             records, meta = cc.fetch_transfers(cutoff, checkpoint=checkpoint,
                                                until=today_start)
+            # ⭐⭐ UN ZERO LEGITIME ET UN ZERO CASSE S'IMPRIMENT PAREIL.
+            #
+            # Constate le 30/07/2026 sur `daily` #122 : `Fetched 0 transfers over
+            # 123 pages`, `activity_rows_added: 0`, et `collectscan` 🟢 sur 124
+            # requetes sans une erreur. La source allait bien, le filtre mangeait
+            # tout — et rien dans le log ne disait POURQUOI.
+            #
+            # La cause n'est ni un bug ni du retard de cron : c'est un DOUBLON
+            # d'ordonnancement, documente depuis le 13/07 dans l'en-tete de
+            # `chain-catchup.yml`. Une journee PT se termine a 07:00 UTC ; le
+            # rattrapage tourne a 07:30 UTC (00:30 PT du jour D) et vise minuit
+            # PT du jour D. Le `daily` du LENDEMAIN a 02:15 UTC est a 19:15 PT du
+            # jour D : il vise le MEME `until`, ~19 h plus tard. Le checkpoint est
+            # deja a la frontiere, donc il n'a rien a faire — TOUS LES JOURS.
+            #
+            # ⭐ On ne retire pas l'etape (decision de Preda, 30/07) : on la fait
+            # PARLER. Un no-op qui s'annonce coute 123 pages ; un no-op muet coute
+            # une enquete a chaque fois qu'on relit le log.
+            if not records:
+                saut = meta.get("skipped_current_day", 0)
+                if checkpoint and saut:
+                    print(f"  ℹ️ ZERO ATTENDU, pas une panne : le checkpoint "
+                          f"{checkpoint} est deja a la frontiere du jour PT. "
+                          f"{saut} transfert(s) du jour EN COURS ignores (ils "
+                          f"seront traites quand la journee PT sera close). "
+                          f"C'est `chain-catchup` (07:30 UTC) qui ecrit la "
+                          f"journee de la veille — cette etape lui est "
+                          f"POSTERIEURE de ~19 h et n'a normalement rien a "
+                          f"reprendre.", flush=True)
+                else:
+                    # ⭐ Le cas qui doit inquieter : rien a sauter ET rien
+                    # trouve. La, le filtre n'explique pas le zero.
+                    print(f"  ⚠️ ZERO INEXPLIQUE : {meta.get('pages', 0)} page(s) "
+                          f"parcourue(s), 0 transfert retenu et 0 ignore. "
+                          f"Ce n'est PAS le cas de figure connu (frontiere de "
+                          f"jour PT) — a aller lire.", flush=True)
             rows = cc.aggregate_daily(records)
             added = cs.append_activity(sheet_id, rows)
             cs.append_items(sheet_id, cc.aggregate_items(records))

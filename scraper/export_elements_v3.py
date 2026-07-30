@@ -681,8 +681,13 @@ def main() -> int:
 
     arret = "curseur/fin (plateau desarme)" if plateau == 0 \
         else f"couverture ({plateau} pages sans nouveau)"
+    # ⭐ Le plafond de pages EST une condition d'arret : il manquait a cette
+    # annonce, et c'est celle par laquelle le run du 30/07 est sorti. Un lecteur
+    # du log en deduisait « arret sur couverture », c'est-a-dire « j'ai tout vu ».
+    plafond_pages = int(os.environ.get("ELEMENTS_V3_MAX_PAGES") or "20000")
     print(f"Moisson metadata chaine [{mode}] depuis {cutoff:%Y-%m-%d} · arret sur "
-          f"{arret} ou budget-temps ({budget_min} min) · flush /{flush_every} "
+          f"{arret}, budget-temps ({budget_min} min) ou plafond "
+          f"({plafond_pages} pages) · flush /{flush_every} "
           f"pages …", flush=True)
 
     catalogue, meta = harvest(cc, cutoff, plateau, deadline=deadline,
@@ -867,8 +872,34 @@ def harvest(cc, cutoff, plateau_pages: int = 300, deadline=None,
             break
         params = dict(nxt)
         time.sleep(cc.PAUSE_BETWEEN_PAGES)
+    else:
+        # ⭐⭐ LA QUATRIEME SORTIE, MUETTE JUSQU'AU 30/07/2026.
+        #
+        # `while pages < max_pages` a une sortie normale : le `else` du `while`,
+        # atteint quand la condition devient fausse SANS `break`. Les trois
+        # autres sorties (balayage complet, plateau, budget-temps) impriment
+        # chacune sa ligne ; celle-ci ne disait RIEN.
+        #
+        # Mesure du 30/07 : sortie a 20 000 pages exactement, au 2026-04-16
+        # alors que la moisson visait 2026-04-01 — **15 jours non moissonnes,
+        # run VERT**, et un log qui laissait croire a un arret sur couverture.
+        # Le plateau etait a 62/300 et le budget a 2 h 28 sur 4 h : les deux
+        # conditions annoncees disaient explicitement le CONTRAIRE.
+        #
+        # ⭐ Les donnees, elles, etaient sauves : `swept` reste faux, donc le
+        # curseur est enregistre et le run suivant reprend la. Ce n'etait pas la
+        # reprise qui manquait, c'etait l'annonce.
+        # ⭐ Et un nombre ROND dans un log (20 000, 1 000, 100) est presque
+        # toujours un plafond, jamais une mesure.
+        print(f"  🔒 PLAFOND DE PAGES ATTEINT : {pages} pages "
+              f"(ELEMENTS_V3_MAX_PAGES). La moisson est TRONQUEE — elle s'arrete "
+              f"au {oldest or '?'} sans avoir atteint sa cible. "
+              f"Curseur enregistre : le prochain run reprend ici.", flush=True)
     meta = {"cursor": None if swept else last_nxt, "swept": swept,
-            "pages": pages, "oldest": oldest, "types": len(best)}
+            "pages": pages, "oldest": oldest, "types": len(best),
+            # ⭐ Le fait remonte aussi en DONNEE, pas seulement en texte : un
+            # appelant (ou un banc) peut le tester, un `print` ne se teste pas.
+            "plafond_atteint": pages >= max_pages and not swept}
     return best, meta
 
 
