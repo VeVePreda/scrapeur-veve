@@ -106,6 +106,52 @@ PLAFONDS_CHURN = {
 MINI_PAR_TYPE = {ID.KIND_COMIC: 14_000, ID.KIND_COLLECTIBLE: 2_000}
 
 
+# ---------------------------------------------------------------------------
+# 🛡️ LA PAIRE ATL/ATH IMPOSSIBLE — LE GARDE-FOU QUI MANQUAIT SUR CE CHEMIN
+# ---------------------------------------------------------------------------
+# ⛔⛔ AJOUTE LE 31/07/2026. `export_elements.py` REFUSE d'exporter une paire
+# ATL > ATH depuis le 22/07 — il l'exporte VIDE et compte ce qu'il retient.
+# `catalog_export.py` n'avait PAS ce controle, et c'est LUI qui alimente la
+# release `catalogue`, donc le SITE. Le pont vers jetonveve etait protege ;
+# la source du site recopiait les paires incoherentes telles quelles.
+# ⭐⭐ « CORRIGE SUR UN CHEMIN » N'EST PAS « CORRIGE ». Le meme defaut, la
+# meme donnee, deux sorties : une assainie, une pas. Cote veveprice on a fini
+# par MASQUER l'incoherence a l'affichage — un symptome traite a l'endroit ou
+# il se voit, pas a l'endroit ou il naît.
+# ⭐ MEME POLITIQUE QU'EN FACE, DELIBEREMENT : vide = « inconnu ». Jamais un
+# chiffre qu'on sait faux, jamais une correction devinee ici. La reparation se
+# fait dans le Sheet (`repare_atl_ath.py`), pas dans un exportateur.
+def _dec(x) -> float:
+    """Une cellule Sheet -> float. « 8 888,88 » comme « 6.99 » comme « »."""
+    t = str(x or "").replace("\u202f", "").replace("\u00a0", "").replace(" ", "")
+    t = t.replace(",", ".").strip()
+    try:
+        return float(t)
+    except ValueError:
+        return 0.0
+
+
+def _paire_corrompue(rec) -> bool:
+    """ATL > ATH = paire impossible (decimales FR x100 gelees dans le Sheet)."""
+    atl, ath = _dec(rec.get("atl")), _dec(rec.get("ath"))
+    return atl > 0 and ath > 0 and atl > ath
+
+
+def _assainir_extremes(items: list) -> int:
+    """Vide les deux extremes ET leurs dates quand la paire est impossible.
+
+    ⚠️ LES DATES PARTENT AVEC LES VALEURS. Garder `ath_date` en vidant `ath`
+    laisserait « plus haut historique : (vide) le 12/03/2024 » — une date qui
+    date un nombre absent. Une demi-donnee est plus trompeuse qu'aucune.
+    """
+    n = 0
+    for rec in items:
+        if _paire_corrompue(rec):
+            rec["atl"] = rec["ath"] = rec["atl_date"] = rec["ath_date"] = ""
+            n += 1
+    return n
+
+
 def _identite_active() -> bool:
     return os.environ.get("CATALOG_IDENTITE_CHAINE", "").strip().lower() in (
         "1", "true", "oui", "on")
@@ -253,6 +299,18 @@ def main() -> None:
     else:
         print("identite chaine : interrupteur OFF (CATALOG_IDENTITE_CHAINE) — "
               "catalogue 100 % Sheet, inchange.")
+
+    # 🛡️ Assainissement des extremes, JUSTE AVANT l'ecriture : apres l'identite
+    # chaine (qui ne touche pas aux prix) et apres le garde-fou de volumetrie.
+    n_corrompus = _assainir_extremes(items)
+    if n_corrompus:
+        # ⭐ Un zero qui ne dit pas POURQUOI il est zero est le defaut qu'on
+        # traque partout : on COMPTE ce qu'on retient, et on le dit fort.
+        pct = 100.0 * n_corrompus / max(len(items), 1)
+        print(f"  🛡️ {n_corrompus} paire(s) ATL/ATH incoherente(s) ({pct:.1f} %) "
+              f"— atl > ath, decimales FR x100 dans le Sheet. Exportees VIDES "
+              f"avec leurs dates. La reparation se fait dans le Sheet "
+              f"(repare_atl_ath.py), pas ici.", file=sys.stderr)
 
     with gzip.open(out, "wt", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=entete, extrasaction="ignore")
