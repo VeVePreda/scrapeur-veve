@@ -1,0 +1,330 @@
+# ⚠️ VeVePreda/veve-sites — sites/veveprice/manifest.yml
+site:
+  domain: veveprice.com
+  brand: "VeVe Price"
+  tagline:
+    en: "Price history and floor tracker for VeVe collectibles"
+    fr: "Historique de prix et floor des collectibles VeVe"
+    es: "Historial de precios y precio mínimo de los coleccionables VeVe"
+    de: "Preisverlauf und Bodenpreise für VeVe-Sammelobjekte"
+  description:
+    en: "Track the floor price and price history of every VeVe collectible: moves, all-time highs and lows, number of listings."
+    fr: "Suivez le prix plancher et l'historique des collectibles VeVe : évolution, plus hauts, plus bas, nombre d'offres."
+    es: "Sigue el precio mínimo y el historial de los coleccionables VeVe: evolución, máximos, mínimos y ofertas."
+    de: "Verfolge Bodenpreis und Preisverlauf jedes VeVe-Sammelobjekts: Entwicklung, Höchst- und Tiefststände, Angebote."
+
+# --- Langues : anglais par defaut, les autres en sous-dossier (/fr/, /es/, /de/)
+languages:
+  default: en
+  active: [en, fr, es, de]
+
+rendering: server          # static | server
+features:
+  search: internal
+  comments: false
+  database: false
+
+# --- Vitrine publique : on ne publie QUE des pages utiles -------------------
+publication:
+  # Feuille des adresses de comics : rarity | name | issue-rarity
+  #   rarity       -> /comics/alias-1-2001/secret-rare/
+  #   name         -> /comics/<serie>/<nom de la couverture>/
+  #   issue-rarity -> /comics/<serie>/<numero>/<rarete>/     <-- 28/07/2026
+  # ⭐ `issue-rarity` est la hierarchie de VeVe lui-meme (celle qu'affichent
+  # CollectScan et StackR) : une SERIE contient des NUMEROS, un numero existe
+  # en plusieurs RARETES. Les deux modes a DEUX niveaux s'effondrent des que la
+  # serie devient une vraie serie — mesure sur les 16 536 comics reels :
+  #   serie + rarete          4 738 cles · 14 452 uuid en collision
+  #   nom seul                4 253 cles · 16 142 en collision
+  #   serie + numero + rarete 16 119 cles ·    726 en collision
+  # En cas de collision (couvertures VARIANTES d'un meme numero), le nom de la
+  # couverture est ajoute ; l'identifiant court n'arrive qu'en dernier recours.
+  comic_leaf: issue-rarity
+  # ⭐⭐ ARME LE 29/07/2026 — les adresses de ce site sont GELEES par
+  # sites/veveprice/slugs.json (1 200 fiches, gelees le 29/07/2026). A partir
+  # d'ici, un build qui PERDRAIT la table echoue au lieu de republier en
+  # silence des adresses recalculees (engine/tools/test_renommage.mjs, appele
+  # par le Dockerfile). Ne jamais repasser a false : ce serait rendre a
+  # nouveau flottantes les 1 200 URL deja publiees.
+  adresses_gelees: true
+  min_price_points: 8      # relevés minimum AU TOTAL pour qu'une fiche mérite d'exister
+  # ⚠️ `public_points_max` et `public_history_days` ont MIGRÉ vers `access:`
+  # (voir plus bas) le 20/07/2026 : ce sont des réglages d'ACCÈS, pas de
+  # publication. Un quota de vitrine décide QUELLES fiches existent ; un palier
+  # décide CE QU'ON MONTRE d'une fiche qui existe. Les laisser ici en double
+  # ferait échouer le build volontairement — c'est le garde-fou.
+
+  # ⭐ TAILLE DE LA VITRINE, PAR TYPE (remplace l'ancien plafond global unique).
+  # Ce plafond unique avait produit un angle mort mesuré en prod : les comics
+  # sont 86 % du catalogue et représentaient 0 % du site, évincés par les
+  # collectibles que le backfill densifie plus vite.
+  # ⚠️ C'est une TAILLE CIBLE, pas un débit : les fiches déjà gelées comptent
+  # dedans. L'ensemble publié est collant (slugs.json) -> relever ces nombres
+  # est IRRÉVERSIBLE. Monter par paliers, en s'appuyant sur la Search Console.
+  quotas:
+    collectible: 800
+    comic: 400
+  quota_spillover: true    # un type qui ne remplit pas sa part cède ses places à l'autre
+  max_new_per_series: 12   # diversité : nouvelles fiches max par série (0 = pas de plafond)
+
+# --- Niveaux d'accès -------------------------------------------------------
+# ⭐ LE PALIER EST UNE DONNÉE. Aucune page ne teste un palier, aucune page ne
+# lit un plafond : tout passe par engine/lib/access.mjs. Un site 100 % gratuit,
+# 100 % payant ou mixte, c'est le MÊME code — seul ce bloc change.
+#
+# Pour un site entièrement gratuit, il suffit d'écrire :
+#     access:
+#       tiers: [visitor]
+# Les portes exigeant un palier absent se DÉSACTIVENT : plus aucune troncature,
+# plus aucun appel à l'action fantôme, et pas une ligne de code conditionnel.
+access:
+  tiers: [visitor, member, crevette, langouste, whale]
+  gates:
+    # L'historique : 3 jours pour qui ne paie pas (arbitrage Preda du 30/07).
+    price_history:
+      tier: crevette
+      public_max: 30       # relevés RÉELLEMENT exposés
+      public_days: 3       # ⭐ 3 jours, pas 90 : c'est la profondeur qui se vend
+    # Les extrêmes et les modules d'analyse.
+    extremes:
+      binaire: true   # ouvre ou non — ni troncature ni plafond
+      tier: crevette
+    modules:
+      binaire: true   # ouvre ou non — ni troncature ni plafond
+      tier: crevette
+    # Les alertes, avec leurs plafonds. 0 pour un membre : il voit le NOM du
+    # module, jamais son contenu.
+    alerts:
+      binaire: true   # ouvre ou non — ni troncature ni plafond
+      tier: crevette
+      caps:
+        member:    0
+        crevette:  2
+        langouste: 10
+        whale:     -1     # -1 = illimité
+    # Suivre le portefeuille de QUELQU'UN D'AUTRE — réservé au dernier palier.
+    wallet_watch:
+      binaire: true   # ouvre ou non — ni troncature ni plafond
+      tier: whale
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# BLOC 3 · REMPLACER le bloc `offer:` — les tarifs vivent ICI
+# ───────────────────────────────────────────────────────────────────────────
+# ⭐ UN TARIF ÉCRIT EN DUR DANS UN GABARIT EST UN TARIF QU'ON OUBLIERA DE
+# CHANGER. Et deux tarifs différents sur deux pages ne coûtent pas une
+# correction, ils coûtent un litige. `/offre/` lit ce bloc, jamais l'inverse.
+
+offer:
+  # ⛔ TANT QUE CETTE URL EST VIDE, AUCUN APPEL À L'ACTION N'EST AFFICHÉ.
+  # C'est délibéré : /offre/ et /compte/ testent tous deux `offer.url` et
+  # remplacent le bouton par « les abonnements ouvrent bientôt ».
+  # Un bouton qui ne mène nulle part coûte plus cher en confiance qu'il ne
+  # rapporte en promesse.
+  url: ""            # <-- Discord, page d'attente, ou prestataire de paiement
+
+  annual_discount: 0.20    # −20 % à l'année
+
+  # ⚠️ `cle` DOIT correspondre à un palier de `access.tiers`. Un plan dont le
+  # palier n'existe pas serait vendu pour une porte qui ne s'ouvrira jamais :
+  # /offre/ filtre donc sur `tiers`, et un plan orphelin disparaît en silence.
+  # ⭐ C'est le bon comportement — mieux vaut ne pas vendre que mal vendre.
+  # ⚠️ `d` EST UNE CARTE PAR LANGUE, comme `site.tagline` et `site.description`.
+  # Une chaîne nue ici sortait du FRANÇAIS sur la page anglaise, en production,
+  # et aucun banc ne le voyait. ⭐ Dans un dépôt multilingue, tout texte destiné
+  # à être lu est soit une clé i18n, soit une carte par langue — jamais une
+  # chaîne nue. ⭐ `nom` reste une chaîne : « Crevette » est un nom de MARQUE,
+  # il ne se traduit pas. La distinction est éditoriale, pas grammaticale.
+  plans:
+    - cle: member
+      nom: "Membre"
+      prix: 0
+      alertes: 0
+      d:
+        fr: "Le nom de chaque module, la vitrine libre, les trois derniers jours."
+        en: "Every module by name, the free showcase, the last three days."
+        es: "El nombre de cada módulo, el escaparate libre, los últimos tres días."
+        de: "Jedes Modul beim Namen, die freie Auswahl, die letzten drei Tage."
+    - cle: crevette
+      nom: "Crevette"
+      prix: 15
+      alertes: 2
+      d:
+        fr: "L'historique complet, les extrêmes, les modules d'analyse."
+        en: "The full history, the extremes, the analysis modules."
+        es: "El historial completo, los extremos, los módulos de análisis."
+        de: "Die volle Historie, die Extreme, die Analysemodule."
+    - cle: langouste
+      nom: "Langouste"
+      prix: 35
+      alertes: 10
+      d:
+        fr: "Tout Crevette, plus dix alertes et les exports."
+        en: "Everything in Crevette, plus ten alerts and exports."
+        es: "Todo Crevette, más diez alertas y las exportaciones."
+        de: "Alles aus Crevette, plus zehn Warnungen und Exporte."
+    - cle: whale
+      nom: "Whale"
+      prix: 50
+      alertes: -1        # ⚠️ -1 = ILLIMITÉ. Les gabarits le traduisent en « ∞ » :
+                         # afficher « -1 alerte » sur une page de tarifs est le
+                         # genre de bug qui se voit depuis la rue.
+      d:
+        fr: "Alertes illimitées et suivi de portefeuilles tiers."
+        en: "Unlimited alerts and third-party wallet watching."
+        es: "Alertas ilimitadas y seguimiento de carteras ajenas."
+        de: "Unbegrenzte Warnungen und Beobachtung fremder Wallets."
+
+legal_info:
+  contact: "contact@veveprice.com"   # <-- à activer via Cloudflare Email Routing (gratuit)
+  host: "Hostinger International Ltd, 61 Lordou Vironos Street, 6023 Larnaca, Chypre"
+  updated: "2026-07-18"
+
+# --- Liens de l'équipe (visibles dès le départ) ----------------------------
+links:
+  team: []                 # - { label: "Discord", url: "https://..." }
+  affiliate: []            # - { label: "...", url: "https://...", sponsored: true }
+
+identity:
+  # ⛔ PLUS `aurora`. aurora code ses filets en blanc semi-transparent
+  # (#ffffff12) : ils existent sur fond sombre et DISPARAISSENT sur fond clair,
+  # sans qu'aucun build ne s'en plaigne. `vitrine` ne pose que des variables,
+  # donc il bascule par construction.
+  theme: vitrine
+
+  # ⭐ LA PALETTE DE BASE EST LA SOMBRE — c'est l'identité de VeVe Price, et
+  # c'est celle qui a été dessinée, mesurée et validée. Les gris viennent de
+  # l'application VeVe d'origine, relevés à la pipette, pas approximés.
+  palette:
+    primary: "#10CEF2"   # le cyan VeVe — porte les LIENS et l'état actif
+    accent:  "#3EC875"   # hausse
+    danger:  "#ED9BA6"   # baisse
+    bg:      "#1A1A1A"   # le gris VeVe d'époque
+    surface: "#2C2C2C"
+    text:    "#FFFFFF"
+    muted:   "#B1B1B1"   # mesuré 5,42:1 sur #1A1A1A — passe AA en texte courant
+
+  # Le pendant clair. ⚠️ CHAQUE valeur en dur d'un thème doit avoir son pendant,
+  # sinon la bascule laisse des trous invisibles au build.
+  # ⭐ Le vif de VeVe échoue en TEXTE sur clair (le cyan tombe à 1,38:1) mais
+  # réussit en APLAT avec une encre sombre. C'est pourquoi `primary` s'assombrit
+  # ici : il sert de couleur de lien, donc de texte.
+  palette_nuit:
+    primary: "#0A7A90"   # cyan assombri — 4,73:1 sur #FFFFFF
+    accent:  "#096E38"
+    danger:  "#B01F32"
+    bg:      "#EFEFEF"
+    surface: "#FFFFFF"
+    text:    "#1A1A1A"
+    muted:   "#5E5E5E"
+
+  fonts:
+    # ⛔ NE PAS charger depuis Google Fonts : deux resolutions DNS + deux TLS
+    # dans le chemin critique, et fonts.gstatic.com transmet l'IP du visiteur.
+    # La fonte est AUTO-HEBERGEE, declaree juste en dessous.
+    heading: "'Archivo', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+    body:    "'Archivo', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+    # ⭐ UN SEUL FICHIER POUR TOUTES LES GRAISSES. Le theme en utilise quatre
+    # (500, 600, 700, 800) plus le corps en 400 : en statique cela ferait cinq
+    # fichiers et cinq requetes. La version variable en fait 34 Ko, une requete.
+    # ⚠️ Sous-ensemble `latin` : il couvre 108 des 112 caracteres reellement
+    # servis sur les 4 langues. Les 4 restants sont des symboles (→ ⌘ ▲ ▼) que
+    # le navigateur ira chercher glyphe par glyphe dans la pile de repli — c'est
+    # le comportement normal, pas un carre vide.
+    # ⛔ NE PAS remplacer par `latin-ext` : ce sous-ensemble est COMPLEMENTAIRE
+    # et ne couvre QUE les caracteres etendus — 1 caractere sur 112 ici.
+    files:
+      - famille: "Archivo"
+        fichier: "/fonts/archivo-latin-wght.woff2"
+        graisses: "100 900"     # plage variable, pas une valeur unique
+
+analytics:
+  provider: umami
+  website_id: "f5e7b44c-bdc7-4793-b30e-1bc40fe7db87"
+
+seo:
+  title_template: "%s | VeVe Price"
+  indexnow_key: "8f3c1b7a92d54e6fa0c7b5e214d83f60"   # cle publique IndexNow (Bing/Yandex)
+
+content:
+  data_modules: [item_price_pages, collection_index, movers, rarity_index]
+
+# ═══════════════════════════════════════════════════════════════════════════
+# VITRINE ÉDITORIALE — les blocs d'accueil
+# ═══════════════════════════════════════════════════════════════════════════
+# ⭐⭐ CE TEXTE VIT ICI, PAS DANS LE GABARIT. La maquette l'écrivait en dur dans
+# la fonction de rendu — et c'est exactement la faute qui a sorti du français
+# sur les pages anglaises pour les descriptions de paliers. Dans un dépôt
+# multilingue, tout texte destiné à être lu est une carte par langue.
+# ⭐ Bénéfice secondaire, et il compte : tu peux réécrire une réponse de FAQ
+# sans qu'un développeur touche un fichier .astro.
+vitrine:
+  # Les quatre encarts « Ce que fait ce site ». `span` = colonnes sur 12.
+  # ⚠️ Les hauteurs INÉGALES font la composition : quatre boîtes identiques
+  # forment un tableau, pas une plaque.
+  boites:
+    - n: "001"
+      span: 7
+      rang: 3
+      t: { fr: "Le plancher,<br>toutes les 30 min", en: "The floor,<br>every 30 minutes",
+           es: "El mínimo,<br>cada 30 minutos", de: "Der Bodenpreis,<br>alle 30 Minuten" }
+      d: { fr: "Relevé et horodaté. Aucune estimation, aucun modèle : ce que vous lisez a été constaté à une heure précise.",
+           en: "Recorded and timestamped. No estimate, no model: what you read was observed at a precise time.",
+           es: "Registrado y con hora. Sin estimaciones ni modelos: lo que lees fue observado a una hora precisa.",
+           de: "Erfasst und mit Zeitstempel. Keine Schätzung, kein Modell: Was du liest, wurde zu einer genauen Zeit beobachtet." }
+    - n: "002"
+      span: 5
+      rang: 2
+      t: { fr: "1 200 fiches<br>publiées", en: "1,200 pages<br>published",
+           es: "1200 fichas<br>publicadas", de: "1.200 Seiten<br>veröffentlicht" }
+      d: { fr: "Choisies sur la densité de leur historique, avec une part garantie aux comics — 86 % du catalogue.",
+           en: "Chosen on the density of their history, with a guaranteed share for comics — 86 % of the catalogue.",
+           es: "Elegidas por la densidad de su historial, con una parte garantizada a los cómics: 86 % del catálogo.",
+           de: "Nach der Dichte ihrer Historie gewählt, mit garantiertem Anteil für Comics — 86 % des Katalogs." }
+    - n: "003"
+      span: 5
+      rang: 1
+      t: { fr: "Les extrêmes", en: "The extremes", es: "Los extremos", de: "Die Extreme" }
+      d: { fr: "Plus haut et plus bas historiques, et où se situe le prix du jour entre les deux.",
+           en: "All-time high and low, and where today's price sits between them.",
+           es: "Máximo y mínimo históricos, y dónde se sitúa el precio de hoy.",
+           de: "Allzeithoch und -tief, und wo der heutige Preis dazwischen liegt." }
+    - n: "004"
+      span: 12
+      rang: 2
+      t: { fr: "Ce que la<br>courbe cache", en: "What the<br>curve hides",
+           es: "Lo que la<br>curva oculta", de: "Was die<br>Kurve verbirgt" }
+      d: { fr: "Une offre isolée peut porter un plancher à elle seule. Quand c'est le cas, la fiche le dit — elle ne le masque jamais.",
+           en: "A single listing can carry a floor on its own. When it does, the page says so — it never hides it.",
+           es: "Una sola oferta puede sostener un mínimo. Cuando ocurre, la ficha lo dice: nunca lo oculta.",
+           de: "Ein einzelnes Angebot kann einen Bodenpreis allein tragen. Dann sagt die Seite es — sie verbirgt es nie." }
+
+  # ⛔ CHAQUE RÉPONSE DOIT ÊTRE VRAIE AUJOURD'HUI. La maquette parlait de StackR
+  # et d'OMI — que ce site ne collecte pas encore. Une FAQ qui décrit une
+  # fonctionnalité absente est un mensonge signé, et c'est la seule chose qu'un
+  # site de cotes ne peut pas se permettre.
+  faq:
+    - q: { fr: "D'où viennent les prix ?", en: "Where do the prices come from?",
+           es: "¿De dónde vienen los precios?", de: "Woher kommen die Preise?" }
+      r: { fr: "Du marché VeVe : le plancher, c'est-à-dire l'offre la plus basse en vente, relevé toutes les trente minutes et horodaté. Aucune estimation, aucun modèle.",
+           en: "From the VeVe market: the floor — the lowest active listing — recorded every thirty minutes and timestamped. No estimate, no model.",
+           es: "Del mercado VeVe: el mínimo, es decir la oferta más baja activa, registrado cada treinta minutos y con hora.",
+           de: "Vom VeVe-Markt: der Bodenpreis, also das niedrigste aktive Angebot, alle dreißig Minuten erfasst und mit Zeitstempel." }
+    - q: { fr: "Le prix affiché est-il un prix de vente ?", en: "Is the price shown a sale price?",
+           es: "¿El precio mostrado es un precio de venta?", de: "Ist der gezeigte Preis ein Verkaufspreis?" }
+      r: { fr: "Non, et la nuance est essentielle. C'est le prix de l'offre la plus basse EN VENTE. Personne ne l'a forcément payé.",
+           en: "No, and the distinction matters. It is the price of the lowest ACTIVE listing. Nobody has necessarily paid it.",
+           es: "No, y el matiz es esencial. Es el precio de la oferta más baja ACTIVA. Nadie lo ha pagado necesariamente.",
+           de: "Nein, und der Unterschied zählt. Es ist der Preis des niedrigsten AKTIVEN Angebots. Niemand hat ihn zwangsläufig bezahlt." }
+    - q: { fr: "Que se passe-t-il quand une seule offre porte le plancher ?", en: "What if a single listing carries the floor?",
+           es: "¿Y si una sola oferta sostiene el mínimo?", de: "Was, wenn ein einzelnes Angebot den Bodenpreis trägt?" }
+      r: { fr: "La fiche le signale. Ce chiffre décrit alors un vendeur, pas un marché — et le dire vaut mieux que le masquer.",
+           en: "The page flags it. That number then describes a seller, not a market — and saying so beats hiding it.",
+           es: "La ficha lo señala. Ese número describe entonces a un vendedor, no a un mercado.",
+           de: "Die Seite markiert es. Diese Zahl beschreibt dann einen Verkäufer, keinen Markt." }
+    - q: { fr: "Faut-il connecter un portefeuille ?", en: "Do I need to connect a wallet?",
+           es: "¿Hay que conectar una cartera?", de: "Muss ich eine Wallet verbinden?" }
+      r: { fr: "Jamais. Ce site ne demande aucune clé, ne signe aucune transaction et n'a rien à connecter.",
+           en: "Never. This site asks for no key, signs no transaction, and has nothing to connect.",
+           es: "Nunca. Este sitio no pide ninguna clave, no firma ninguna transacción.",
+           de: "Nie. Diese Website verlangt keinen Schlüssel und signiert keine Transaktion." }
