@@ -54,6 +54,12 @@ COLD_MAP = [
     # pas l'export : le site avait 19 242 fiches et pas une image.
     ("image", "image_url"),
     ("ath", "ath"), ("atl", "atl"),
+    # 📅 LES DATES DES EXTRÊMES. Elles sont dans le Sheet (`ath_date`,
+    # `atl_date`, ajoutées EN FIN de COLLECTIBLE_COLD/COMICS_COLD) et ne
+    # traversaient pas l'export. ⭐ Sans elles, la jauge de la fiche affiche
+    # « plus haut historique : 1 750 » sans dire QUAND — or c'est la date qui
+    # transforme un nombre en information.
+    ("ath_date", "ath_date"), ("atl_date", "atl_date"),
 ]
 # nom de sortie -> colonne _DynState (chaud, floor du jour)
 DYN_MAP = [("floor", "market_lowestOffer"), ("listings", "market_totalListings")]
@@ -65,7 +71,7 @@ DYN_MAP = [("floor", "market_lowestOffer"), ("listings", "market_totalListings")
 # jetait A L'ECRITURE, SANS UN MOT. La donnee etait lue, portee jusqu'au
 # writer, puis abandonnee.
 # ⭐ Une exclusion NOMMEE dit ce qu'elle veut dire et survit a l'ajout suivant.
-_EN_FIN = ("ath", "atl")   # posees apres floor/listings, ordre historique
+_EN_FIN = ("ath", "atl", "ath_date", "atl_date")   # posees apres floor/listings, ordre historique
 HEADER = ([o for o, _ in COLD_MAP if o not in _EN_FIN]
           + ["floor", "listings", *_EN_FIN])
 
