@@ -49,12 +49,25 @@ COLD_MAP = [
     ("release_date", "releaseDate"), ("series", "veve_series_name"),
     ("brand", "veve_brand"), ("licensor", "veve_licensor"),
     ("tirage", "supply"), ("store_price", "store_price_gems"),
+    # 🖼️ LE VISUEL DE LA PIECE. Present depuis toujours dans les DEUX onglets
+    # (COLLECTIBLE_COLD et COMICS_COLD, sheets.py), il ne traversait simplement
+    # pas l'export : le site avait 19 242 fiches et pas une image.
+    ("image", "image_url"),
     ("ath", "ath"), ("atl", "atl"),
 ]
 # nom de sortie -> colonne _DynState (chaud, floor du jour)
 DYN_MAP = [("floor", "market_lowestOffer"), ("listings", "market_totalListings")]
 
-HEADER = [o for o, _ in COLD_MAP[:11]] + ["floor", "listings", "ath", "atl"]
+# ⛔ `COLD_MAP[:11]` ETAIT UN NOMBRE MAGIQUE. Il voulait dire « tout sauf ath
+# et atl », qui sont reinjectes juste apres — mais il le disait par une
+# POSITION, pas par un nom. Ajouter une colonne a COLD_MAP la faisait donc
+# disparaitre de l'en-tete, et `csv.DictWriter(extrasaction="ignore")` la
+# jetait A L'ECRITURE, SANS UN MOT. La donnee etait lue, portee jusqu'au
+# writer, puis abandonnee.
+# ⭐ Une exclusion NOMMEE dit ce qu'elle veut dire et survit a l'ajout suivant.
+_EN_FIN = ("ath", "atl")   # posees apres floor/listings, ordre historique
+HEADER = ([o for o, _ in COLD_MAP if o not in _EN_FIN]
+          + ["floor", "listings", *_EN_FIN])
 
 # ---------------------------------------------------------------------------
 # 🪪 L'IDENTITE CHAINE — etape ADDITIVE, GATED, et REVERSIBLE
