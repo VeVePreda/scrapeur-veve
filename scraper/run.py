@@ -115,10 +115,41 @@ def main() -> int:
                 by_uuid[uid].update({k: v for k, v in cols.items() if k != "veve_uuid"})
     if comic_ids:
         cmap = veve_detail.enrich_comics(comic_ids)
+        # 🔴 LA COUVERTURE EST UNE PROPRIETE DE LA VARIANTE, PAS DU COMIC
+        # (01/08/2026). Ces colonnes sont de niveau COMIC et s'appliquent
+        # telles quelles aux 5 lignes de rarete — c'est voulu pour les totaux
+        # d'editions. Mais `image_url` valait `media.edges[0]` : toutes les
+        # raretes recevaient la couverture de base. Le SECRET_RARE de
+        # « Retellings #1 (1982) » n'affichait pas la sienne.
+        # ⭐ L'URL PORTE le veve_uuid de la variante
+        # (`comic_cover.<veve_uuid>.<image>.full.jpeg`), donc on RECONNAIT la
+        # bonne au lieu de la fabriquer — le second identifiant de l'adresse
+        # est imprevisible, une URL construite serait une URL inventee.
+        apparies = 0
         for p in comics:
             cols = cmap.get(p.get("series_uuid"))
-            if cols:
-                p.update({k: v for k, v in cols.items() if k != "comic_id"})
+            if not cols:
+                continue
+            p.update({k: v for k, v in cols.items() if k != "comic_id"})
+            uid = str(p.get("veve_uuid") or "").strip().lower()
+            propre = ""
+            if uid:
+                for u in str(cols.get("comic_media_urls") or "").split("\n"):
+                    if uid in u.lower():
+                        propre = u
+                        break
+            if propre:
+                p["image_url"] = propre
+                apparies += 1
+            # ⛔ SINON ON GARDE LA COUVERTURE DE BASE, on ne vide pas le champ.
+            # Une fiche sans image est un trou visible ; une fiche avec la
+            # couverture de la serie est imprecise mais lisible. On degrade,
+            # on ne casse pas.
+        # ⭐ ON JOURNALISE LE TAUX. Un appariement qui tomberait a zero (VeVe
+        # change la forme de ses URL) redonnerait exactement le comportement
+        # d'avant — silencieusement, et avec des images plausibles. C'est ce
+        # chiffre, pas une intuition, qui le dira.
+        print(f"Comic covers matched by veve_uuid: {apparies}/{len(comics)}.", flush=True)
 
     # ---- Seed dynamic history for first-week COLLECTIBLES (comics excluded) ----
     # Dynamic data is COLLECTIBLES-ONLY, tracked as history in 'Données Dynamiques'.

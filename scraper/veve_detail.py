@@ -270,14 +270,41 @@ def fetch_comic(comic_id: str) -> Optional[Dict[str, Any]]:
 
 
 def _map_comic(n: Dict[str, Any], comic_id: str) -> Dict[str, Any]:
+    """Comic-level columns for one VeVe comic id.
+
+    🔴 `media.edges[0]` DONNAIT LA MEME COUVERTURE A TOUTES LES RARETES
+    (01/08/2026). Un comic VeVe groupe ses variantes, et `media` en contient
+    UNE PAR VARIANTE. On prenait la premiere, puis `run.py` l'appliquait aux 5
+    lignes de rarete : le SECRET_RARE de « Retellings #1 (1982) » affichait la
+    couverture de base, pas la sienne.
+
+    ⭐ CE QUI REND LE RAPPROCHEMENT SUR : l'URL PORTE le veve_uuid de la
+    variante. Mesure sur le cas signale par Preda —
+        elements_v3 : SECRET_RARE -> veve_uuid 5e8c3ed6-cfec-4433-939a-5e5bd61f51d9
+        URL attendue : .../comic_cover.5e8c3ed6-cfec-4433-939a-5e5bd61f51d9.<img>.full.jpeg
+    Le premier des deux identifiants de l'URL EST le veve_uuid. Le second est
+    un identifiant d'image, IMPREVISIBLE : on ne peut donc pas FABRIQUER
+    l'adresse, seulement RECONNAITRE la bonne dans la liste. C'est pour ca
+    qu'on remonte la liste entiere au lieu d'un lien construit.
+
+    ⛔ ON NE CHOISIT PAS ICI. Cette fonction ne connait que le comic ; le
+    veve_uuid est une propriete de la LIGNE. Le choix revient a `run.py`, qui
+    a les deux sous la main. `image_url` reste la couverture de base : c'est
+    le repli, et il ne change pas de sens.
+    """
     media = ((n.get("media") or {}).get("edges") or []) if isinstance(n.get("media"), dict) else []
-    image_url = ""
-    if media:
-        node = (media[0] or {}).get("node") or {}
-        image_url = node.get("url") or ""
+    urls = []
+    for e in media:
+        u = ((e or {}).get("node") or {}).get("url") or ""
+        if u:
+            urls.append(u)
     return {
         "comic_id": comic_id,
-        "image_url": image_url,
+        "image_url": urls[0] if urls else "",
+        # ⚠️ Colonne de TRAVAIL, jetee avant le Sheet (`DROP_COLUMNS`) : elle
+        # ne sert qu'a `run.py`, le temps d'un run. La publier ferait une
+        # colonne a rallonge qui repete ce que `image_url` dit deja.
+        "comic_media_urls": "\n".join(urls),
         "description": n.get("description"),
         "veve_store_price": _num(n.get("storePrice")),
         "market_fee": _num(n.get("marketFee")),

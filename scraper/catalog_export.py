@@ -18,7 +18,8 @@ Sheet change — meme pattern que fiche.py). Sources : 🔵C-COLLECTIBLE +
 
 Sortie : catalogue.csv.gz — header :
   uuid,kind,name,edition_type,rarity,release_date,series,brand,licensor,
-  tirage,store_price,floor,listings,ath,atl
+  tirage,store_price,floor,listings,ath,atl,image,ath_date,atl_date,
+  description,veve_comic_name
 
 🪪 IDENTITE CHAINE (28/07/2026) — etape ADDITIVE et GATED, cf. plus bas.
 
@@ -60,6 +61,22 @@ COLD_MAP = [
     # « plus haut historique : 1 750 » sans dire QUAND — or c'est la date qui
     # transforme un nombre en information.
     ("ath_date", "ath_date"), ("atl_date", "atl_date"),
+    # 📝 LA DESCRIPTION. Meme histoire que `image` et `ath_date` avant elle :
+    # presente dans les DEUX onglets froids (COLLECTIBLE_COLD et COMICS_COLD,
+    # sheets.py l.55 et l.67) depuis toujours, elle ne traversait simplement
+    # pas l'export — les fiches du site n'avaient donc aucun texte.
+    # ⭐ TROISIEME FOIS QUE CE MOTIF SE PRODUIT SUR CE MEME FICHIER. La donnee
+    # est collectee, ecrite dans le Sheet, et perdue a la derniere etape parce
+    # que personne n'a ajoute la ligne. Rien n'echoue : la colonne manque, et
+    # une fiche sans description a l'air d'une fiche dont on n'a pas la
+    # description.
+    ("description", "description"),
+    # 📕 LE VRAI TITRE DU COMIC — colonne froide depuis le 01/08/2026.
+    # ⚠️ VIDE POUR LES COLLECTIBLES, et c'est normal : leur `name` EST deja le
+    # nom de l'objet. Le site doit donc s'en servir en REPLI sur `name`,
+    # jamais le supposer present. Un `extrasaction="ignore"` rendrait ""
+    # sur l'onglet bleu sans lever la moindre erreur.
+    ("veve_comic_name", "veve_comic_name"),
 ]
 # nom de sortie -> colonne _DynState (chaud, floor du jour)
 DYN_MAP = [("floor", "market_lowestOffer"), ("listings", "market_totalListings")]

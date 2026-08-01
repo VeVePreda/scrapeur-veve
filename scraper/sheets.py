@@ -71,6 +71,16 @@ COMICS_COLD = [
     "market_fee", "supply", "supply_rarete", "store_price_gems",
     "veve_exclusive", "first_available_edition", "start_year",
     "atl", "atl_date", "ath", "ath_date",
+    # 📕 LE VRAI TITRE DU COMIC (01/08/2026). `name` porte le nom de la SERIE
+    # plus le numero — « Retellings #1 (1982) ». Le titre de l'oeuvre,
+    # « A Christmas Carol Starring Scrooge McDuck #1 », est `publicComicType.name`.
+    # ⛔ IL ETAIT COLLECTE DEPUIS TOUJOURS (veve_detail._map_comic) PUIS JETE
+    # par DROP_COLUMNS, range parmi les « duplicates folded into veve_* ».
+    # Ce n'en est pas un : c'est la seule colonne qui porte le titre de
+    # l'oeuvre, et sans elle la fiche annonce le nom de la collection.
+    # ⭐ Colonne NEUVE, `name` intact : `name` nourrit le slug, et une adresse
+    # ne se renomme pas au passage d'un correctif d'affichage.
+    "veve_comic_name",
 ]
 # ---------------------------------------------------------------------------
 # Colonnes FROIDES ajoutees le 2026-07-13 (chantier "page Classement").
@@ -106,7 +116,13 @@ DROP_COLUMNS = {
     # duplicates folded into veve_* / edition_type
     "series_name", "brand_name", "licensor_name", "edition",
     "storePrice", "availableAmount", "drop_date", "rarity_editions",
-    "veve_comic_name",
+    # ⛔ `veve_comic_name` RETIRE D'ICI LE 01/08/2026 : il est desormais une
+    # colonne froide de 🟢C-COMICS (cf. COMICS_COLD). Il n'a jamais ete un
+    # doublon — c'est le titre de l'oeuvre, que rien d'autre ne porte.
+    # ⚠️ `comic_media_urls` prend sa place : liste de travail (une URL par
+    # variante) que `run.py` consomme pour apparier la couverture, et qui n'a
+    # rien a faire dans le Sheet — elle repeterait `image_url` en plus long.
+    "comic_media_urls",
     # derived elsewhere (another sheet)
     "allTimeLow", "allTimeHigh", "change_1d_pct", "change_7d_pct", "change_30d_pct",
     # dynamic fields (live on the dynamic page, not in the cold catalogue)
