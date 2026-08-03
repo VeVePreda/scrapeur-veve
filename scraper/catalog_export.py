@@ -54,6 +54,22 @@ COLD_MAP = [
     # (COLLECTIBLE_COLD et COMICS_COLD, sheets.py), il ne traversait simplement
     # pas l'export : le site avait 19 242 fiches et pas une image.
     ("image", "image_url"),
+    # 🔗 LE LIEN VERS LA PAGE VEVE — quatrieme fois exactement le meme motif
+    # que `image`, `ath_date` et `description` avant lui (03/08/2026).
+    # `veve_url` est une colonne froide des DEUX onglets (`sheets.py` l.58 et
+    # l.70), ecrite par `build_veve_url` a CHAQUE sync, et renseignee sur
+    # 19 242 / 19 242 lignes — 16 521 comics + 2 721 collectibles, ZERO vide.
+    # Elle ne traversait simplement pas l'export : le site affichait un tiret.
+    # ⭐ CE N'ETAIT PAS UNE DONNEE MANQUANTE, C'ETAIT UNE LIGNE MANQUANTE.
+    # ⚠️ Verifie AVANT d'etre pose, pas apres :
+    #   comics       -> https://www.veve.me/collectibles/en/comics/<series_uuid>
+    #   collectibles -> https://www.veve.me/collectibles/en/collectibles/<uuid>
+    # Preda a ouvert la premiere forme le 03/08 (page vivante) ; la seconde a
+    # ete relevee sur la page elle-meme (titre reel « Happy New Year! 2026 -
+    # Tier 7 | VeVe », la ou un uuid inexistant rend le titre generique
+    # « VeVe Collectibles »). ⛔ Le code HTTP ne prouve RIEN ici : veve.me est
+    # une application a rendu client, elle rend 200 sur une adresse morte.
+    ("veve_url", "veve_url"),
     ("ath", "ath"), ("atl", "atl"),
     # 📅 LES DATES DES EXTRÊMES. Elles sont dans le Sheet (`ath_date`,
     # `atl_date`, ajoutées EN FIN de COLLECTIBLE_COLD/COMICS_COLD) et ne

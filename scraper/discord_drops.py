@@ -177,9 +177,26 @@ MCP_BID = os.environ.get("DISCORD_DROPS_MCP_BID", "5,000")
 #              « Colossus x Wolverine » : la page vit sous l'uuid de l'objet.
 #              Un craft n'a qu'une rarete : son element EST le drop.
 #   series  -> /series/<series_uuid>     (tout le reste : les collectibles)
-# ⚠️ On ne reutilise PAS la colonne `veve_url` du catalogue : elle pointe vers
-# les anciennes routes (/collection/comic/…), qui ne sont plus celles de la
-# boutique. Un lien mort est pire que pas de lien.
+# ⚠️ On ne reutilise PAS la colonne `veve_url` du catalogue — mais PLUS POUR
+# LA RAISON ECRITE ICI JUSQU'AU 03/08/2026.
+#
+# 🔴 CE COMMENTAIRE DISAIT : « elle pointe vers les anciennes routes
+# (/collection/comic/…), qui ne sont plus celles de la boutique ». C'ETAIT VRAI
+# LE 13/07 ET FAUX DEPUIS LE MEME JOUR : `build_veve_url` a ete corrige a cette
+# date (`veve_scraper.py` l.56-61) et les 16 000 URL sont reconstruites a chaque
+# sync. Verifie le 03/08 : la colonne sort bien
+# `https://www.veve.me/collectibles/en/comics/<series_uuid>`, page vivante.
+#
+# ⭐⭐ UN AVERTISSEMENT QUI SURVIT A SA CAUSE DEVIENT UN MENSONGE QUI SE CITE.
+# Celui-ci a fait ecrire « aucune URL dans la donnee » dans le dossier du
+# 03/08, alors que la colonne etait pleine a 19 242 / 19 242. ⛔ Quand on
+# repare une donnee, on va relire ce que les AUTRES fichiers disent d'elle.
+#
+# LA VRAIE RAISON DE NE PAS LA REUTILISER ICI, ELLE, TIENT TOUJOURS : un DROP
+# ne se pointe pas comme une fiche. Un craft vit sous l'uuid de l'ELEMENT, un
+# drop de serie sous le `series_uuid` ; `veve_url` ne connait que la fiche.
+# Ce sont deux adresses differentes pour un meme objet, pas une bonne et une
+# mauvaise.
 VEVE_BASE = os.environ.get("DISCORD_DROPS_VEVE_BASE",
                            "https://www.veve.me/collectibles/en")
 LIEN_TEXTE = os.environ.get("DISCORD_DROPS_LIEN_TEXTE", "Page VeVe")
