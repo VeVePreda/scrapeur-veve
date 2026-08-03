@@ -170,19 +170,98 @@ def _paire_corrompue(rec) -> bool:
     return atl > 0 and ath > 0 and atl > ath
 
 
-def _assainir_extremes(items: list) -> int:
-    """Vide les deux extremes ET leurs dates quand la paire est impossible.
+# ---------------------------------------------------------------------------
+# 🎪 LE PLAFOND DE VRAISEMBLANCE — LE TROLL N'EST PAS UNE CORRUPTION
+# ---------------------------------------------------------------------------
+# ⛔⛔ AJOUTE LE 03/08/2026, et c'est un defaut DIFFERENT de la paire inversee.
+# Preda a signale une fiche « ATL 3 499 / ATH 9 999 999 ». On l'a d'abord rangee
+# avec les paires impossibles — a tort : ici `atl < ath`, donc
+# `_paire_corrompue` rend False, et elle a RAISON de le rendre. Ce n'est pas
+# l'ordre qui cloche, c'est la VALEUR.
+#
+# ⭐⭐⭐ UN « PLUS HAUT HISTORIQUE » BATI SUR UN PRIX **DEMANDE** ENREGISTRE LES
+# TROLLS COMME DES RECORDS. Les valeurs vues dans le Sheet le disent d'elles-
+# memes : 9 999 999 · 1 234 567 · 9 696 969 · 888 888 · 8 888 888. Personne n'a
+# paye ca — quelqu'un l'a AFFICHE. La memoire du projet le notait deja pour
+# ODDY a 888 888 : « listing troll probable, PAS une corruption ».
+#
+# ⛔ CE N'EST DONC PAS REPARABLE EN AMONT. Le tracker dit la verite : ce prix a
+# bien ete demande. `repare_atl_ath.py` re-source depuis le tracker — il
+# reecrirait donc exactement la meme valeur. C'est une decision d'AFFICHAGE,
+# pas un bug de collecte, et elle se prend ici, au dernier poste avant le site.
+#
+# MESURE DU 03/08 (Sheet frais, 19 242 lignes) :
+#   ath > 15 000 $ : 1 388 (7,21 %)   ·   atl > 15 000 $ : 107 (0,56 %)
+#   les DEUX au-dessus : 92           ·   ath seul : 1 296
+# ⭐ CES 1 296 SONT LA RAISON D'ETRE DU TRAITEMENT PAR COTE. Leur `atl` est
+# parfaitement bon (« ATL 798 / ATH 9 999 999 ») : vider les deux jetterait
+# 1 296 plus-bas valides pour punir un plus-haut. On degrade, on ne casse pas.
+#
+# ⚠️ SEUIL A 15 000 $ (choix de Preda). Ce qui tombe juste au-dessus a ete
+# regarde avant de le poser, et ce sont bien des trolls : ATL 13 / ATH 32 999,
+# ATL 5 / ATH 25 000, ATL 31 / ATH 30 000 — des demandes absurdes sur des
+# comics dont le plancher vaut quelques dollars. Reglable par
+# `CATALOG_PLAFOND_EXTREMES` ; a 0 le controle est DESARME (et il le dit).
+PLAFOND_EXTREMES = _dec(os.environ.get("CATALOG_PLAFOND_EXTREMES", "15000")) or 0.0
 
-    ⚠️ LES DATES PARTENT AVEC LES VALEURS. Garder `ath_date` en vidant `ath`
-    laisserait « plus haut historique : (vide) le 12/03/2024 » — une date qui
-    date un nombre absent. Une demi-donnee est plus trompeuse qu'aucune.
+
+def _hors_plafond(v, plafond: float) -> bool:
+    """Une valeur au-dessus du plafond de vraisemblance. 0 = controle desarme."""
+    if plafond <= 0:
+        return False
+    return _dec(v) > plafond
+
+
+def _assainir_extremes(items: list, plafond: float = None) -> tuple:
+    """Assainit les extremes AVANT l'ecriture.
+
+    Rend `(n_paires, n_atl, n_ath, n_orphelines)`.
+
+    TROIS PASSES, ET L'ORDRE COMPTE :
+
+    1. ⭐ LE PLAFOND D'ABORD, COTE PAR COTE. Un `atl` troll (9 999 999) CREE
+       une paire inversee : le traiter en premier vide la seule valeur fautive
+       et laisse un `ath` parfaitement bon. Passer l'inversion en premier
+       viderait les deux — on aurait puni la victime.
+    2. Puis la paire impossible (`atl > ath`), qui vide les DEUX : quand
+       l'ordre lui-meme est faux, on ne sait plus laquelle des deux ment.
+
+    ⚠️ LES DATES PARTENT AVEC LES VALEURS, dans les deux passes. Garder
+    `ath_date` en vidant `ath` laisserait « plus haut historique : (vide) le
+    12/03/2024 » — une date qui date un nombre absent. Une demi-donnee est plus
+    trompeuse qu'aucune.
     """
-    n = 0
+    plafond = PLAFOND_EXTREMES if plafond is None else plafond
+    n_paires = n_atl = n_ath = n_orphelines = 0
     for rec in items:
+        # 1) le plafond, cote par cote
+        if _hors_plafond(rec.get("atl"), plafond):
+            rec["atl"] = rec["atl_date"] = ""
+            n_atl += 1
+        if _hors_plafond(rec.get("ath"), plafond):
+            rec["ath"] = rec["ath_date"] = ""
+            n_ath += 1
+        # 2) l'ordre, sur ce qui reste
         if _paire_corrompue(rec):
             rec["atl"] = rec["ath"] = rec["atl_date"] = rec["ath_date"] = ""
-            n += 1
-    return n
+            n_paires += 1
+        # 3) 🕳️ LES DATES ORPHELINES **DEJA DANS LA SOURCE** (03/08/2026).
+        # ⭐⭐ CE GARDE-FOU AVAIT ETE ECRIT POUR NE PAS EN CREER, JAMAIS POUR
+        # EN ENLEVER. Sa docstring dit depuis le 22/07 qu'une date sans sa
+        # valeur est « plus trompeuse qu'aucune » — et pendant ce temps 256
+        # lignes du Sheet (98 `atl_date`, 158 `ath_date`) en portaient une,
+        # arrivees par un autre chemin, et traversaient l'export intactes.
+        # ⛔ Un controle qui ne regarde que SES propres sorties ne voit pas ce
+        # qui entre deja abime. Cette passe balaie TOUTES les lignes, pas
+        # seulement celles que les deux precedentes ont touchees.
+        # ⚠️ ASYMETRIQUE, ET C'EST VOULU : une VALEUR sans date reste utile
+        # (« plus-bas 12 », on ignore quand) ; une DATE sans valeur ne date
+        # rien. On ne vide donc que le second cas.
+        for _v, _d in (("atl", "atl_date"), ("ath", "ath_date")):
+            if not str(rec.get(_v) or "").strip() and str(rec.get(_d) or "").strip():
+                rec[_d] = ""
+                n_orphelines += 1
+    return n_paires, n_atl, n_ath, n_orphelines
 
 
 def _identite_active() -> bool:
@@ -335,7 +414,22 @@ def main() -> None:
 
     # 🛡️ Assainissement des extremes, JUSTE AVANT l'ecriture : apres l'identite
     # chaine (qui ne touche pas aux prix) et apres le garde-fou de volumetrie.
-    n_corrompus = _assainir_extremes(items)
+    n_corrompus, n_atl_haut, n_ath_haut, n_orphelines = _assainir_extremes(items)
+    if n_orphelines:
+        print(f"  🕳️ {n_orphelines} date(s) d'extreme SANS sa valeur, deja dans "
+              f"la source — vide(s). Une date qui date un nombre absent est "
+              f"pire qu'une date manquante.", file=sys.stderr)
+    if PLAFOND_EXTREMES <= 0:
+        print("  🎪 plafond de vraisemblance DESARME "
+              "(CATALOG_PLAFOND_EXTREMES=0) — les prix trolls partent tels "
+              "quels vers le site.", file=sys.stderr)
+    elif n_atl_haut or n_ath_haut:
+        pct = 100.0 * (n_atl_haut + n_ath_haut) / max(len(items), 1)
+        print(f"  🎪 plafond {PLAFOND_EXTREMES:,.0f} $ : {n_ath_haut} ath et "
+              f"{n_atl_haut} atl au-dessus ({pct:.1f} % des valeurs) — vides "
+              f"AVEC leur date. ⭐ Ce ne sont pas des corruptions : ce sont des "
+              f"prix DEMANDES par des vendeurs (9 999 999, 1 234 567…). Rien a "
+              f"reparer en amont, le tracker dit vrai.", file=sys.stderr)
     if n_corrompus:
         # ⭐ Un zero qui ne dit pas POURQUOI il est zero est le defaut qu'on
         # traque partout : on COMPTE ce qu'on retient, et on le dit fort.
