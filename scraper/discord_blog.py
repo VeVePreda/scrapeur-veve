@@ -70,6 +70,33 @@ EXCERPT = int(os.environ.get("DISCORD_BLOG_EXCERPT", "300"))
 BLEU = 0x3498DB
 AVERTISSEMENT = "ⓘ Article publié sur le blog officiel VeVe — lien vers la source."
 
+# ═══ 🪙 L'ONGLET 📝C-BLOG N'EST PLUS CELUI DU SEUL BLOG VEVE (03/08/2026) ═══
+# `scraper/ecomi_run.py` y verse les articles d'ECOMI (le compte Medium du token
+# OMI), exactement comme `blog_run.py` y verse ceux de veve.me : MEME onglet,
+# MEME `sync_blog()`, MEME annonceur — ce module-ci. Un ecrivain de plus, PAS un
+# annonceur de plus : c'est ce qui evite d'avoir a inventer un garde-fou
+# anti-double-annonce.
+#
+# ⭐ Du coup, deux provenances partagent le post « ✍️BLOG », et il faut les
+# distinguer d'un coup d'oeil. La provenance est PORTEE PAR LA CARTE (ligne
+# d'auteur + couleur), jamais deduite du salon — le salon est le meme.
+# La source se reconnait au PREFIXE DU SLUG, pose par le collecteur : c'est la
+# seule marque qui ne peut pas etre effacee par une retouche du Sheet.
+# Demain une 3e source = une entree ici, et rien d'autre a toucher.
+SOURCES = {
+    "ecomi-": {"nom": "ECOMI", "plateforme": "Medium", "emoji": "🪙",
+               "couleur": 0xF5A623, "sujet": "ECOMI (token OMI)"},
+}
+
+
+def source_de(slug: str) -> dict:
+    """La source d'une ligne, ou {} pour le blog VeVe (le cas par defaut)."""
+    bas = (slug or "").lower()
+    for prefixe, src in SOURCES.items():
+        if bas.startswith(prefixe):
+            return src
+    return {}
+
 
 # ---------------------------------------------------------------------------
 # Lecture du Sheet
@@ -144,10 +171,21 @@ def carte(a: Dict) -> Dict:
     texte = str(a.get("excerpt") or "").strip()
     if len(texte) > EXCERPT:
         texte = texte[:EXCERPT].rsplit(" ", 1)[0] + "…"
-    bas = " · ".join(x for x in (a.get("categorie"), a.get("auteur"),
+    src = source_de(a.get("slug", ""))
+    # L'auteur ne se repete pas dans le bas de carte s'il ne dit rien de plus
+    # que la ligne d'auteur du haut (« ECOMI » ecrit deux fois : non).
+    auteur = str(a.get("auteur") or "").strip()
+    if src and auteur.casefold() == src["nom"].casefold():
+        auteur = ""
+    bas = " · ".join(x for x in (a.get("categorie"), auteur,
                                  a.get("date")) if x)
-    e = {"title": str(a["titre"])[:250], "color": BLEU,
+    e = {"title": str(a["titre"])[:250],
+         "color": src.get("couleur", BLEU),
          "description": (texte or "Nouvel article")[:1000]}
+    if src:
+        # ⭐ LA PROVENANCE EN TETE DE CARTE. Sans elle, un article ECOMI
+        # ressemble a un article du blog VeVe : meme post, meme forme.
+        e["author"] = {"name": f"{src['emoji']} {src['nom']} · {src['plateforme']}"}
     if a.get("url"):
         e["url"] = a["url"]
     if a.get("image"):
@@ -161,8 +199,19 @@ def message(neufs: List[Dict], ping: bool) -> Dict:
     """UN message pour toute la vague : si trois articles paraissent la meme
     nuit, ils partent ensemble — un ping, une notification."""
     n = len(neufs)
-    tete = ("📝 **Nouvel article sur le blog VeVe**" if n == 1 else
-            f"📝 **{n} nouveaux articles sur le blog VeVe**")
+    # ⭐ L'EN-TETE NE DOIT PAS MENTIR. Une vague peut melanger le blog VeVe et
+    # ECOMI : dans ce cas on ne nomme personne, et chaque carte dit d'ou elle
+    # vient. Si toute la vague vient d'UNE source, on la nomme.
+    noms = {source_de(x.get("slug", "")).get("nom", "") for x in neufs}
+    seule = source_de(neufs[0].get("slug", "")) if len(noms) == 1 else {}
+    if len(noms) > 1:
+        tete = f"📝 **{n} nouveaux articles**"
+    elif seule:
+        tete = (f"{seule['emoji']} **Nouvel article — {seule['sujet']}**" if n == 1
+                else f"{seule['emoji']} **{n} nouveaux articles — {seule['sujet']}**")
+    else:
+        tete = ("📝 **Nouvel article sur le blog VeVe**" if n == 1 else
+                f"📝 **{n} nouveaux articles sur le blog VeVe**")
     contenu = f"<@&{ROLE}> {tete}" if (ping and ROLE) else tete
     return {"content": contenu,
             "embeds": [carte(a) for a in neufs[:MAX_CARTES]],
