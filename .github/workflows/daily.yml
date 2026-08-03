@@ -62,12 +62,36 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # 🖼️ LE CATALOGUE ON-CHAIN, AVANT LE STEP 1 ET PAS APRES (03/08/2026).
+      # `sheets._normalise` y lit la colonne `image` pour remplir les fiches qui
+      # n'ont AUCUN visuel (11 264 comics le 03/08, soit 68 %).
+      # ⛔ CE STEP NE DOIT JAMAIS FAIRE ECHOUER LE DAILY : `|| echo` avale
+      # l'absence de release, et `couvertures_chaine` traite le fichier manquant
+      # comme un NO-OP bruyant. Un catalogue sans couverture reste un catalogue.
+      # ⚠️ C'est le MEME fichier que l'etape 8bis (bascule d'identite), mais
+      # telecharge INCONDITIONNELLEMENT ici : la bascule est un choix de Preda,
+      # remplir un trou d'image n'en est pas un.
+      - name: "0bis) Catalogue chaine (pour les couvertures)"
+        if: ${{ contains(env.STEPS, 'all') || contains(env.STEPS, 'catalogue') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download elements-v3 --pattern elements_v3.csv --dir data --clobber 2>/dev/null \
+            || echo "catalogue chaine indisponible — les fiches sans visuel le resteront ce tour."
+          if [ -f data/elements_v3.csv ]; then
+            head -1 data/elements_v3.csv | grep -q ",image" \
+              && echo "✅ colonne image presente." \
+              || echo "⚠️ elements_v3.csv SANS colonne image : moisson d'avant le 03/08/2026, rejouer elements-v3-moisson."
+          fi
+
       - name: 1) Catalogue (cold + Marques)
         if: ${{ contains(env.STEPS, 'all') || contains(env.STEPS, 'catalogue') }}
         env:
           ENRICH_MODE: ${{ github.event.inputs.enrich_mode || 'new' }}
           WINDOW_DAYS: "8"
           REFRESH_DYNAMIC: "true"
+          ELEMENTS_V3: data/elements_v3.csv
+          COUVERTURES_CHAINE: ${{ vars.COUVERTURES_CHAINE || '1' }}
         run: python -m scraper.run
 
       # 🗃️ Commit du cache d'enrichissement TOUT DE SUITE apres le step 1.
