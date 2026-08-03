@@ -229,16 +229,47 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          # ⚠️ `discord_calendrier_state.json` EST indispensable : c'est lui qui
-          # retient la semaine deja publiee. Non commite, le calendrier
-          # repartirait a chaque passage du samedi.
-          git add data/discord_stats_state.json data/discord_blog_state.json data/discord_drops_state.json data/discord_retour_state.json data/discord_feed_state.json data/discord_veille_state.json data/discord_calendrier_state.json 2>/dev/null || true
-          git diff --cached --quiet || git commit -m "discord: etats (ids des messages, slugs annonces)"
+          # 🔴🔴 NE JAMAIS LISTER LES ETATS DANS UN SEUL `git add`
+          # (paye du 28/07 au 03/08/2026 : 6 jours de re-publications).
+          # `git add a b absent` N'AJOUTE RIEN DU TOUT — git valide TOUTES les
+          # pathspecs d'abord, une seule qui ne matche pas et il abandonne le
+          # lot entier. Or `discord_calendrier_state.json` N'EXISTE PAS tant
+          # que le calendrier tourne en simulation (secrets vides). Resultat :
+          # `git add` sortait en `fatal:`, avale par `2>/dev/null || true`,
+          # `git diff --cached --quiet` etait VRAI, aucun commit, aucune erreur,
+          # etape VERTE — et le lendemain drops / retour / blog reannoncaient
+          # tout, parce que l'etat lu au checkout etait reste celui du 28/07.
+          # ⭐ Un fichier A LA FOIS, chacun garde par `-f` : un etat absent
+          # ne peut plus emporter les six autres. Le glob prend aussi tout
+          # module futur (`data/discord_<module>_state.json`) sans y revenir.
+          etats=0
+          for f in data/discord_*_state.json; do
+            [ -f "$f" ] || continue
+            git add "$f"
+            etats=$((etats + 1))
+          done
+          echo "[etats] $etats fichier(s) d'etat suivis"
+          if [ "$etats" -eq 0 ]; then
+            echo "::error::Aucun data/discord_*_state.json — rien a memoriser, la prochaine execution REPUBLIERA tout."
+            exit 1
+          fi
+          git diff --cached --quiet && echo "[etats] rien de neuf a commiter" || git commit -m "discord: etats (ids des messages, slugs annonces)"
           # ⚠️ REBASER + REESSAYER : un `git push || true` seul PERDAIT l'etat quand
           # un autre workflow (daily, etc.) avait pousse entre les 2 crons -> le run
           # suivant ne voyait pas les ids du comic day et le REPUBLIAIT (7h59 ET
           # 11h35). L'etat est sacre, comme pour les collecteurs longs.
+          # ⛔ La boucle seule est MUETTE en cas d'echec total : `for` rend le
+          # code du dernier `sleep` (0), donc 5 push rates finissaient VERTS et
+          # l'etat etait perdu en silence. Un push d'etat rate DOIT etre rouge.
+          pousse=0
           for i in 1 2 3 4 5; do
-            git pull --rebase --autostash origin main && git push origin main && break
+            if git pull --rebase --autostash origin main && git push origin main; then
+              pousse=1
+              break
+            fi
             sleep $((i * 5))
           done
+          if [ "$pousse" -ne 1 ]; then
+            echo "::error::L'etat n'a PAS ete pousse apres 5 essais — la prochaine execution REPUBLIERA."
+            exit 1
+          fi
