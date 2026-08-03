@@ -577,6 +577,32 @@ def texte(d: Dict, ping: bool) -> str:
     return "\n".join(lignes)
 
 
+# ═══ LE RATTRAPAGE DU MIROIR PUBLIC (03/08/2026) ═══
+# Vecu ce matin : « miroir public KO pour "Chris Robots Will Kill" (Read timed
+# out) ». La carte etait dans 📦DROP, la cle etait memorisee comme annoncee, et
+# le miroir n'etait JAMAIS retente : ce drop n'aurait eu que les votes prives,
+# et le module `retour` aurait lu une ligne de sondage public vide sans savoir
+# pourquoi. ⭐⭐ Une erreur avalee pendant que l'etat avance : exactement le
+# motif qui a coute six jours de republications le 28/07.
+#
+# ⛔ CE QU'IL NE FAUT SURTOUT PAS FAIRE : deduire les miroirs manquants en
+# comparant `cles` et `miroir`. Au 1er run, `cles` recoit TOUTES les series hors
+# fenetre (des centaines) — une telle deduction deverserait des centaines de
+# cartes dans le salon public. ⭐ L'ECHEC SE NOTE LUI-MEME, on ne le devine pas :
+# seule une cle explicitement inscrite dans `miroir_rate` est retentee.
+RATTRAPAGE_MAX = int(os.environ.get("DISCORD_DROPS_MIROIR_RATTRAPAGE", "5"))
+ESSAIS_MIROIR = int(os.environ.get("DISCORD_DROPS_MIROIR_ESSAIS", "3"))
+
+
+def _miroir_rate(state: Dict, cle: str) -> None:
+    rates = state.setdefault("miroir_rate", {})
+    rates[cle] = int(rates.get(cle, 0)) + 1
+
+
+def _miroir_ok(state: Dict, cle: str) -> None:
+    (state.get("miroir_rate") or {}).pop(cle, None)
+
+
 def poster_miroir(d: Dict, state: Dict) -> str:
     """La MEME carte dans 📘sondage-drop, **sans aucun ping**.
 
@@ -594,10 +620,13 @@ def poster_miroir(d: Dict, state: Dict) -> str:
     try:
         mid = api.poster(MIROIR_WEBHOOK, MIROIR_THREAD, message(d, ping=False))
         if not mid:
+            _miroir_rate(state, d["cle"])
             print(f"  ⚠️ miroir public : « {d['nom']} » n'a pas pu etre poste "
-                  f"— la carte de 📦DROP, elle, est bien la.", flush=True)
+                  f"— la carte de 📦DROP, elle, est bien la. RETENTE au "
+                  f"prochain passage.", flush=True)
             return ""
         state.setdefault("miroir", {})[d["cle"]] = mid
+        _miroir_ok(state, d["cle"])
         n = api.reagir(salon_miroir(), mid, REACTIONS)
         if n < len(REACTIONS):
             print(f"  ⚠️ miroir public : {n}/{len(REACTIONS)} reactions posees "
@@ -606,9 +635,64 @@ def poster_miroir(d: Dict, state: Dict) -> str:
         api.souffler()
         return mid
     except Exception as e:                                  # noqa: BLE001
-        print(f"  ⚠️ miroir public KO pour « {d['nom']} » ({e}) — ignore.",
-              flush=True)
+        _miroir_rate(state, d["cle"])
+        print(f"  ⚠️ miroir public KO pour « {d['nom']} » ({e}) — la carte de "
+              f"📦DROP est bien la, le miroir sera RETENTE au prochain "
+              f"passage.", flush=True)
         return ""
+
+
+def rattraper_miroir(sh, state: Dict) -> int:
+    """Les miroirs rates d'un passage precedent, retentes — et EUX SEULS.
+
+    ⚠️ APPELE AVANT LA SORTIE « aucun drop neuf », pas apres. La lecon est deja
+    ecrite plus bas pour le marquage « drop sorti » : place apres cette sortie,
+    un traitement ne tourne QUE les jours ou il y a une nouveaute — c'est-a-dire
+    presque jamais. Un miroir rate un jour calme doit se rattraper le lendemain,
+    justement parce qu'il n'y a rien d'autre a faire ce jour-la.
+    """
+    rates = state.get("miroir_rate") or {}
+    if not MIROIR_WEBHOOK or not rates:
+        return 0
+    # ⭐ `drops_a_venir(sh, [])` = TOUTE la fenetre, sans filtre d'etat : les
+    # drops a rattraper sont justement ceux qui SONT deja dans `cles`.
+    par_cle = {d["cle"]: d for d in drops_a_venir(sh, [])}
+    faits = 0
+    for cle, essais in sorted(rates.items(), key=lambda kv: -kv[1]):
+        if faits >= RATTRAPAGE_MAX:
+            print(f"📘 rattrapage : {RATTRAPAGE_MAX} par passage au maximum — "
+                  f"le reste au prochain tour.", flush=True)
+            break
+        d = par_cle.get(cle)
+        if d is None:
+            rates.pop(cle, None)
+            print(f"📘 rattrapage abandonne pour {cle} : le drop est sorti de "
+                  f"la fenetre, une carte de sondage n'a plus de sens.",
+                  flush=True)
+            continue
+        if essais >= ESSAIS_MIROIR:
+            rates.pop(cle, None)
+            print(f"⛔ miroir public : « {d['nom'] or cle} » abandonne apres "
+                  f"{essais} essais. Ce n'est pas un hoquet reseau — verifier "
+                  f"que le bot est bien dans 📘sondage-drop.", flush=True)
+            continue
+        # ⭐ Un refus de PLAFOND n'est pas un echec du miroir : on s'arrete
+        # AVANT d'appeler, sinon on brulerait un essai pour une raison qui n'a
+        # rien a voir avec Discord.
+        if api.envois() >= api.PLAFOND:
+            print(f"📘 rattrapage suspendu : plafond de messages atteint. "
+                  f"Aucun essai n'est consomme, on reprend au prochain "
+                  f"passage.", flush=True)
+            break
+        if _complet(d):
+            continue                    # fiche incomplete : elle repassera
+        if poster_miroir(d, state):
+            faits += 1
+    # Une cle a 0 n'a plus rien a dire : on garde l'etat minuscule.
+    state["miroir_rate"] = {k: v for k, v in rates.items() if v}
+    if faits:
+        print(f"📘 {faits} miroir(s) public(s) rattrape(s).", flush=True)
+    return faits
 
 
 def marquer_miroir(state: Dict, dates: Dict[str, int]) -> int:
@@ -746,6 +830,11 @@ def run() -> int:
         if n_miroir:
             print(f"📘 {n_miroir} carte(s) du salon public marquee(s) "
                   f"« drop sorti ».", flush=True)
+        # ⚠️ ICI, et pas plus bas : la sortie « aucun drop neuf » est juste
+        # apres, et un rattrapage place derriere elle ne tournerait que les
+        # jours ou il y a une nouveaute. Meme piege que le marquage ci-dessus,
+        # corrige le 20/07 — la lecon est ecrite trois lignes plus haut.
+        rattraper_miroir(sh, state)
 
     if not neufs:
         # ⚠️ Le Comic Book Day doit etre annonce MEME s'il n'y a aucun autre
