@@ -54,3 +54,25 @@ jobs:
           BLOG_WITH_CONTENT: "true"
           BLOG_MAX_NEW: ${{ github.event.inputs.max_new || '0' }}
         run: python -m scraper.blog_run
+
+      # ═══ 🪙 ECOMI / TOKEN OMI — LA MEME PORTE QUE LE BLOG VEVE ═══
+      # Le compte Medium officiel du token OMI (medium.com/@ecomi-official)
+      # entre dans le MEME onglet, par le MEME `sync_blog()`, et sera annonce
+      # par le MEME module Discord (`discord_blog.py`). Une source de plus,
+      # pas une architecture de plus.
+      # ⚠️ POURQUOI ICI ET PAS DANS SON PROPRE WORKFLOW : deux workflows qui
+      # ecrivent 📝C-BLOG pourraient tourner en meme temps, et `sync_blog`
+      # relit-fusionne-REECRIT tout l'onglet — l'un des deux perdrait ses
+      # lignes, en silence. Dans ce job, les deux ecritures sont SEQUENTIELLES
+      # et couvertes par la meme `concurrency: veve-blog`.
+      # ⛔ Ce module ne parle PAS a Discord : ni webhook, ni jeton, ni ping.
+      - name: ECOMI (token OMI) -> 📝C-BLOG
+        # Un flux Medium injoignable ne doit PAS faire echouer la collecte du
+        # blog VeVe qui vient de reussir. L'etape reste ORANGE dans l'interface
+        # (donc visible), le job continue, et tout le flux sera reverse demain :
+        # `sync_blog` est un upsert, rien ne se perd.
+        continue-on-error: true
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+        run: python -m scraper.ecomi_run
