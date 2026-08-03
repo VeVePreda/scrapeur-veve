@@ -437,7 +437,7 @@ def sync_catalogue(products: List[Dict[str, Any]], spreadsheet_id: str,
     for ws in _catalogue_worksheets(sh):
         if ws.row_count <= 1:
             continue
-        for row in ws.get_all_records():
+        for row in _lire_lignes(ws):
             rid = str(row.get(KEY_COLUMN, "")).strip()
             if rid and rid not in existing_by_id:
                 existing_by_id[rid] = dict(row)
@@ -551,6 +551,14 @@ def sync_catalogue(products: List[Dict[str, Any]], spreadsheet_id: str,
     # — et c'est exactement comme ca qu'on a cru pendant six jours que les
     # couvertures n'existaient pas.
     print("  " + _cc.resume(), flush=True)
+    # 🩺 L'ETAT DES EXTREMES **A L'ENTREE** du run.
+    if _PAIRES["lues"]:
+        _pct = 100.0 * _PAIRES["impossibles"] / _PAIRES["lues"]
+        print(f"  🩺 extremes lus dans le Sheet : {_PAIRES['impossibles']} paire(s) "
+              f"ATL > ATH sur {_PAIRES['lues']} ({_pct:.1f} %). "
+              f"⭐ Ce chiffre doit BAISSER apres une passe de repare_atl_ath.py "
+              f"— et NE PLUS REMONTER. S'il remonte, la virgule saute encore "
+              f"quelque part.", flush=True)
     _bil = _cc.bilan()
 
     return {
@@ -928,6 +936,132 @@ def append_run_log(spreadsheet_id: str, summary: Dict[str, Any],
         s["duration"] = f"{duration_sec:.0f}s"
     append_log(spreadsheet_id, source, str(summary.get("status", "")),
                summary_details(s))
+
+
+# ---------------------------------------------------------------------------
+# 🔴🔴 LA VIRGULE QUI SAUTE — LA CAUSE DES ATL/ATH IMPOSSIBLES (03/08/2026)
+# ---------------------------------------------------------------------------
+# MESURE, 8 lignes inversees du Sheet re-demandees au tracker, 8 sur 8 :
+#
+#     piece                          Sheet      tracker
+#     X-Men: Age Of Revelation #1    999 / 11   9.99 / 11
+#     Warlord of Mars #1             795 / 20   7.95 / 20
+#     Vampirella & Scarlet Legion     25 / 10   2.5  / 10
+#     Ultimate Endgame #1 (RARE)      34 / 25   3.4  / 25
+#
+# ⭐⭐⭐ LA VIRGULE N'EST PAS MAL INTERPRETEE, ELLE EST SUPPRIMEE.
+# « 9,99 » -> 999 (x100, deux decimales) · « 2,5 » -> 25 (x10, une decimale).
+# Ce n'est donc PAS un facteur constant : aucun controle de vraisemblance ne
+# peut le rattraper, et une valeur ainsi abimee reste parfaitement plausible.
+#
+# ⭐⭐ POURQUOI L'ATL ET (PRESQUE) JAMAIS L'ATH : il n'y a pas de bug « atl ».
+# Il y a un bug « nombre a decimales ». L'atl est un PLANCHER — petit, avec des
+# centimes ; l'ath est souvent un entier (11, 20, 55, 225). Seul ce qui porte
+# une virgule est touche. Le defaut se deguise en defaut de colonne.
+#
+# 🔴 LE CIRCUIT, ET IL EST A NOUS : `sync_catalogue` RELIT les 19 242 lignes
+# existantes avec `get_all_records()` — donc en valeurs FORMATEES, telles
+# qu'AFFICHEES — puis les REECRIT en RAW. Un nombre fait ainsi l'aller-retour
+# par sa representation TEXTE, et la virgule n'y survit pas.
+#
+# ⭐⭐⭐ CE DIAGNOSTIC ETAIT DEJA ECRIT — LE 22/07, DANS `repare_atl_ath.py` :
+#   « les lignes existantes font l'aller-retour lecture-formatee -> reecriture
+#     RAW sans jamais revoir le tracker »
+#   « write RAW : jamais de chaine formatee, c'est le vecteur de la corruption
+#     d'origine »
+# On avait donc NOMME le poison et ecrit l'antidote, sans jamais fermer le
+# robinet. C'est pour ca que 3 214 paires impossibles (16,8 %) etaient de
+# retour douze jours apres une reparation qui les avait mises a ZERO.
+#
+# ⛔ ET C'EST POURQUOI UNE REPARATION SEULE NE SUFFIRA JAMAIS : elle ecrit la
+# bonne valeur, le daily suivant la relit par son affichage et la re-casse.
+# L'ORDRE DE DEPLOIEMENT EST DONC : ce correctif D'ABORD, la reparation APRES.
+#
+# ⭐ Je n'ai pas eu besoin de trancher entre « la locale du fichier est US » et
+# « gspread renonce a convertir '9,99' » : la lecture NON FORMATEE supprime les
+# deux d'un coup. On demande le NOMBRE, plus jamais son apparence.
+LECTURE_NON_FORMATEE = os.environ.get(
+    "SHEET_LECTURE_NON_FORMATEE", "1").strip().lower() not in (
+        "0", "false", "non", "off")
+
+# 📅 LES COLONNES DE DATE. ⚠️ EN NON FORMATE, UNE VRAIE DATE REVIENT EN NOMBRE
+# DE SERIE (45615), pas en « 2024-11-19 » : c'est le prix a payer, et il se
+# paie ICI. `gspread` 6.x n'expose pas `dateTimeRenderOption`, on reconvertit
+# donc nous-memes. ⛔ Sans ça, on echangerait un bug de prix contre un bug de
+# dates — le meme trajet, l'autre colonne.
+COLONNES_DATE = ("releaseDate", "atl_date", "ath_date", "drop_date",
+                 "first_seen", "last_seen", "veve_enriched_at")
+
+# Google Sheets compte les jours depuis le 30/12/1899.
+_EPOQUE_SHEETS = _dt.datetime(1899, 12, 30)
+
+
+def _date_depuis_serie(v: Any) -> Any:
+    """45615 -> « 2024-11-19 ». Tout le reste passe INCHANGE.
+
+    ⛔ On ne devine rien : seul un nombre dans une plage de dates plausible
+    (1 = 31/12/1899, 100000 = an 2173) est converti. Un « 2024-11-19 » deja
+    en texte ressort tel quel."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return v
+    if not (1 <= v <= 100000):
+        return v
+    try:
+        d = _EPOQUE_SHEETS + _dt.timedelta(days=float(v))
+    except (OverflowError, ValueError):
+        return v
+    return d.strftime("%Y-%m-%d %H:%M:%S") if (float(v) % 1) else d.strftime("%Y-%m-%d")
+
+
+def _lire_lignes(ws) -> List[Dict[str, Any]]:
+    """Les lignes d'un onglet, en NOMBRES quand ce sont des nombres.
+
+    ⭐ C'est le seul endroit du module qui relit le catalogue existant. Tout le
+    reste de `sync_catalogue` en depend : `merged` part de ce que ceci rend."""
+    if not LECTURE_NON_FORMATEE:
+        return ws.get_all_records()
+    from gspread.utils import ValueRenderOption
+    lignes = ws.get_all_records(
+        value_render_option=ValueRenderOption.unformatted)
+    for r in lignes:
+        for c in COLONNES_DATE:
+            if c in r:
+                r[c] = _date_depuis_serie(r[c])
+    _compter_paires(lignes)
+    return lignes
+
+
+# 🩺 LE CAPTEUR. ⭐ Un correctif qui ferme un robinet doit dire si le niveau
+# BAISSE — sinon on ne sait pas s'il a marche, on l'espere. Ce compteur lit le
+# Sheet TEL QU'IL EST AU DEBUT DU RUN : il ne juge pas ce run-ci, il mesure ce
+# que les precedents ont laisse.
+# ⛔ Il ne repare RIEN et ne jette RIEN. Il compte, il sera imprime, c'est tout.
+_PAIRES = {"lues": 0, "impossibles": 0}
+
+
+def _nombre(v: Any) -> Optional[float]:
+    """⚠️ Tolere encore la virgule : une cellule ABIMEE peut revenir en texte,
+    et le capteur doit pouvoir la compter au lieu de l'ignorer."""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    t = str(v or "").replace("\u202f", "").replace("\u00a0", "")
+    t = t.replace(" ", "").replace(",", ".").strip()
+    try:
+        return float(t)
+    except ValueError:
+        return None
+
+
+def _compter_paires(lignes: List[Dict[str, Any]]) -> None:
+    for r in lignes:
+        a, b = _nombre(r.get("atl")), _nombre(r.get("ath"))
+        if a is None or b is None or a <= 0 or b <= 0:
+            continue
+        _PAIRES["lues"] += 1
+        if a > b:
+            _PAIRES["impossibles"] += 1
 
 
 def _cell(v: Any) -> Any:
