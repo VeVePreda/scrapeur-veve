@@ -133,7 +133,22 @@ jobs:
           DISCORD_HUB_WEBHOOK: ${{ secrets.DISCORD_HUB_WEBHOOK }}
           DISCORD_STATS_WEBHOOK: ${{ secrets.DISCORD_STATS_WEBHOOK }}
           DISCORD_BLOG_WEBHOOK: ${{ secrets.DISCORD_BLOG_WEBHOOK }}
-          DISCORD_MODULES: ${{ github.event.inputs.modules || 'stats,blog,drops,retour,feed,veille' }}
+          # 🔴🔴 LE REPLI DU CRON DOIT LISTER LES MEMES MODULES QUE LE CHOIX
+          # MANUEL (corrige le 03/08/2026). `github.event.inputs.modules` est
+          # VIDE sur un declenchement planifie : c'est donc la chaine ci-dessous
+          # — et ELLE SEULE — qui pilote les passages automatiques. Elle avait
+          # ete oubliee quand `calendrier` a ete ajoute : le module figurait
+          # dans la liste deroulante du lancement manuel, mais le cron du samedi
+          # ne l'appelait JAMAIS. Aucune erreur, aucun log : un module complet,
+          # depose et fonctionnel, qui ne s'est simplement jamais execute.
+          # ⭐ Un defaut par repli ne se voit que le jour ou on lit le repli.
+          # ➡️ AJOUTER UN MODULE = LE METTRE AUX DEUX ENDROITS (ici + `options`
+          #    de workflow_dispatch, plus haut).
+          DISCORD_MODULES: ${{ github.event.inputs.modules || 'stats,blog,drops,retour,feed,veille,calendrier' }}
+          # Rattrapage du miroir public : nb max de cartes retentees par
+          # passage, et nb d'essais avant abandon bruyant.
+          DISCORD_DROPS_MIROIR_RATTRAPAGE: ${{ vars.DISCORD_DROPS_MIROIR_RATTRAPAGE || '5' }}
+          DISCORD_DROPS_MIROIR_ESSAIS: ${{ vars.DISCORD_DROPS_MIROIR_ESSAIS || '3' }}
           # Le token du BOT ne sert QU'AUX REACTIONS. S'il manque, les cartes
           # partent quand meme — sans sondage, et le log le dit.
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
