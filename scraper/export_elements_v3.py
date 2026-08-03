@@ -72,7 +72,31 @@ ENTETE = ["veve_uuid", "series_uuid", "name", "category", "rarity",
           # a conserve l'erreur, faute de savoir que la chaine l'avait vu.)
           # Ajoutee EN FIN, pour la meme raison que `series` : les 17 premieres
           # colonnes ne bougent pas d'un octet.
-          "source"]
+          "source",
+          # 🆕 19e colonne (03/08/2026) — L'ADRESSE DU VISUEL.
+          # 🔴🔴 TROISIEME FOIS DANS CE MEME FICHIER, ET LA PLUS CHERE.
+          # `series` etait CALCULEE puis jetee ; `source` n'existait pas ;
+          # `image`, elle, etait LUE ET ANALYSEE trois lignes avant d'etre
+          # relachee. `catalogue_from_instance` fait, l.138-139 :
+          #     img = inst.get("image_url") or inst.get("media_url") or ""
+          #     m   = _UUID_RE.search(img)
+          # `_UUID_RE` connait deja la forme `comic_cover.<veve_uuid>` — c'est
+          # meme par elle qu'on IDENTIFIE la piece. On gardait l'uuid, on
+          # jetait l'adresse.
+          # ⭐⭐ CE QUI SERT DE CLE SERT AUSSI DE VALEUR. Une donnee dont on
+          # n'extrait qu'un morceau reste une donnee : la question n'est pas
+          # « en ai-je besoin ici ? » mais « la reverrai-je un jour ? ».
+          # LE PRIX, MESURE LE 03/08 : 11 264 comics du Sheet (68 %) n'ont
+          # aucun visuel, et 11 124 d'entre eux (98,8 %) figurent dans la
+          # moisson du 28/07 — leur couverture avait donc ete lue puis jetee
+          # six jours plus tot.
+          # ⛔ AUCUNE URL N'EST FABRIQUEE ICI. Le 2e identifiant de l'adresse
+          # est imprevisible : on RECOPIE ce que la chaine a dit, ou on laisse
+          # vide. Une adresse construite serait une adresse inventee.
+          # Ajoutee EN FIN : les 18 premieres colonnes ne bougent pas d'un
+          # octet, `charger_graine` lit par NOM (une graine d'avant rend ""),
+          # et `combler_series` allonge deja les lignes courtes.
+          "image"]
 
 # Le vocabulaire de `source` — declare ici, nulle part ailleurs.
 #   "chaine"  : la ligne SORT de la moisson CollectChain de ce run.
@@ -186,6 +210,11 @@ def catalogue_from_instance(inst: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "brand": brand,
         "licensor": licensor,
         "series": series,       # sert au MAX-par-serie des comics
+        # ⭐ L'ADRESSE TELLE QUELLE (03/08/2026). C'est `img`, la variable lue
+        # 30 lignes plus haut et jusqu'ici utilisee seulement comme SUPPORT du
+        # regex d'identification. On ne la retouche pas, on ne la valide pas :
+        # ce que la chaine a inscrit est ce qu'on recopie.
+        "image": img,
     }
 
 
@@ -278,6 +307,7 @@ def construire_v3(catalogue: Dict[str, Dict[str, Any]],
             (off.get("ath_date") or "").strip(),
             c["series"],                               # 🆕 CHAINE
             SRC_CHAINE,                                # 🆕 provenance : moisson
+            c.get("image") or "",                      # 🆕 CHAINE : le visuel
         ])
     rows.sort(key=lambda l: (l[3], l[6] if l[6] != "" else 0, l[2]))
     return rows
@@ -401,6 +431,7 @@ def ecrire(rows: List[List], chemin: str) -> None:
     # lignes courtes (graine < 18 colonnes) avec des "" — soit exactement
     # INCONNU, qui est la verite pour elles.
     valider_sources(rows)
+    _releve_images(rows)
     src = compter_sources(rows)
     print("  source : "
           + " · ".join(f"{k or 'inconnu'}={src.get(k, 0)}" for k in VOCAB_SOURCE)
@@ -410,6 +441,41 @@ def ecrire(rows: List[List], chemin: str) -> None:
         w = csv.writer(f)
         w.writerow(ENTETE)
         w.writerows(rows)
+
+
+def _releve_images(rows: List[List]) -> None:
+    """🖼️ Combien de lignes portent une adresse de visuel, et QUI n'en a pas.
+
+    ⛔ PAS DE REPLI MUET (demande de Preda, 03/08/2026) : une piece sans
+    couverture doit SORTIR MARQUEE, avec de quoi la retrouver. Un trou qu'on
+    comble en silence n'est plus un trou, c'est une certitude fausse.
+
+    ⭐ Le chiffre a lire n'est pas le total mais le RESTE : c'est lui qui dira
+    s'il faut aller chercher ailleurs (page publique VeVe) pour la poignee que
+    la chaine ne couvre pas.
+    """
+    i_img, i_cat, i_nom, i_src = (ENTETE.index("image"), ENTETE.index("category"),
+                                  ENTETE.index("name"), ENTETE.index("source"))
+    sans = [r for r in rows if not str(r[i_img] or "").strip()]
+    total = len(rows)
+    print(f"  image : {total - len(sans)}/{total} ligne(s) avec une adresse "
+          f"de visuel.", flush=True)
+    if not sans:
+        return
+    par_src: Dict[str, int] = {}
+    for r in sans:
+        cle = str(r[i_src] or "inconnu")
+        par_src[cle] = par_src.get(cle, 0) + 1
+    detail = " · ".join(f"{k}={v}" for k, v in sorted(par_src.items()))
+    print(f"  ⚠️ {len(sans)} SANS VISUEL ({detail}). Ces pieces n'auront pas "
+          f"d'image : la chaine ne leur en a jamais inscrit. Elles ne sont PAS "
+          f"un echec de collecte, ce sont des trous a aller chercher "
+          f"ailleurs.", file=sys.stderr, flush=True)
+    for r in sans[:5]:
+        print(f"     - {r[i_cat]} · {r[i_nom]} · {r[ENTETE.index('veve_uuid')]}",
+              file=sys.stderr, flush=True)
+    if len(sans) > 5:
+        print(f"     … et {len(sans) - 5} autre(s).", file=sys.stderr, flush=True)
 
 
 def charger_graine(chemin: str) -> Dict[str, List]:

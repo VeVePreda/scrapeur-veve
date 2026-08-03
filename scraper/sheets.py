@@ -43,6 +43,7 @@ from typing import Any, Dict, List, Optional
 import gspread
 from google.oauth2.service_account import Credentials
 
+from scraper import couvertures_chaine as _cc
 from scraper.veve_scraper import build_veve_url
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -394,6 +395,23 @@ def _normalise(rec: Dict[str, Any]) -> Dict[str, Any]:
         rec["market_fee"] = _fmt_fee(rec.get("market_fee"))
     rec["veve_url"] = build_veve_url(rec.get("category"), rec.get("veve_uuid"),
                                      rec.get("series_uuid"))
+    # 🖼️ LA COUVERTURE VENUE DE LA CHAINE (03/08/2026) — SEULEMENT DANS LE VIDE.
+    # ⭐ ICI ET PAS AILLEURS, parce que `sync_catalogue` REECRIT les deux onglets
+    # en entier a chaque run (`merged` = toutes les lignes existantes + les
+    # produits du jour, puis `_normalise` sur CHACUNE). Une ligne posee ici
+    # touche donc les 19 242 fiches des le prochain daily : il n'y a AUCUN
+    # rattrapage a lancer, aucun script a jouer une fois.
+    # ⛔ `or ""` PUIS `.strip()` : une cellule Sheet vide peut revenir en `None`
+    # comme en `""`, et une chaine d'espaces n'est pas une adresse.
+    if not str(rec.get("image_url") or "").strip():
+        _img = _cc.image_pour(rec.get("veve_uuid"))
+        if _img:
+            rec["image_url"] = _img
+            _cc.noter(True)
+        else:
+            _cc.noter_manquante()
+    else:
+        _cc.noter(False)
     # ORDRE IMPORTANT : on recopie les champs bruts AVANT que DROP_COLUMNS ne les
     # jette. C'est tout le bug qu'on repare : les donnees etaient la, on les
     # supprimait a la derniere ligne.
@@ -528,9 +546,18 @@ def sync_catalogue(products: List[Dict[str, Any]], spreadsheet_id: str,
         print(f"  ⚠️ cache enrichissement NON mis a jour ({e}) — le builder v2 "
               f"lira les onglets froids en secours.", file=sys.stderr)
 
+    # 🖼️ ⛔ LE BILAN SE DIT, MEME QUAND IL EST BON. Un module qui remplit
+    # 11 000 fiches en silence est indiscernable d'un module qui n'a pas tourne
+    # — et c'est exactement comme ca qu'on a cru pendant six jours que les
+    # couvertures n'existaient pas.
+    print("  " + _cc.resume(), flush=True)
+    _bil = _cc.bilan()
+
     return {
         "status": "OK",
         "total_rows": len(merged),
+        "couvertures_posees": _bil["posees"],
+        "couvertures_manquantes": _bil["manquantes"],
         "comics_rows": len(comics_recs),
         "collectibles_rows": len(collect_recs),
         "new_items": added,

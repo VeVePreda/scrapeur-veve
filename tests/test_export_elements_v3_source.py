@@ -69,9 +69,24 @@ def ligne_heritee(uid, cat="comic"):
 def test_source_ajoutee_en_FIN_sans_toucher_a_ce_qui_precede():
     # Meme discipline que `series` : les colonnes ANTERIEURES ne bougent pas
     # d'un octet, parce que `reattacher_offchain` indexe par POSITION.
+    #
+    # 🔴 CE BANC A CRIE LE 03/08/2026, ET IL AVAIT A MOITIE RAISON.
+    # Il disait `ENTETE[-1] == "source" and len(ENTETE) == 18`. L'intention
+    # etait « source est AJOUTEE EN FIN, rien avant elle ne bouge » ; ce qu'il
+    # ECRIVAIT etait « source est la derniere POUR TOUJOURS ». La 19e colonne
+    # (`image`) l'a donc fait echouer alors qu'elle respectait exactement la
+    # regle qu'il defend.
+    # ⭐⭐ UN BANC QUI EPINGLE « X EST LE DERNIER » INTERDIT L'AJOUT SUIVANT.
+    # Ce qu'il faut epingler, c'est la POSITION de ce qui existe — pas
+    # l'absence de ce qui viendra. On verifie donc l'INDEX de `source`, et on
+    # laisse la fin ouverte.
     assert ENTETE[:16] == SEIZE
     assert ENTETE[16] == "series"
-    assert ENTETE[-1] == "source" and len(ENTETE) == 18
+    assert ENTETE[17] == "source"
+    assert len(ENTETE) >= 18
+    # ⛔ Et un garde-fou que l'ancienne forme n'avait pas : deux colonnes de
+    # meme nom rendraient `DictReader` silencieusement faux.
+    assert len(ENTETE) == len(set(ENTETE)), "colonne en double dans ENTETE"
 
 
 def test_les_index_offchain_restent_valides():
