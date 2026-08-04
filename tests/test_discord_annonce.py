@@ -526,6 +526,22 @@ def test_le_sold_out_ne_sannonce_que_quand_il_est_vrai():
     assert "SOLD OUT" not in A.ligne_sortie(1, reste)
 
 
+def test_le_corps_ne_fabrique_aucune_vignette():
+    """🚫 Trois URL nues (parrainage, X, VeVe Investor) = trois cartouches
+    grises qui doublent la hauteur du message. `flags: 4` = SUPPRESS_EMBEDS."""
+    m = A.corps("2026-05", "mai", 171,
+                A.classer([serie("a", "BB-8", "ua")], {"ua": 5}), [])
+    assert m["flags"] == 4
+
+
+def test_lentete_GARDE_ses_apercus():
+    """⚠️ L'illustration EST un apercu d'URL : supprimer les vignettes partout
+    tuerait justement ce qu'on veut voir. ⭐ Un reglage global qui supprime
+    « les images » supprime aussi celle qu'on a demandee."""
+    tete = A.entete("2026-05", dt.date(2026, 6, 3), "mai", "", False)
+    assert tete.get("flags", 0) == 0
+
+
 def test_et_maintenant_porte_lemoji_yeux():
     assert "👀 **Et maintenant ?**" in _corps()
 

@@ -122,6 +122,10 @@ CROCHETS_PATH = os.environ.get("DISCORD_ANNONCE_CROCHETS",
                                os.path.join("data", "annonce_crochets.json"))
 
 MAX_CONTENU = 2000                       # limite Discord d'un message texte
+# SUPPRESS_EMBEDS (1 << 2) : Discord ne fabrique AUCUN apercu pour les URL du
+# message. C'est le seul moyen propre — mettre les liens entre `<…>` marche
+# aussi, mais il faudrait le faire URL par URL et ne rien oublier a jamais.
+SUPPRIMER_VIGNETTES = 4
 
 MOIS_FR = ["", "janvier", "février", "mars", "avril", "mai", "juin", "juillet",
            "août", "septembre", "octobre", "novembre", "décembre"]
@@ -651,6 +655,16 @@ def corps(cle: str, mois_passe: str, total_drops: int,
         # Le corps ne ping JAMAIS. ⚠️ Un `<#id>` reste cliquable malgre tout :
         # `allowed_mentions` ne bride que les membres, les roles et @everyone.
         "allowed_mentions": api.mentions(),
+        # 🚫 PAS DE VIGNETTES. Discord fabrique un apercu pour chaque URL nue
+        # (parrainage, X, VeVe Investor) : trois cartouches grises qui doublent
+        # la hauteur du message et noient la liste. `flags: 4` =
+        # SUPPRESS_EMBEDS, le seul drapeau qu'un webhook a le droit de poser
+        # avec SUPPRESS_NOTIFICATIONS.
+        # ⚠️ IL EST SUR LE CORPS, PAS SUR L'ENTETE : l'illustration du 1er
+        # message EST un apercu d'URL. Le mettre partout tuerait justement ce
+        # qu'on veut voir. ⭐ Un reglage global qui supprime « les images »
+        # supprime aussi celle qu'on a demandee.
+        "flags": SUPPRIMER_VIGNETTES,
     }
 
 
