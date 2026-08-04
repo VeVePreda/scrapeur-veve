@@ -282,6 +282,11 @@ jobs:
           # serveur s'ecrit `<:nom:id>` : un webhook ne sait pas le poster
           # autrement (il afficherait le texte brut).
           DISCORD_ANNONCE_EMOJI: ${{ vars.DISCORD_ANNONCE_EMOJI || '🐱' }}
+          # Les liens masques `[nom](url)`. Discord les rend dans un message
+          # normal depuis 2023, mais si le 1er run affiche les crochets en
+          # clair, basculer cette variable a 'false' (nom en gras + URL sur la
+          # ligne suivante) — sans redeployer une ligne de code.
+          DISCORD_ANNONCE_LIENS_MASQUES: ${{ vars.DISCORD_ANNONCE_LIENS_MASQUES || 'true' }}
           DISCORD_ANNONCE_SEUIL_THEME: ${{ vars.DISCORD_ANNONCE_SEUIL_THEME || '0.40' }}
           DISCORD_ANNONCE_COUVERTURE: ${{ vars.DISCORD_ANNONCE_COUVERTURE || '20' }}
           # v1 : aucune illustration. Le crochet est perce (fichier
