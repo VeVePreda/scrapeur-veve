@@ -5,42 +5,53 @@
 
 """📢 L'ANNONCE DE DEBUT DE MOIS — le 2 de chaque mois, dans « Annonces ».
 
-La newsletter sort le 1er ; l'annonce vient juste apres. DEUX messages : une
-ENTETE (le titre date, le ping, l'accroche, et l'illustration le jour venu)
-puis le CORPS (« Ainsi que : », « A venir ? », les liens).
+La newsletter sort le 1er ; l'annonce vient juste apres.
 
-⭐⭐⭐ LE GABARIT EST UN VRAI POST DE PREDA (celui du 03/06/2026), PAS UNE
-INVENTION. La v1 rendait un bel embed ; il a montre ce qu'il poste vraiment :
-du **texte brut**, une liste a tirets colles, des salons en `<#id>`, et **aucun
-chiffre**. **Un message automatique doit ressembler a celui qu'il remplace,
-sinon il annonce a tout le serveur qu'il est automatique.**
+UN SEUL MESSAGE, QUATRE EMBEDS — un par partie (demande de Preda, 04/08) :
+  1. l'annonce  : « Annonces 02/09 », l'accroche du mois, l'illustration ;
+  2. les sorties: « Ce mois-ci N Drops dont : » + le palmares + « Et maintenant ? » ;
+  3. les liens  : parrainage, classements, X, bulletin Récap ;
+  4. le service : VeVe Investor.
 
-Conçu avec Preda le 23/07/2026, ecrit le 04/08/2026. Le 2 aout, rien n'est
-sorti et Preda a cru a une panne : ce n'etait pas une panne, le module
-n'existait pas. ⭐ Un chantier « conçu » ressemble a un chantier livre quand on
-n'en voit que la date qui passe.
+⚠️ POURQUOI UN SEUL MESSAGE ET PAS QUATRE
+-----------------------------------------
+Discord empile les embeds d'un meme message **sans rien entre eux** : le rendu
+est celui de quatre blocs separes, mais on ne poste QU'UNE FOIS. Consequences,
+et elles comptent : **un seul ping**, **un seul point de panne** (plus d'entete
+orpheline si le 2e envoi echoue), et un seul jeton du plafond anti-ban.
+
+🔴 UN EMBED NE PING PAS. Ecrire « @everyone » dans un embed n'alerte PERSONNE :
+Discord le rend en texte gris. Le ping doit vivre dans le `content` du message.
+C'est pour ca que « @everyone » est au-dessus du 1er embed et non dedans — ce
+n'est pas un choix de mise en page, c'est la seule facon que ca sonne.
 
 CE QU'IL CALCULE — 0 requete VeVe, il lit le Sheet comme `discord_drops`
 ----------------------------------------------------------------------
-* le mois PRECEDENT (nom francais, bornes) ;
-* les series sorties dans ce mois-la, **comics du mercredi exclus**
-  (`discord_drops.est_comic_du_mercredi` — 3 055 series sur 4 195, c'est du
-  volume, pas de l'actualite) ;
-* **CE QUI S'EST LE PLUS VENDU** (choix de Preda du 04/08) : les mints
-  on-chain de l'onglet `ChainItems`, sommes sur le mois, par serie.
-  ⛔ Les ventes sont le critere de **SELECTION**, elles ne s'AFFICHENT pas :
-  l'annonce est promotionnelle, pas analytique ;
-* le **theme** du mois = la licence dominante DE CETTE SELECTION, avec un
-  **repli neutre** : si aucune licence n'ecrase les autres, on dit « le mois de
-  juillet » plutot qu'une affirmation fausse ;
-* le teaser « a venir » = `discord_drops.drops_a_venir`, le MEME calcul que le
-  post 📦DROP (7 jours) — juste reformule.
+* le mois PRECEDENT (nom francais, bornes) et **le nombre total de series
+  sorties** (« 142 Drops » — comics du mercredi compris : c'est le chiffre que
+  Preda annonce, verifie sur mai 2026) ;
+* **CE QUI S'EST LE PLUS VENDU** : les mints on-chain de `ChainItems`, sommes
+  sur le mois, par serie ;
+* le **theme** du mois = la licence dominante de la selection, avec un **repli
+  neutre** : si aucune licence n'ecrase, on ne nomme pas de theme ;
+* le teaser « Et maintenant ? » = `dd.drops_a_venir`, le MEME calcul que 📦DROP.
 
-⭐⭐ JE RECOPIE LA BOUCLE, JAMAIS LES REGLES. Le lien d'une fiche, son titre, le
-filtre du mercredi, le tirage d'une serie : chacune de ces regles a deja un
-proprietaire (`discord_drops`, `discord_retour`) et une cicatrice. Les
-redefinir ici, c'est signer pour deux verites qui divergeront sans jamais
-echouer. Ce fichier n'invente qu'une chose : le classement par ventes.
+LES TROIS FILTRES DE LA LISTE (decisions Preda du 04/08)
+--------------------------------------------------------
+1. **PAS D'ARTWORK** : une serie dont TOUTES les lignes sont des `ARTIST_PROOF`
+   (edition « AP », tirage 1). ⚠️ Un AP isole dans une serie normale ne fait pas
+   de la serie un artwork — sinon on jetterait la serie entiere pour une ligne.
+2. **LES COMICS SEULEMENT S'ILS SONT SOLD OUT**, *et* hors mercredi (les deux
+   filtres s'ajoutent — choix de Preda). Le VeVe Comic Book Day deverse 115
+   series sur 142 en mai : c'est du volume, pas de l'actualite.
+3. **7 lignes au maximum.**
+
+⚠️ CE QUE JE NE PEUX PAS PROUVER HORS LIGNE : que le `supply` d'un comic soit
+bien son tirage REEL et non son plafond mintable. S'il porte le plafond, aucun
+comic ne passera jamais le filtre « sold out ». Le module **compte et ecrit**
+dans les logs combien de comics etaient candidats et combien ont passe le
+filtre — le 1er vrai run tranchera. ⭐ Une hypothese qu'on ne peut pas verifier
+se transforme en compteur, pas en silence.
 
 🚨 @EVERYONE — POURQUOI CE MODULE EST LE PLUS DANGEREUX DU HUB
 --------------------------------------------------------------
@@ -58,9 +69,9 @@ des precautions, ce sont des conditions d'existence :
 3. **UN INTERRUPTEUR** (`DISCORD_ANNONCE_EVERYONE`, ferme par defaut) coupe le
    ping sans toucher au code. ⭐ Il est lu **a l'execution**, pas a l'import :
    un reglage qu'on peut poser sans que le code le lise est un no-op silencieux.
-4. **L'ETAT EST ECRIT DES QUE L'ENTETE EST PARTIE**, avant meme le corps. Si le
-   corps echoue, on crie — mais on ne repingera JAMAIS. Un salon avec une
-   entete orpheline se repare a la main ; deux @everyone, non.
+4. **ON NE PEUT PAS VENDRE PLUS QUE LE TIRAGE.** Les ventes sont bornees au
+   tirage, et un depassement est ECRIT dans les logs — c'est le symptome d'un
+   `supply` faux, pas un record de vente.
 
 ⏰ LE 2, MAIS PAS SEULEMENT LE 2
 -------------------------------
@@ -80,7 +91,7 @@ Env :
   DISCORD_ANNONCE_THREAD     (vide = salon normal ; un id = post de forum)
   DISCORD_ANNONCE_EVERYONE   (true = le ping part ; defaut FALSE)
   DISCORD_ANNONCE_JOUR       (2)   · DISCORD_ANNONCE_TOLERANCE (1 -> le 2 et le 3)
-  DISCORD_ANNONCE_MAX        (10 series citees ; Preda en liste 9)
+  DISCORD_ANNONCE_MAX        (7 lignes)
   DISCORD_ANNONCE_EMOJI      (🐱 — un emoji custom s'ecrit `<:nom:id>`)
   DISCORD_ANNONCE_SEUIL_THEME(0.40 de part de ventes pour nommer un theme)
   DISCORD_ANNONCE_COUVERTURE (20 journees de ChainItems minimum)
@@ -112,32 +123,35 @@ STATE_PATH = os.environ.get("DISCORD_ANNONCE_STATE",
 CROCHETS_PATH = os.environ.get("DISCORD_ANNONCE_CROCHETS",
                                os.path.join("data", "annonce_crochets.json"))
 
-COULEUR = 0xF1C40F                       # sert UNIQUEMENT au cadre de l'image
-MAX_CONTENU = 2000                       # limite Discord d'un message texte
+COULEUR = 0xF1C40F
+MAX_DESCRIPTION = 4096                   # limite Discord d'une description
+MAX_CHAMP = 1024                         # limite Discord d'un champ
 
 MOIS_FR = ["", "janvier", "février", "mars", "avril", "mai", "juin", "juillet",
            "août", "septembre", "octobre", "novembre", "décembre"]
 
 # ═══ LES CONSTANTES DE VeVe FRANCE ═══
-# Connues, jamais recalculees (fiche chantier-annonce-mensuelle, 23/07), et
-# RECOPIEES SUR UN VRAI POST de Preda (celui du 03/06/2026) : c'est lui le
+# Recopiees sur un VRAI post de Preda (celui du 03/06/2026) : c'est lui le
 # gabarit, pas mon idee de ce qu'une annonce devrait etre.
 GUILDE = "310073753709182977"
 LIEN_PARRAINAGE = "https://veve.sjv.io/VeVeFrance"
 LIEN_X = "https://twitter.com/VeVe_France"
-# ⭐ LES SALONS S'ECRIVENT `<#id>`, PAS EN URL. Preda ecrit « #💬|discussions »,
-# pas « https://discord.com/channels/… » : Discord rend le salon cliquable et
-# COLORE, avec son vrai nom — et si le salon est renomme, le lien suit.
-# ⚠️ `allowed_mentions` ne bride PAS les mentions de salon (seulement les
-# membres, les roles et @everyone) : un `<#id>` fonctionne meme ping ferme.
+LIEN_INVESTOR = f"https://discord.com/channels/{GUILDE}/1022145175499329616"
+# ⭐ Les salons s'ecrivent `<#id>` : Discord les rend colores, avec leur vrai
+# nom, et le lien SUIT un salon renomme. ⚠️ `allowed_mentions` ne bride PAS les
+# mentions de salon (seulement les membres, les roles et @everyone) : un
+# `<#id>` reste cliquable meme ping ferme.
 SALON_CLASSEMENTS = "1075084049632206920"
 SALON_RECAP = "970395941607710840"
-SALON_INVESTOR = "1022145175499329616"
 
-# 🔴 A REMPLACER PAR LE TEXTE EXACT DE PREDA (la fin de son post est coupee sur
-# la capture du 03/06). Une seule constante a changer, rien d'autre.
 PHRASE_INVESTOR = ("Et si vous voulez mettre toutes les chances de réussite de "
-                   "votre côté, rendez-vous dans")
+                   "votre côté, essayez l'accès aux services professionnels de "
+                   "VeVe Investor !")
+
+# Ce qui fait un « artwork » : la rarete ARTIST_PROOF (edition « AP », tirage 1).
+# Choix de Preda du 04/08 — c'est le seul marqueur present dans les donnees.
+RARETE_AP = "ARTIST_PROOF"
+EDITION_AP = "AP"
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +184,7 @@ def thread() -> str:
 
 def everyone_ouvert() -> bool:
     """L'interrupteur d'arret. FERME par defaut : le premier mois se regarde
-    tourner avant de sonner 20 000 personnes."""
+    tourner avant de sonner tout le serveur."""
     return _bool("DISCORD_ANNONCE_EVERYONE", "false")
 
 
@@ -186,15 +200,14 @@ def tolerance() -> int:
     return int(os.environ.get("DISCORD_ANNONCE_TOLERANCE", "1"))
 
 
-def max_series() -> int:
-    # Preda en liste 9 dans son post du 03/06 : 10 est la bonne maille.
-    return int(os.environ.get("DISCORD_ANNONCE_MAX", "10"))
+def max_lignes() -> int:
+    return int(os.environ.get("DISCORD_ANNONCE_MAX", "7"))
 
 
 def emoji() -> str:
-    """L'emoji de tete (« 🐱 Annonces 03/06 »). Reglable : le sien est peut-etre
-    un emoji PERSONNALISE du serveur, qui s'ecrit `<:nom:id>` — un webhook ne
-    peut poster un emoji custom que sous cette forme-la."""
+    """L'emoji de tete (« 🐱 Annonces 02/09 »). Reglable : celui de Preda est
+    peut-etre un emoji PERSONNALISE du serveur, qui s'ecrit `<:nom:id>` — un
+    webhook ne peut pas le poster autrement."""
     return os.environ.get("DISCORD_ANNONCE_EMOJI", "🐱").strip()
 
 
@@ -252,36 +265,31 @@ def jours_du_mois(an: int, mo: int) -> List[str]:
     return ["%04d-%02d-%02d" % (an, mo, d) for d in range(1, fin + 1)]
 
 
-def nom_mois(an: int, mo: int) -> str:
-    return f"{MOIS_FR[mo]} {an}"
-
-
 # ---------------------------------------------------------------------------
 # LES SERIES DU MOIS — la boucle est a moi, les regles restent chez elles
 # ---------------------------------------------------------------------------
 
 def series_du_mois(sh, an: int, mo: int) -> List[Dict[str, Any]]:
-    """Les series dont la date de sortie tombe dans le mois — une SERIE, pas
-    une ligne de rarete (les 5 raretes d'un comic sont UNE sortie).
+    """TOUTES les series dont la date de sortie tombe dans le mois — une SERIE,
+    pas une ligne de rarete (les 5 raretes d'un comic sont UNE sortie).
 
-    Regles empruntees, jamais recopiees :
-      `dd._quand`                 la date (serial Google, texte, heure)
-      `dd.est_comic_du_mercredi`  le deversement du Comic Book Day, ecarte
-      `dd._n`                     les nombres du Sheet
-    La forme rendue est celle de `dd.drops_a_venir` : c'est ce qui permet a
-    `dd._titre` et `dd._lien` de fonctionner dessus **sans que je redefinisse
-    l'uuid d'un craft** — le bug qui a l'air de marcher."""
+    ⚠️ ON NE FILTRE RIEN ICI, ET C'EST VOULU : le nombre annonce (« 142 Drops »)
+    compte tout, comics du mercredi compris. Les filtres de la LISTE vivent dans
+    `retenir()`. **Compter et choisir sont deux gestes differents ; les melanger
+    donne un total qui ne correspond a rien.**
+
+    Regles empruntees, jamais recopiees : `dd._quand` (la date), `dd._n` (les
+    nombres), `dd.est_comic_du_mercredi` (le Comic Book Day). La forme rendue
+    est celle de `dd.drops_a_venir` : c'est ce qui permet a `dd._lien` de
+    fonctionner dessus **sans que je redefinisse l'uuid d'un craft** — le bug
+    qui a l'air de marcher."""
     debut, fin = bornes(an, mo)
     par_serie: Dict[str, Dict[str, Any]] = {}
-    ecartes_comic_day = 0
 
     for tab, genre in dd.TABS:
         for r in dd._records(sh, tab):
             jour, ts, avec_heure = dd._quand(r.get("releaseDate"))
             if not jour or not (debut <= jour <= fin):
-                continue
-            if dd.est_comic_du_mercredi(genre, jour):
-                ecartes_comic_day += 1
                 continue
             cle = (str(r.get("series_uuid") or "").strip()
                    or str(r.get("veve_uuid") or "").strip())
@@ -296,10 +304,12 @@ def series_du_mois(sh, an: int, mo: int) -> List[Dict[str, Any]]:
                 "licence": str(r.get("veve_licensor") or "").strip(),
                 "methode": str(r.get("drop_method") or "").strip(),
                 "exclusive": str(r.get("veve_exclusive") or "").strip().upper() == "TRUE",
+                "mercredi": dd.est_comic_du_mercredi(genre, jour),
                 "lignes": [],
             })
             d["lignes"].append({
                 "rarete": str(r.get("rarity") or "").strip().upper(),
+                "edition": str(r.get("edition_type") or "").strip().upper(),
                 "supply": dd._n(r.get("supply_rarete") or r.get("supply")),
                 "uuid": str(r.get("veve_uuid") or "").strip(),
             })
@@ -311,11 +321,20 @@ def series_du_mois(sh, an: int, mo: int) -> List[Dict[str, Any]]:
         # on ne la reapprend pas.
         d["total"] = dr.total_serie(d["genre"],
                                     [l["supply"] for l in d["lignes"]])
-
-    print(f"annonce : {len(par_serie)} serie(s) sortie(s) entre {debut} et "
-          f"{fin} · {ecartes_comic_day} ligne(s) de comic du mercredi "
-          f"ecartee(s).", flush=True)
     return list(par_serie.values())
+
+
+def est_artwork(d: Dict[str, Any]) -> bool:
+    """Une serie d'ARTWORK : toutes ses lignes sont des Artist Proof (tirage 1).
+
+    ⚠️ « toutes », pas « au moins une » : un AP glisse dans une serie normale ne
+    doit pas faire disparaitre la serie entiere. Un filtre trop large ne se
+    plaint jamais — il se contente de faire le vide."""
+    lignes = d.get("lignes") or []
+    if not lignes:
+        return False
+    return all(l.get("rarete") == RARETE_AP or l.get("edition") == EDITION_AP
+               for l in lignes)
 
 
 # ---------------------------------------------------------------------------
@@ -346,18 +365,58 @@ def ventes_du_mois(sh, jours: List[str]) -> Dict[str, int]:
 
 def classer(series: List[Dict[str, Any]],
             ventes: Dict[str, int]) -> List[Dict[str, Any]]:
-    """Chaque serie recoit ses ventes (la somme de ses elements), puis on trie
-    du plus vendu au moins vendu. Les series a 0 vente sortent : « notable »
-    veut dire quelque chose."""
+    """Chaque serie recoit ses ventes, puis on trie du plus vendu au moins
+    vendu. Les series a 0 vente sortent : « notable » veut dire quelque chose.
+
+    🔴 LE GARDE-FOU DE PREDA : **on ne peut pas vendre plus qu'il n'y a de
+    tirage.** Un depassement n'est pas un record, c'est le symptome d'un
+    `supply` faux (ou d'un mint compte deux fois) — on borne, et on l'ECRIT.
+    ⭐ Un chiffre impossible qu'on publie tel quel discredite tous les autres."""
     out = []
     for d in series:
         d = dict(d)
-        d["ventes"] = sum(ventes.get(l["uuid"], 0)
-                          for l in d["lignes"] if l.get("uuid"))
-        if d["ventes"] > 0:
+        brut = sum(ventes.get(l["uuid"], 0)
+                   for l in d["lignes"] if l.get("uuid"))
+        total = d.get("total") or 0
+        if total and brut > total:
+            print(f"⚠️ annonce : « {d.get('nom')} » — {brut} ventes pour un "
+                  f"tirage de {total}. On borne au tirage : un chiffre "
+                  f"impossible est un `supply` faux, pas un record.",
+                  flush=True)
+            brut = total
+        d["ventes"] = brut
+        if brut > 0:
             out.append(d)
     out.sort(key=lambda d: (-d["ventes"], d.get("nom", "")))
     return out
+
+
+def retenir(classees: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """LES TROIS FILTRES DE LA LISTE (decisions Preda du 04/08), et ils sont
+    BAVARDS : chaque famille d'ecartes est comptee dans les logs.
+    ⭐ Un filtre silencieux est un mensonge par omission — et c'est le seul
+    moyen de savoir, au 1er vrai run, si le `supply` des comics permet ou non
+    de detecter un sold out."""
+    gardees, art, merc, pas_epuise, comics_vus = [], 0, 0, 0, 0
+    for d in classees:
+        if est_artwork(d):
+            art += 1
+            continue
+        if d["genre"] == "comic":
+            comics_vus += 1
+            if d.get("mercredi"):
+                merc += 1
+                continue
+            if not dr.est_epuise(d.get("ventes", 0), d.get("total", 0)):
+                pas_epuise += 1
+                continue
+        gardees.append(d)
+    sortie = gardees[:max_lignes()]
+    print(f"annonce : {len(sortie)} serie(s) citee(s) sur {len(gardees)} "
+          f"eligible(s) · ecartees : {art} artwork(s), {merc} comic(s) du "
+          f"mercredi, {pas_epuise} comic(s) non sold out (sur {comics_vus} "
+          f"comic(s) vendus ce mois-ci).", flush=True)
+    return sortie
 
 
 def theme(selection: List[Dict[str, Any]]) -> str:
@@ -422,64 +481,53 @@ def illustration(cle: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# LA MISE EN FORME — le gabarit est UN VRAI POST DE PREDA, pas une invention
+# LA MISE EN FORME — 4 embeds, un par partie
 # ---------------------------------------------------------------------------
-# ⭐⭐⭐ J'avais livre un bel embed. Preda a montre ce qu'il poste vraiment : du
-# TEXTE BRUT, des salons en `<#id>`, une liste a tirets colles, aucun chiffre.
-# **Un message automatique doit ressembler a celui qu'il remplace, sinon il
-# annonce a tout le serveur qu'il est automatique.** On recopie sa forme :
-#
-#   🐱 **Annonces 03/06** - @everyone
-#   Si vous n'étiez pas là en Mai, vous avez certainement manqué le mois Starwars !
-#   [image]
-#   ---
-#   **Ainsi que :**
-#   -Le Collectible Starwars BB-8
-#   …
-#   **A venir ?**
-#   … et bien d'autres surprises !!
-#   ⚠️ **Profitez de 10$ …**  ·  **Classements Publics :** <#…>  ·  X  ·  Récap
-#
-# ⛔ AUCUN CHIFFRE DE VENTE AFFICHE (choix de Preda du 04/08) : les ventes
-# restent le critere de SELECTION, elles ne sont pas le SUJET. Son annonce est
-# promotionnelle, pas analytique.
+
+def _fr(n) -> str:
+    return f"{int(n):,}".replace(",", " ")
 
 
-def _couper_lignes(lignes: List[str], limite: int = MAX_CONTENU) -> List[str]:
-    """Un message Discord fait 2 000 caracteres au maximum, et un 400 ici c'est
-    l'annonce du mois qui saute — un mois ne se rattrape pas.
-
-    ⭐ ON COUPE PAR LE MILIEU, PAS PAR LA FIN : ce qui deborde, c'est la LISTE
-    des sorties ; ce qui doit survivre, ce sont les liens du bas (parrainage,
-    classements, X). Tronquer betement la fin sacrifierait justement la partie
-    utile du message."""
-    def taille(ls):
-        return len("\n".join(ls))
-
-    lignes = list(lignes)
-    while taille(lignes) > limite:
-        # on retire la DERNIERE ligne de liste (celles qui commencent par « - »)
-        indices = [i for i, l in enumerate(lignes) if l.startswith("-")]
-        if not indices:
+def _couper(txt: str, limite: int) -> str:
+    """Discord refuse une description de plus de 4 096 caracteres et un champ de
+    plus de 1 024 — et un 400 ici, c'est l'annonce du mois qui saute. On coupe a
+    la ligne, jamais au milieu d'un mot."""
+    if len(txt) <= limite:
+        return txt
+    gardees, taille = [], 0
+    for ligne in txt.split("\n"):
+        if taille + len(ligne) + 1 > limite - 2:
             break
-        lignes.pop(indices[-1])
-    if taille(lignes) > limite:                    # ceinture et bretelles
-        return ["\n".join(lignes)[:limite - 1]]
-    return lignes
+        gardees.append(ligne)
+        taille += len(ligne) + 1
+    return "\n".join(gardees) + "\n…"
 
 
-def nom_affiche(d: Dict[str, Any]) -> str:
-    """« -Le Collectible Starwars BB-8 » — la forme exacte de Preda.
+def ligne_sortie(i: int, d: Dict[str, Any]) -> str:
+    """« 1. [Captain America Comics #1 (1941)](url)
+           ≈ 6 697 vendus sur 6 697 · SOLD OUT 🔥 »
 
-    ⚠️ La licence n'est PAS repetee quand le nom la porte deja : son
-    « -Le Collectible Street Fighter V - Guile » n'est pas
-    « -Le Collectible Street Fighter V Street Fighter V - Guile »."""
-    quoi = "Comic" if d.get("genre") == "comic" else "Collectible"
-    licence = (d.get("licence") or d.get("marque") or "").strip()
-    nom = (d.get("nom") or "").strip() or "(sans nom)"
-    if licence and licence.lower().replace(" ", "") in nom.lower().replace(" ", ""):
-        licence = ""
-    return "-Le " + " ".join(x for x in (quoi, licence, nom) if x)
+    Le lien vit DANS le nom (demande de Preda) — `dd._lien` sait quel uuid
+    ouvre quelle page : un craft s'ouvre par son ELEMENT, pas par sa serie."""
+    nom = d.get("nom") or "(sans nom)"
+    ligne = f"{i}. [{nom}]({dd._lien(d)})"
+    detail = f"≈ {_fr(d['ventes'])} vendus"
+    if d.get("total"):
+        detail += f" sur {_fr(d['total'])}"
+        # ⚠️ « epuise » n'est pas « vendus == tirage » : la chaine compte parfois
+        # un mint de plus que le tirage declare. `dr.est_epuise` porte deja
+        # cette tolerance — on ne reecrit pas un `==` maison.
+        if dr.est_epuise(d["ventes"], d["total"]):
+            detail += " · **SOLD OUT** 🔥"
+    return f"{ligne}\n {detail}"
+
+
+def ligne_a_venir(d: Dict[str, Any]) -> str:
+    """`<t:…:D>` : Discord affiche la date dans le fuseau de CHAQUE lecteur —
+    personne n'a rien a convertir."""
+    nom = d.get("nom") or "(sans nom)"
+    quand = f"<t:{d['ts']}:D>" if d.get("ts") else d.get("jour", "")
+    return f"• [{nom}]({dd._lien(d)}) — {quand}"
 
 
 def accroche(mois_passe: str, lic: str) -> str:
@@ -490,52 +538,61 @@ def accroche(mois_passe: str, lic: str) -> str:
     if lic:
         return (f"Si vous n'étiez pas là en {mois}, vous avez certainement "
                 f"manqué le mois {lic} !")
-    return (f"Si vous n'étiez pas là en {mois}, voici ce que vous avez "
-            f"manqué !")
+    return f"Si vous n'étiez pas là en {mois}, voici ce que vous avez manqué !"
 
 
-def entete(cle: str, jour: _dt.date, mois_passe: str, lic: str,
-           ping: bool) -> Dict[str, Any]:
-    """LE 1er MESSAGE : le titre date, le ping, l'accroche, et l'image.
-
-    ⚠️ « Annonces 03/06 » porte la date DU POST (jj/mm), pas celle du mois
-    annonce — c'est ce que Preda ecrit."""
-    titre = f"{emoji()} **Annonces {jour.strftime('%d/%m')}**"
-    if ping:
-        titre += " - @everyone"
-    payload: Dict[str, Any] = {
-        "content": f"{titre}\n{accroche(mois_passe, lic)}",
-        # ⭐ `api.mentions()` bride TOUT par defaut : sans cette ouverture
-        # explicite, le texte « @everyone » ne pingerait personne. C'est
-        # volontaire — le ping se DEMANDE, il ne s'obtient pas par accident.
-        "allowed_mentions": ({"parse": ["everyone"]} if ping
-                             else api.mentions()),
+def embed_annonce(cle: str, jour: _dt.date, mois_passe: str,
+                  lic: str) -> Dict[str, Any]:
+    """EMBED 1 — l'annonce. ⚠️ « Annonces 03/06 » porte la date DU POST (jj/mm),
+    pas celle du mois annonce : c'est ce que Preda ecrit."""
+    e: Dict[str, Any] = {
+        "title": f"{emoji()} Annonces {jour.strftime('%d/%m')}",
+        "description": accroche(mois_passe, lic),
+        "color": COULEUR,
     }
     img = illustration(cle)
     if img:
-        payload["embeds"] = [{"color": COULEUR, "image": {"url": img}}]
-    return payload
+        e["image"] = {"url": img}
+    return e
 
 
-def corps(cle: str, selection: List[Dict[str, Any]],
-          a_venir: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """LE 2e MESSAGE : du texte, comme Preda l'ecrit a la main."""
-    lignes: List[str] = ["**Ainsi que :**"]
-    lignes += [nom_affiche(d) for d in selection]
+def embed_sorties(total_drops: int, mois_passe: str,
+                  selection: List[Dict[str, Any]],
+                  a_venir: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """EMBED 2 — les sorties du mois, puis le teaser."""
+    tete = f"Ce mois-ci **{_fr(total_drops)} Drops** dont :\n\n"
+    corps = "\n\n".join(ligne_sortie(i, d)
+                        for i, d in enumerate(selection, 1))
 
-    lignes += ["", "**A venir ?**"]
-    lignes += [nom_affiche(d) for d in a_venir]
-    lignes.append("et bien d'autres surprises !!")
+    if a_venir:
+        suite = "\n".join(ligne_a_venir(d) for d in a_venir)
+        suite += "\net bien d'autres surprises !!"
+    else:
+        # ⭐ Rien de prevu dans la fenetre : on ne fabrique pas une liste, on
+        # dit la verite avec le sourire. Inventer un drop serait pire que de
+        # n'en annoncer aucun.
+        suite = "Plein de surprises !"
 
-    # Le crochet newsletter : absent aujourd'hui, automatique le jour ou la
-    # pipeline ecrira son lien. Rien a rouvrir ici.
+    return {
+        "title": f"🎬 Les sorties de {mois_passe}",
+        "description": _couper(tete + corps, MAX_DESCRIPTION),
+        "color": COULEUR,
+        "fields": [{"name": "Et maintenant ?",
+                    "value": _couper(suite, MAX_CHAMP), "inline": False}],
+        "footer": {"text": "Toutes les séries sorties ce mois-ci, comics du "
+                           "mercredi compris. Ventes estimées d'après les "
+                           "mints on-chain."},
+    }
+
+
+def embed_liens(cle: str) -> Dict[str, Any]:
+    """EMBED 3 — les liens, au mot pres comme Preda les ecrit."""
+    lignes = []
     cro = crochets(cle)
     if cro.get("newsletter_url"):
         label = cro.get("newsletter_label") or "La newsletter du mois"
-        lignes += ["", f"📰 **{label} :**", cro["newsletter_url"]]
-
-    lignes += ["",
-               "⚠️ **Profitez de 10$ lors de votre Inscription à VeVe !**",
+        lignes += [f"📰 **{label} :**", cro["newsletter_url"], ""]
+    lignes += ["⚠️ **Profitez de 10$ lors de votre Inscription à VeVe !**",
                f"Lien de parrainage : {LIEN_PARRAINAGE}",
                "",
                "**Comme chaque mois, mise à jour des Classements Publics :**",
@@ -545,15 +602,36 @@ def corps(cle: str, selection: List[Dict[str, Any]],
                LIEN_X,
                "",
                "**Bulletin Récap dans le canal**",
-               f"<#{SALON_RECAP}>",
-               "",
-               f"{PHRASE_INVESTOR} <#{SALON_INVESTOR}>"]
+               f"<#{SALON_RECAP}>"]
+    return {"description": _couper("\n".join(lignes), MAX_DESCRIPTION),
+            "color": COULEUR}
 
+
+def embed_service() -> Dict[str, Any]:
+    """EMBED 4 — VeVe Investor. Texte de Preda, mot pour mot."""
+    return {"description": f"{PHRASE_INVESTOR}\n{LIEN_INVESTOR}",
+            "color": COULEUR}
+
+
+def message(cle: str, jour: _dt.date, mois_passe: str, total_drops: int,
+            selection: List[Dict[str, Any]], a_venir: List[Dict[str, Any]],
+            ping: bool) -> Dict[str, Any]:
+    """UN message, QUATRE embeds.
+
+    🔴 LE PING VIT DANS LE `content`, PAS DANS UN EMBED : « @everyone » ecrit
+    dans un embed n'alerte personne, Discord le rend en texte gris."""
+    lic = theme(selection)
     return {
-        "content": "\n".join(_couper_lignes(lignes)),
-        # Le corps ne ping JAMAIS. ⚠️ Un `<#id>` reste cliquable malgre tout :
-        # `allowed_mentions` ne bride que les membres, les roles et @everyone.
-        "allowed_mentions": api.mentions(),
+        "content": "@everyone" if ping else "",
+        # ⭐ `api.mentions()` bride TOUT par defaut : sans cette ouverture
+        # explicite, le texte « @everyone » ne pingerait personne. C'est
+        # volontaire — le ping se DEMANDE, il ne s'obtient pas par accident.
+        "allowed_mentions": ({"parse": ["everyone"]} if ping
+                             else api.mentions()),
+        "embeds": [embed_annonce(cle, jour, mois_passe, lic),
+                   embed_sorties(total_drops, mois_passe, selection, a_venir),
+                   embed_liens(cle),
+                   embed_service()],
     }
 
 
@@ -617,36 +695,38 @@ def run() -> int:
               f"un run tres en retard perd le debut du mois.)", file=sys.stderr)
         return 1
 
-    selection = classer(series, ventes)[:max_series()]
+    total_drops = len(series)
+    selection = retenir(classer(series, ventes))
     if not selection:
-        print(f"::error::annonce : aucune serie vendue trouvee pour {cle} "
-              f"({len(series)} serie(s) sortie(s), "
-              f"{len(ventes)} element(s) avec des mints) — RIEN n'est poste. "
-              f"Un mois sans une seule vente n'est pas un mois calme, c'est un "
-              f"capteur en panne.", file=sys.stderr)
+        print(f"::error::annonce : aucune serie a citer pour {cle} "
+              f"({total_drops} serie(s) sortie(s)) — RIEN n'est poste. "
+              f"Un mois sans une seule sortie citable n'est pas un mois calme, "
+              f"c'est un capteur en panne (ou un filtre trop serre : voir le "
+              f"detail des ecartes ci-dessus).", file=sys.stderr)
         return 1
 
-    ping = everyone_ouvert()
-    lic = theme(selection)
-    # ⭐ La fenetre de mesure ne s'ecrit PLUS dans le message : il n'affiche plus
-    # aucun chiffre, il n'y a donc rien a qualifier. Elle reste dans les LOGS,
-    # et le refus de publier sous `couverture_min()` reste, lui, un capteur.
     if len(couverts) < len(jours):
         print(f"annonce : fenetre de mesure {len(couverts)}/{len(jours)} "
               f"journees — le classement porte sur ce qui est mesurable, pas "
               f"sur le mois entier.", flush=True)
 
-    # Les DEUX messages sont fabriques AVANT le premier envoi : une erreur de
-    # rendu ne doit pas laisser une entete orpheline dans le salon.
-    m_entete = entete(cle, jour, mois_passe, lic, ping)
-    m_corps = corps(cle, selection, a_venir)
+    ping = everyone_ouvert()
+    payload = message(cle, jour, mois_passe, total_drops, selection, a_venir,
+                      ping)
 
     if not wh:
-        print("\n[SIMULATION — pas de DISCORD_ANNONCE_WEBHOOK] ANNONCE "
-              f"{cle}", flush=True)
-        print(m_entete["content"], flush=True)
-        print("\n────────── (2e message) ──────────\n", flush=True)
-        print(m_corps["content"], flush=True)
+        print(f"\n[SIMULATION — pas de DISCORD_ANNONCE_WEBHOOK] ANNONCE {cle}",
+              flush=True)
+        print(payload["content"] or "(sans ping)", flush=True)
+        for e in payload["embeds"]:
+            print("\n──────────────────────────────", flush=True)
+            if e.get("title"):
+                print(e["title"], flush=True)
+            print(e.get("description", ""), flush=True)
+            for f in e.get("fields", []):
+                print(f"\n{f['name']}\n{f['value']}", flush=True)
+            if e.get("footer"):
+                print(f"— {e['footer']['text']}", flush=True)
         etat_ping = "OUI" if ping else "non (interrupteur ferme)"
         print(f"\nping @everyone : {etat_ping}", flush=True)
         # On N'ECRIT PAS l'etat en simulation : sinon un essai « brulerait » le
@@ -655,37 +735,27 @@ def run() -> int:
               flush=True)
         return 0
 
-    mid = api.poster(wh, th, m_entete)
+    mid = api.poster(wh, th, payload)
     if not mid:
-        print("annonce : l'entete n'est pas partie (plafond ou erreur) — RIEN "
+        print("annonce : le message n'est pas parti (plafond ou erreur) — RIEN "
               "n'est memorise, on reessaiera au prochain passage du hub.",
               file=sys.stderr)
         return 1
 
-    # 🔴 L'ETAT EST ECRIT ICI, PAS A LA FIN. Le ping est parti : quoi qu'il
-    # arrive au corps, il ne repartira jamais une seconde fois.
+    # ⭐ UN SEUL ENVOI = UN SEUL POINT DE PANNE. Avec deux messages il fallait
+    # memoriser des l'entete pour ne jamais repinger ; ici, soit tout est parti,
+    # soit rien ne l'est.
     state["dernier_mois"] = cle
-    state["entete"] = mid
+    state["message"] = mid
     api.save_state(STATE_PATH, state, wh, th)
-
-    api.souffler()
-    mid2 = api.poster(wh, th, m_corps)
-    if not mid2:
-        print(f"::error::annonce : l'entete de {cle} est publiee ({mid}) mais "
-              f"le CORPS a echoue. Le mois est marque comme fait — on ne "
-              f"repingera pas @everyone pour le rattraper. A publier a la main.",
-              file=sys.stderr)
-        return 1
-
-    state["corps"] = mid2
-    api.save_state(STATE_PATH, state, wh, th)
-    print(f"annonce : {cle} publiee ({mid} + {mid2}), "
+    print(f"annonce : {cle} publiee ({mid}), {total_drops} drops annonces, "
           f"{len(selection)} serie(s) citee(s), ping "
           f"{'OUI' if ping else 'non'}.", flush=True)
 
     try:
         append_log(sheet_id, "discord_annonce", "OK",
-                   f"mois={cle}; series={len(selection)}; "
+                   f"mois={cle}; drops={total_drops}; "
+                   f"citees={len(selection)}; "
                    f"couverture={len(couverts)}/{len(jours)}; ping={ping}; "
                    f"duree={time.time() - t0:.0f}s")
     except Exception:                                       # noqa: BLE001
