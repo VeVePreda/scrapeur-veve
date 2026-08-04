@@ -273,11 +273,11 @@ jobs:
           # de retard, et GitHub abandonne des runs quand il est charge).
           DISCORD_ANNONCE_JOUR: ${{ vars.DISCORD_ANNONCE_JOUR || '2' }}
           DISCORD_ANNONCE_TOLERANCE: ${{ vars.DISCORD_ANNONCE_TOLERANCE || '1' }}
-          # Nb de series citees · part de ventes minimale pour NOMMER un theme
+          # Nb de LIGNES citees (7) · part de ventes minimale pour NOMMER un theme
           # (« un mois Star Wars ») · nb minimal de journees de ChainItems.
           # ⚠️ ChainItems ne garde que 35 jours : sous ce seuil, le classement
           # « le plus vendu » serait fausse par une fenetre trouee -> rien.
-          DISCORD_ANNONCE_MAX: ${{ vars.DISCORD_ANNONCE_MAX || '10' }}
+          DISCORD_ANNONCE_MAX: ${{ vars.DISCORD_ANNONCE_MAX || '7' }}
           # L'emoji de tete (« 🐱 Annonces 02/09 »). ⚠️ Un emoji PERSONNALISE du
           # serveur s'ecrit `<:nom:id>` : un webhook ne sait pas le poster
           # autrement (il afficherait le texte brut).
