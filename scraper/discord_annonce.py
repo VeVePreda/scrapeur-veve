@@ -7,29 +7,26 @@
 
 La newsletter sort le 1er ; l'annonce vient juste apres.
 
-UN SEUL MESSAGE, QUATRE EMBEDS — un par partie (demande de Preda, 04/08) :
-  1. l'annonce  : « Annonces 02/09 », l'accroche du mois, l'illustration ;
-  2. les sorties: « Ce mois-ci N Drops dont : » + le palmares + « Et maintenant ? » ;
-  3. les liens  : parrainage, classements, X, bulletin Récap ;
-  4. le service : VeVe Investor.
+DEUX MESSAGES, EN TEXTE — **PAS D'EMBED** (« l'embed rend mal », Preda 04/08) :
+  1. l'entete : « Annonces 02/09 » + le ping + l'accroche + l'illustration ;
+  2. le corps : « Ce mois-ci N Drops dont : » + le palmares + « 👀 Et maintenant ? »
+     + les liens (parrainage, classements, X, Récap) + VeVe Investor.
 
-⚠️ POURQUOI UN SEUL MESSAGE ET PAS QUATRE
------------------------------------------
-Discord empile les embeds d'un meme message **sans rien entre eux** : le rendu
-est celui de quatre blocs separes, mais on ne poste QU'UNE FOIS. Consequences,
-et elles comptent : **un seul ping**, **un seul point de panne** (plus d'entete
-orpheline si le 2e envoi echoue), et un seul jeton du plafond anti-ban.
+⭐⭐⭐ TROIS FORMES ESSAYEES, ET C'EST LA LEcON DU LOT : un embed invente, puis
+du texte recopie sur son vrai post, puis 4 embeds, puis ce texte-ci. **Le
+gabarit d'un message qui remplace un humain, c'est ce que l'humain ecrit** — un
+cadre colore ne l'est pas. ⛔ Demander la capture du vrai post AVANT d'ecrire le
+rendu, pas apres.
 
 🔴 UN EMBED NE PING PAS. Ecrire « @everyone » dans un embed n'alerte PERSONNE :
-Discord le rend en texte gris. Le ping doit vivre dans le `content` du message.
-C'est pour ca que « @everyone » est au-dessus du 1er embed et non dedans — ce
-n'est pas un choix de mise en page, c'est la seule facon que ca sonne.
+Discord le rend en texte gris. Le ping vit donc dans le `content` du 1er
+message — ce n'est pas un choix de mise en page, c'est la seule facon que ca
+sonne. (Raison de plus de rester en texte.)
 
 CE QU'IL CALCULE — 0 requete VeVe, il lit le Sheet comme `discord_drops`
 ----------------------------------------------------------------------
-* le mois PRECEDENT (nom francais, bornes) et **le nombre total de series
-  sorties** (« 142 Drops » — comics du mercredi compris : c'est le chiffre que
-  Preda annonce, verifie sur mai 2026) ;
+* le mois PRECEDENT (nom francais, bornes) et **le nombre de series sorties,
+  HORS comics du mercredi** (« 171 Drops ») ;
 * **CE QUI S'EST LE PLUS VENDU** : les mints on-chain de `ChainItems`, sommes
   sur le mois, par serie ;
 * le **theme** du mois = la licence dominante de la selection, avec un **repli
@@ -93,6 +90,7 @@ Env :
   DISCORD_ANNONCE_JOUR       (2)   · DISCORD_ANNONCE_TOLERANCE (1 -> le 2 et le 3)
   DISCORD_ANNONCE_MAX        (7 lignes)
   DISCORD_ANNONCE_EMOJI      (🐱 — un emoji custom s'ecrit `<:nom:id>`)
+  DISCORD_ANNONCE_LIENS_MASQUES (true = `[nom](url)` ; false = le nom puis l'URL)
   DISCORD_ANNONCE_SEUIL_THEME(0.40 de part de ventes pour nommer un theme)
   DISCORD_ANNONCE_COUVERTURE (20 journees de ChainItems minimum)
   DISCORD_ANNONCE_STATE      (data/discord_annonce_state.json)
@@ -123,9 +121,7 @@ STATE_PATH = os.environ.get("DISCORD_ANNONCE_STATE",
 CROCHETS_PATH = os.environ.get("DISCORD_ANNONCE_CROCHETS",
                                os.path.join("data", "annonce_crochets.json"))
 
-COULEUR = 0xF1C40F
-MAX_DESCRIPTION = 4096                   # limite Discord d'une description
-MAX_CHAMP = 1024                         # limite Discord d'un champ
+MAX_CONTENU = 2000                       # limite Discord d'un message texte
 
 MOIS_FR = ["", "janvier", "février", "mars", "avril", "mai", "juin", "juillet",
            "août", "septembre", "octobre", "novembre", "décembre"]
@@ -273,10 +269,10 @@ def series_du_mois(sh, an: int, mo: int) -> List[Dict[str, Any]]:
     """TOUTES les series dont la date de sortie tombe dans le mois — une SERIE,
     pas une ligne de rarete (les 5 raretes d'un comic sont UNE sortie).
 
-    ⚠️ ON NE FILTRE RIEN ICI, ET C'EST VOULU : le nombre annonce (« 142 Drops »)
-    compte tout, comics du mercredi compris. Les filtres de la LISTE vivent dans
-    `retenir()`. **Compter et choisir sont deux gestes differents ; les melanger
-    donne un total qui ne correspond a rien.**
+    ⚠️ ON NE FILTRE RIEN ICI, ET C'EST VOULU : le COMPTEUR (`compter_drops`) et
+    la LISTE (`retenir`) n'ecartent pas les memes choses, et chacun dit sa
+    regle chez lui. **Compter et choisir sont deux gestes differents ; les
+    melanger donne un total qui ne correspond a rien.**
 
     Regles empruntees, jamais recopiees : `dd._quand` (la date), `dd._n` (les
     nombres), `dd.est_comic_du_mercredi` (le Comic Book Day). La forme rendue
@@ -322,6 +318,18 @@ def series_du_mois(sh, an: int, mo: int) -> List[Dict[str, Any]]:
         d["total"] = dr.total_serie(d["genre"],
                                     [l["supply"] for l in d["lignes"]])
     return list(par_serie.values())
+
+
+def compter_drops(series: List[Dict[str, Any]]) -> int:
+    """« Ce mois-ci **N Drops** dont : » — LE COMPTEUR, hors comics du mercredi
+    (decision Preda du 04/08).
+
+    ⭐⭐ COMPTER ET CHOISIR RESTENT DEUX GESTES DIFFERENTS : ce total ignore le
+    deversement du Comic Book Day, mais garde tout le reste (y compris ce que
+    la LISTE ecarte : les artworks, les comics non sold out, les series a 0
+    vente). Annoncer « 171 Drops » puis n'en citer que 7 est normal ; annoncer
+    un total qui ne correspond a aucune realite ne l'est pas."""
+    return sum(1 for d in series if not d.get("mercredi"))
 
 
 def est_artwork(d: Dict[str, Any]) -> bool:
@@ -481,26 +489,32 @@ def illustration(cle: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# LA MISE EN FORME — 4 embeds, un par partie
+# LA MISE EN FORME — DU TEXTE, PAS D'EMBED
 # ---------------------------------------------------------------------------
+# ⭐⭐⭐ TROISIEME FORME, ET C'EST LA BONNE : embed invente -> texte recopie sur
+# son post -> 4 embeds -> texte. Preda a tranche : « l'embed rend mal ».
+# **Le gabarit d'un message qui remplace un humain, c'est ce que l'humain
+# ecrit** — et un cadre colore n'est pas ce qu'il ecrit.
+#
+# ⚠️ LE SEUL PARI DE CETTE FORME : les LIENS MASQUES `[nom](url)`. Ils rendent
+# dans un embed a coup sur ; dans un message NORMAL, Discord les supporte
+# depuis 2023 mais un vieux client afficherait les crochets en clair. D'ou
+# `DISCORD_ANNONCE_LIENS_MASQUES` : une variable a basculer si le 1er run rend
+# mal, sans redeployer une ligne de code. ⭐ Ce qu'on ne peut pas verifier avant
+# la prod se transforme en interrupteur, pas en pari silencieux.
+
 
 def _fr(n) -> str:
     return f"{int(n):,}".replace(",", " ")
 
 
-def _couper(txt: str, limite: int) -> str:
-    """Discord refuse une description de plus de 4 096 caracteres et un champ de
-    plus de 1 024 — et un 400 ici, c'est l'annonce du mois qui saute. On coupe a
-    la ligne, jamais au milieu d'un mot."""
-    if len(txt) <= limite:
-        return txt
-    gardees, taille = [], 0
-    for ligne in txt.split("\n"):
-        if taille + len(ligne) + 1 > limite - 2:
-            break
-        gardees.append(ligne)
-        taille += len(ligne) + 1
-    return "\n".join(gardees) + "\n…"
+def liens_masques() -> bool:
+    return _bool("DISCORD_ANNONCE_LIENS_MASQUES", "true")
+
+
+def _lien_nomme(nom: str, url: str) -> str:
+    """« [BB-8](https://…) » ou, interrupteur ferme, le nom puis l'URL."""
+    return f"[{nom}]({url})" if liens_masques() else f"**{nom}**\n{url}"
 
 
 def ligne_sortie(i: int, d: Dict[str, Any]) -> str:
@@ -510,7 +524,7 @@ def ligne_sortie(i: int, d: Dict[str, Any]) -> str:
     Le lien vit DANS le nom (demande de Preda) — `dd._lien` sait quel uuid
     ouvre quelle page : un craft s'ouvre par son ELEMENT, pas par sa serie."""
     nom = d.get("nom") or "(sans nom)"
-    ligne = f"{i}. [{nom}]({dd._lien(d)})"
+    ligne = f"{i}. {_lien_nomme(nom, dd._lien(d))}"
     detail = f"≈ {_fr(d['ventes'])} vendus"
     if d.get("total"):
         detail += f" sur {_fr(d['total'])}"
@@ -527,7 +541,7 @@ def ligne_a_venir(d: Dict[str, Any]) -> str:
     personne n'a rien a convertir."""
     nom = d.get("nom") or "(sans nom)"
     quand = f"<t:{d['ts']}:D>" if d.get("ts") else d.get("jour", "")
-    return f"• [{nom}]({dd._lien(d)}) — {quand}"
+    return f"• {_lien_nomme(nom, dd._lien(d))} — {quand}"
 
 
 def accroche(mois_passe: str, lic: str) -> str:
@@ -541,58 +555,43 @@ def accroche(mois_passe: str, lic: str) -> str:
     return f"Si vous n'étiez pas là en {mois}, voici ce que vous avez manqué !"
 
 
-def embed_annonce(cle: str, jour: _dt.date, mois_passe: str,
-                  lic: str) -> Dict[str, Any]:
-    """EMBED 1 — l'annonce. ⚠️ « Annonces 03/06 » porte la date DU POST (jj/mm),
-    pas celle du mois annonce : c'est ce que Preda ecrit."""
-    e: Dict[str, Any] = {
-        "title": f"{emoji()} Annonces {jour.strftime('%d/%m')}",
-        "description": accroche(mois_passe, lic),
-        "color": COULEUR,
-    }
+def entete(cle: str, jour: _dt.date, mois_passe: str, lic: str,
+           ping: bool) -> Dict[str, Any]:
+    """LE 1er MESSAGE : le titre date, le ping, l'accroche, et l'illustration.
+
+    ⚠️ « Annonces 03/06 » porte la date DU POST (jj/mm), pas celle du mois
+    annonce — c'est ce que Preda ecrit.
+    🔴 LE PING VIT ICI, DANS DU TEXTE. Un « @everyone » ecrit dans un embed
+    n'alerte personne : Discord le rend en texte gris."""
+    titre = f"{emoji()} **Annonces {jour.strftime('%d/%m')}**"
+    if ping:
+        titre += " - @everyone"
+    lignes = [titre, accroche(mois_passe, lic)]
     img = illustration(cle)
     if img:
-        e["image"] = {"url": img}
-    return e
-
-
-def embed_sorties(total_drops: int, mois_passe: str,
-                  selection: List[Dict[str, Any]],
-                  a_venir: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """EMBED 2 — les sorties du mois, puis le teaser."""
-    tete = f"Ce mois-ci **{_fr(total_drops)} Drops** dont :\n\n"
-    corps = "\n\n".join(ligne_sortie(i, d)
-                        for i, d in enumerate(selection, 1))
-
-    if a_venir:
-        suite = "\n".join(ligne_a_venir(d) for d in a_venir)
-        suite += "\net bien d'autres surprises !!"
-    else:
-        # ⭐ Rien de prevu dans la fenetre : on ne fabrique pas une liste, on
-        # dit la verite avec le sourire. Inventer un drop serait pire que de
-        # n'en annoncer aucun.
-        suite = "Plein de surprises !"
-
+        # Une URL seule sur sa ligne : Discord en fait un apercu. (Le jour ou
+        # l'illustration sera generee, la televerser serait encore mieux — une
+        # URL de piece jointe Discord, elle, EXPIRE.)
+        lignes.append(img)
     return {
-        "title": f"🎬 Les sorties de {mois_passe}",
-        "description": _couper(tete + corps, MAX_DESCRIPTION),
-        "color": COULEUR,
-        "fields": [{"name": "Et maintenant ?",
-                    "value": _couper(suite, MAX_CHAMP), "inline": False}],
-        "footer": {"text": "Toutes les séries sorties ce mois-ci, comics du "
-                           "mercredi compris. Ventes estimées d'après les "
-                           "mints on-chain."},
+        "content": "\n".join(lignes),
+        # ⭐ `api.mentions()` bride TOUT par defaut : sans cette ouverture
+        # explicite, le texte « @everyone » ne pingerait personne. C'est
+        # volontaire — le ping se DEMANDE, il ne s'obtient pas par accident.
+        "allowed_mentions": ({"parse": ["everyone"]} if ping
+                             else api.mentions()),
     }
 
 
-def embed_liens(cle: str) -> Dict[str, Any]:
-    """EMBED 3 — les liens, au mot pres comme Preda les ecrit."""
-    lignes = []
+def bloc_liens(cle: str) -> List[str]:
+    """Le bas du message, au mot pres comme Preda l'ecrit."""
+    lignes: List[str] = []
     cro = crochets(cle)
     if cro.get("newsletter_url"):
         label = cro.get("newsletter_label") or "La newsletter du mois"
         lignes += [f"📰 **{label} :**", cro["newsletter_url"], ""]
-    lignes += ["⚠️ **Profitez de 10$ lors de votre Inscription à VeVe !**",
+    lignes += ["🎁 **Profitez de 10$ lors de votre Inscription à VeVe !**",
+               "Offre réservée aux nouveaux inscrits.",
                f"Lien de parrainage : {LIEN_PARRAINAGE}",
                "",
                "**Comme chaque mois, mise à jour des Classements Publics :**",
@@ -602,36 +601,56 @@ def embed_liens(cle: str) -> Dict[str, Any]:
                LIEN_X,
                "",
                "**Bulletin Récap dans le canal**",
-               f"<#{SALON_RECAP}>"]
-    return {"description": _couper("\n".join(lignes), MAX_DESCRIPTION),
-            "color": COULEUR}
+               f"<#{SALON_RECAP}>",
+               "",
+               PHRASE_INVESTOR,
+               LIEN_INVESTOR]
+    return lignes
 
 
-def embed_service() -> Dict[str, Any]:
-    """EMBED 4 — VeVe Investor. Texte de Preda, mot pour mot."""
-    return {"description": f"{PHRASE_INVESTOR}\n{LIEN_INVESTOR}",
-            "color": COULEUR}
+def corps(cle: str, mois_passe: str, total_drops: int,
+          selection: List[Dict[str, Any]],
+          a_venir: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """LE 2e MESSAGE : les sorties, le teaser, les liens, le service.
 
+    ⭐ QUAND CA DEBORDE, C'EST LA LISTE QUI CEDE, JAMAIS LE BAS. Un message
+    Discord fait 2 000 caracteres ; ce qui doit survivre, ce sont les liens —
+    tronquer la fin sacrifierait justement la partie utile."""
+    entrees = [ligne_sortie(i, d) for i, d in enumerate(selection, 1)]
 
-def message(cle: str, jour: _dt.date, mois_passe: str, total_drops: int,
-            selection: List[Dict[str, Any]], a_venir: List[Dict[str, Any]],
-            ping: bool) -> Dict[str, Any]:
-    """UN message, QUATRE embeds.
+    if a_venir:
+        suite = [ligne_a_venir(d) for d in a_venir]
+        suite.append("et bien d'autres surprises !!")
+    else:
+        # ⭐ Rien de prevu dans la fenetre : on ne fabrique pas une liste, on
+        # dit la verite avec le sourire. Inventer un drop serait pire que de
+        # n'en annoncer aucun.
+        suite = ["Plein de surprises !"]
 
-    🔴 LE PING VIT DANS LE `content`, PAS DANS UN EMBED : « @everyone » ecrit
-    dans un embed n'alerte personne, Discord le rend en texte gris."""
-    lic = theme(selection)
+    def assembler(n: int) -> str:
+        lignes = [f"Ce mois-ci **{_fr(total_drops)} Drops** dont :"]
+        lignes += entrees[:n]
+        if n < len(entrees):
+            lignes.append("…")
+        lignes += ["", "👀 **Et maintenant ?**"] + suite + [""]
+        lignes += bloc_liens(cle)
+        return "\n".join(lignes)
+
+    n = len(entrees)
+    texte = assembler(n)
+    while len(texte) > MAX_CONTENU and n > 1:
+        n -= 1
+        texte = assembler(n)
+    if n < len(entrees):
+        print(f"annonce : message trop long — {len(entrees) - n} ligne(s) de "
+              f"la liste retiree(s). Le bloc de liens, lui, est intact.",
+              flush=True)
+
     return {
-        "content": "@everyone" if ping else "",
-        # ⭐ `api.mentions()` bride TOUT par defaut : sans cette ouverture
-        # explicite, le texte « @everyone » ne pingerait personne. C'est
-        # volontaire — le ping se DEMANDE, il ne s'obtient pas par accident.
-        "allowed_mentions": ({"parse": ["everyone"]} if ping
-                             else api.mentions()),
-        "embeds": [embed_annonce(cle, jour, mois_passe, lic),
-                   embed_sorties(total_drops, mois_passe, selection, a_venir),
-                   embed_liens(cle),
-                   embed_service()],
+        "content": texte[:MAX_CONTENU],
+        # Le corps ne ping JAMAIS. ⚠️ Un `<#id>` reste cliquable malgre tout :
+        # `allowed_mentions` ne bride que les membres, les roles et @everyone.
+        "allowed_mentions": api.mentions(),
     }
 
 
@@ -695,7 +714,7 @@ def run() -> int:
               f"un run tres en retard perd le debut du mois.)", file=sys.stderr)
         return 1
 
-    total_drops = len(series)
+    total_drops = compter_drops(series)
     selection = retenir(classer(series, ventes))
     if not selection:
         print(f"::error::annonce : aucune serie a citer pour {cle} "
@@ -711,22 +730,18 @@ def run() -> int:
               f"sur le mois entier.", flush=True)
 
     ping = everyone_ouvert()
-    payload = message(cle, jour, mois_passe, total_drops, selection, a_venir,
-                      ping)
+    lic = theme(selection)
+    # Les DEUX messages sont fabriques AVANT le premier envoi : une erreur de
+    # rendu ne doit pas laisser une entete orpheline dans le salon.
+    m_entete = entete(cle, jour, mois_passe, lic, ping)
+    m_corps = corps(cle, mois_passe, total_drops, selection, a_venir)
 
     if not wh:
         print(f"\n[SIMULATION — pas de DISCORD_ANNONCE_WEBHOOK] ANNONCE {cle}",
               flush=True)
-        print(payload["content"] or "(sans ping)", flush=True)
-        for e in payload["embeds"]:
-            print("\n──────────────────────────────", flush=True)
-            if e.get("title"):
-                print(e["title"], flush=True)
-            print(e.get("description", ""), flush=True)
-            for f in e.get("fields", []):
-                print(f"\n{f['name']}\n{f['value']}", flush=True)
-            if e.get("footer"):
-                print(f"— {e['footer']['text']}", flush=True)
+        print(m_entete["content"], flush=True)
+        print("\n────────────── (2e message) ──────────────\n", flush=True)
+        print(m_corps["content"], flush=True)
         etat_ping = "OUI" if ping else "non (interrupteur ferme)"
         print(f"\nping @everyone : {etat_ping}", flush=True)
         # On N'ECRIT PAS l'etat en simulation : sinon un essai « brulerait » le
@@ -735,21 +750,33 @@ def run() -> int:
               flush=True)
         return 0
 
-    mid = api.poster(wh, th, payload)
+    mid = api.poster(wh, th, m_entete)
     if not mid:
-        print("annonce : le message n'est pas parti (plafond ou erreur) — RIEN "
+        print("annonce : l'entete n'est pas partie (plafond ou erreur) — RIEN "
               "n'est memorise, on reessaiera au prochain passage du hub.",
               file=sys.stderr)
         return 1
 
-    # ⭐ UN SEUL ENVOI = UN SEUL POINT DE PANNE. Avec deux messages il fallait
-    # memoriser des l'entete pour ne jamais repinger ; ici, soit tout est parti,
-    # soit rien ne l'est.
+    # 🔴 L'ETAT EST ECRIT ICI, PAS A LA FIN. Le ping est parti : quoi qu'il
+    # arrive au corps, il ne repartira jamais une seconde fois.
+    # ⭐ Une entete orpheline se repare a la main ; deux @everyone, non.
     state["dernier_mois"] = cle
-    state["message"] = mid
+    state["entete"] = mid
     api.save_state(STATE_PATH, state, wh, th)
-    print(f"annonce : {cle} publiee ({mid}), {total_drops} drops annonces, "
-          f"{len(selection)} serie(s) citee(s), ping "
+
+    api.souffler()
+    mid2 = api.poster(wh, th, m_corps)
+    if not mid2:
+        print(f"::error::annonce : l'entete de {cle} est publiee ({mid}) mais "
+              f"le CORPS a echoue. Le mois est marque comme fait — on ne "
+              f"repingera pas @everyone pour le rattraper. A publier a la main.",
+              file=sys.stderr)
+        return 1
+
+    state["corps"] = mid2
+    api.save_state(STATE_PATH, state, wh, th)
+    print(f"annonce : {cle} publiee ({mid} + {mid2}), {total_drops} drops "
+          f"annonces, {len(selection)} serie(s) citee(s), ping "
           f"{'OUI' if ping else 'non'}.", flush=True)
 
     try:

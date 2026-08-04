@@ -122,16 +122,11 @@ def _monde(monkeypatch, series=None, couverts=None, ventes=None,
                         lambda sh, connus=None, trace=False: list(a_venir or []))
 
 
-def _texte(payload) -> str:
-    """Tout ce qu'un lecteur verra du message : contenu + les 4 embeds."""
-    bouts = [payload.get("content", "")]
-    for e in payload.get("embeds", []):
-        bouts += [e.get("title", ""), e.get("description", "")]
-        for f in e.get("fields", []):
-            bouts += [f["name"], f["value"]]
-        if e.get("footer"):
-            bouts.append(e["footer"]["text"])
-    return "\n".join(bouts)
+def _corps(selection=None, a_venir=None, total=171, cle="2026-05") -> str:
+    """Le 2e message, tel qu'un lecteur le verra."""
+    if selection is None:
+        selection = A.classer([serie("a", "BB-8", "ua")], {"ua": 5})
+    return A.corps(cle, "mai", total, selection, a_venir or [])["content"]
 
 
 # ═══════════════════════════════════════════════════ 1. LE GARDE DE LA DATE
@@ -220,15 +215,20 @@ def test_interrupteur_ouvert_le_ping_part(monkeypatch, poste):
         "le ping ne partira pas, et personne ne le verra")
 
 
-def test_le_ping_nest_JAMAIS_dans_un_embed():
+def test_le_ping_est_dans_du_TEXTE_jamais_dans_un_embed():
     """🔴 Un « @everyone » ecrit dans un embed n'alerte PERSONNE : Discord le
-    rend en texte gris. S'il migrait un jour dans le titre du 1er embed, tout
-    aurait l'air normal — et plus rien ne sonnerait."""
-    p = A.message("2026-05", dt.date(2026, 6, 3), "mai", 142,
-                  A.classer([serie("a", "BB-8", "ua")], {"ua": 5}), [], True)
-    assert p["content"] == "@everyone"
-    for e in p["embeds"]:
-        assert "@everyone" not in json.dumps(e, ensure_ascii=False)
+    rend en texte gris. Si le rendu repassait un jour en embed, tout aurait
+    l'air normal — et plus rien ne sonnerait."""
+    p = A.entete("2026-05", dt.date(2026, 6, 3), "mai", "Starwars", True)
+    assert "@everyone" in p["content"]
+    assert "embeds" not in p, "le ping doit rester dans du texte"
+
+
+def test_le_corps_ne_ping_jamais():
+    m = A.corps("2026-05", "mai", 171,
+                A.classer([serie("a", "BB-8", "ua")], {"ua": 5}), [])
+    assert m["allowed_mentions"]["parse"] == []
+    assert "@everyone" not in m["content"]
 
 
 # ═══════════════════════════════════════ 4. « MIEUX VAUT RIEN QU'UN MESSAGE FAUX »
@@ -283,16 +283,15 @@ def test_le_mois_deja_publie_ne_repart_pas(monkeypatch, poste):
     assert poste == [], "deux @everyone pour le meme mois"
 
 
-def test_un_seul_envoi_pour_tout_le_message(monkeypatch, poste):
-    """⭐ 4 embeds dans UN message : un seul ping, un seul point de panne, un
-    seul jeton du plafond anti-ban."""
+def test_deux_messages_lentete_puis_le_corps(monkeypatch, poste):
     monkeypatch.setenv("DISCORD_ANNONCE_WEBHOOK", "https://annonces")
     monkeypatch.setenv("DISCORD_ANNONCE_FORCE", "true")
     _monde(monkeypatch, series=[serie("s1", "Iron Man", "u1")],
            ventes={"u1": 500})
     A.run()
-    assert len(poste) == 1
-    assert len(poste[0]["payload"]["embeds"]) == 4
+    assert len(poste) == 2
+    assert "Annonces" in poste[0]["payload"]["content"]
+    assert "Drops** dont" in poste[1]["payload"]["content"]
 
 
 def test_envoi_rate_rien_nest_memorise(monkeypatch):
@@ -305,6 +304,31 @@ def test_envoi_rate_rien_nest_memorise(monkeypatch):
     monkeypatch.setattr(A, "append_log", lambda *a, **k: None)
     assert A.run() == 1
     assert not os.path.exists(A.STATE_PATH)
+
+
+def test_letat_est_ecrit_DES_lentete(monkeypatch):
+    """Le corps echoue apres une entete partie. Le ping a sonne : il ne doit
+    JAMAIS resonner le lendemain. Une entete orpheline se repare a la main ;
+    deux @everyone, non."""
+    monkeypatch.setenv("DISCORD_ANNONCE_WEBHOOK", "https://annonces")
+    monkeypatch.setenv("DISCORD_ANNONCE_EVERYONE", "true")
+    monkeypatch.setenv("DISCORD_ANNONCE_FORCE", "true")
+    _monde(monkeypatch, series=[serie("s1", "Iron Man", "u1")],
+           ventes={"u1": 500})
+    appels = {"n": 0}
+
+    def poster_capricieux(wh, th, payload):
+        appels["n"] += 1
+        return "111" if appels["n"] == 1 else None      # le corps echoue
+
+    monkeypatch.setattr(api, "poster", poster_capricieux)
+    monkeypatch.setattr(api, "souffler", lambda *a, **k: None)
+    monkeypatch.setattr(A, "append_log", lambda *a, **k: None)
+
+    assert A.run() == 1, "un corps manquant doit etre rouge"
+    with open(A.STATE_PATH, encoding="utf-8") as f:
+        assert json.load(f).get("dernier_mois") == A.cle_mois(), (
+            "le mois n'est pas memorise : demain, @everyone repartira")
 
 
 def test_envoi_reussi_le_mois_est_memorise(monkeypatch, poste):
@@ -441,34 +465,58 @@ def test_laccroche_suit_le_theme():
         "sans licence dominante, l'accroche ne doit NOMMER aucun thème")
 
 
-# ═══════════════════════════════ 9. LA FORME — 4 embeds, un par partie
+# ═══════════════════════════════ 9. LA FORME — du TEXTE, pas d'embed
 
-def test_quatre_embeds_un_par_partie():
-    p = A.message("2026-05", dt.date(2026, 6, 3), "mai", 142,
-                  A.classer([serie("a", "BB-8", "ua")], {"ua": 5}), [], False)
-    assert len(p["embeds"]) == 4
+def test_aucun_embed_nulle_part():
+    """« L'embed rend mal » (Preda, 04/08). ⭐ Le gabarit d'un message qui
+    remplace un humain, c'est ce que l'humain ecrit."""
+    tete = A.entete("2026-05", dt.date(2026, 6, 3), "mai", "Starwars", False)
+    corps = A.corps("2026-05", "mai", 171,
+                    A.classer([serie("a", "BB-8", "ua")], {"ua": 5}), [])
+    assert "embeds" not in tete and "embeds" not in corps
 
 
-def test_lembed_dannonce_porte_la_date_du_POST():
+def test_lentete_porte_la_date_du_POST():
     """« Annonces 03/06 » : le jour ou l'on poste, pas le mois annonce."""
-    e = A.embed_annonce("2026-05", dt.date(2026, 6, 3), "mai", "Starwars")
-    assert e["title"] == "🐱 Annonces 03/06"
-    assert e["description"].startswith("Si vous n'étiez pas là en Mai")
+    tete = A.entete("2026-05", dt.date(2026, 6, 3), "mai", "Starwars", True)
+    assert tete["content"].startswith("🐱 **Annonces 03/06** - @everyone")
+    assert "Si vous n'étiez pas là en Mai" in tete["content"]
 
 
-def test_lembed_des_sorties_annonce_le_TOTAL_du_mois():
-    """« Ce mois-ci 142 Drops dont : » — le total compte TOUT (comics du
-    mercredi compris) ; la liste, elle, est filtree. Compter et choisir sont
-    deux gestes differents."""
-    e = A.embed_sorties(142, "mai",
-                        A.classer([serie("a", "BB-8", "ua")], {"ua": 5}), [])
-    assert "142 Drops" in e["description"]
+def test_lentete_sans_ping_na_pas_de_tiret_orphelin():
+    tete = A.entete("2026-05", dt.date(2026, 6, 3), "mai", "", False)
+    assert tete["content"].splitlines()[0] == "🐱 **Annonces 03/06**"
+
+
+def test_le_corps_annonce_le_total_du_mois():
+    assert "**171 Drops** dont :" in _corps()
 
 
 def test_le_lien_est_dans_le_NOM():
     d = A.classer([serie("a", "BB-8", "ua")], {"ua": 5})[0]
+    assert A.ligne_sortie(1, d).startswith("1. [BB-8](https://")
+
+
+def test_linterrupteur_des_liens_masques(monkeypatch):
+    """Si Discord affichait les crochets en clair, une variable suffit — pas un
+    redeploiement. ⭐ Ce qu'on ne peut pas verifier avant la prod se transforme
+    en interrupteur, pas en pari silencieux."""
+    monkeypatch.setenv("DISCORD_ANNONCE_LIENS_MASQUES", "false")
+    d = A.classer([serie("a", "BB-8", "ua")], {"ua": 5})[0]
     ligne = A.ligne_sortie(1, d)
-    assert ligne.startswith("1. [BB-8](https://")
+    assert "[BB-8](" not in ligne
+    assert "**BB-8**" in ligne and "https://" in ligne
+
+
+def test_pas_de_ligne_vide_entre_deux_sorties():
+    """Demande de Preda (04/08) : la liste est compacte."""
+    s = A.classer([serie("a", "BB-8", "ua"), serie("b", "Yoda", "ub")],
+                  {"ua": 500, "ub": 400})
+    txt = _corps(s)
+    debut = txt.index("1. ")
+    bloc = txt[debut:txt.index("👀")]
+    assert "\n\n1." not in bloc and "\n\n2." not in bloc, (
+        "une ligne vide s'est glissee entre deux sorties")
 
 
 def test_le_sold_out_ne_sannonce_que_quand_il_est_vrai():
@@ -478,54 +526,59 @@ def test_le_sold_out_ne_sannonce_que_quand_il_est_vrai():
     assert "SOLD OUT" not in A.ligne_sortie(1, reste)
 
 
+def test_et_maintenant_porte_lemoji_yeux():
+    assert "👀 **Et maintenant ?**" in _corps()
+
+
 def test_sans_drop_a_venir_on_promet_des_surprises_pas_une_liste():
     """⭐ Inventer un drop serait pire que de n'en annoncer aucun."""
-    e = A.embed_sorties(142, "mai",
-                        A.classer([serie("a", "BB-8", "ua")], {"ua": 5}), [])
-    champ = e["fields"][0]
-    assert champ["name"] == "Et maintenant ?"
-    assert champ["value"] == "Plein de surprises !"
+    txt = _corps()
+    assert "Plein de surprises !" in txt
+    assert "et bien d'autres surprises !!" not in txt
 
 
 def test_avec_des_drops_a_venir_la_liste_apparait():
-    e = A.embed_sorties(142, "mai",
-                        A.classer([serie("a", "BB-8", "ua")], {"ua": 5}),
-                        [serie("z", "Ahsoka", "uz")])
-    champ = e["fields"][0]
-    assert "Ahsoka" in champ["value"]
-    assert "et bien d'autres surprises !!" in champ["value"]
+    txt = _corps(a_venir=[serie("z", "Ahsoka", "uz")])
+    assert "Ahsoka" in txt and "et bien d'autres surprises !!" in txt
 
 
 def test_les_salons_sont_des_mentions_pas_des_urls():
     """`<#id>` reste cliquable meme ping ferme (allowed_mentions ne bride que
     les membres, les roles et @everyone) — et suit un salon renomme."""
-    d = A.embed_liens("2026-05")["description"]
-    assert f"<#{A.SALON_CLASSEMENTS}>" in d
-    assert f"<#{A.SALON_RECAP}>" in d
+    txt = _corps()
+    assert f"<#{A.SALON_CLASSEMENTS}>" in txt
+    assert f"<#{A.SALON_RECAP}>" in txt
+
+
+def test_loffre_10_dollars_porte_le_cadeau_et_sa_condition():
+    """Emoji cadeau (plus d'avertissement) + l'offre est reservee aux nouveaux
+    — ne pas le dire serait une promesse qu'on ne tient pas."""
+    txt = _corps()
+    assert "🎁 **Profitez de 10$ lors de votre Inscription à VeVe !**" in txt
+    assert "Offre réservée aux nouveaux inscrits." in txt
+    assert "⚠️ **Profitez" not in txt
 
 
 def test_le_bloc_liens_est_au_mot_pres():
-    d = A.embed_liens("2026-05")["description"]
-    for bout in ("⚠️ **Profitez de 10$ lors de votre Inscription à VeVe !**",
-                 f"Lien de parrainage : {A.LIEN_PARRAINAGE}",
+    txt = _corps()
+    for bout in (f"Lien de parrainage : {A.LIEN_PARRAINAGE}",
                  "**Comme chaque mois, mise à jour des Classements Publics :**",
                  "**Actualités en temps réel sur X (Twitter) :**",
                  A.LIEN_X, "**Bulletin Récap dans le canal**"):
-        assert bout in d, f"manquant : {bout!r}"
+        assert bout in txt, f"manquant : {bout!r}"
 
 
-def test_lembed_service_est_le_texte_de_preda():
-    e = A.embed_service()
-    assert e["description"] == (
-        "Et si vous voulez mettre toutes les chances de réussite de votre "
-        "côté, essayez l'accès aux services professionnels de VeVe Investor !"
-        f"\n{A.LIEN_INVESTOR}")
+def test_le_service_est_le_texte_de_preda():
+    txt = _corps()
+    assert ("Et si vous voulez mettre toutes les chances de réussite de votre "
+            "côté, essayez l'accès aux services professionnels de VeVe "
+            f"Investor !\n{A.LIEN_INVESTOR}") in txt
 
 
 # ═══════════════════════════════ 10. LES CROCHETS v1 (newsletter, illustration)
 
 def test_sans_crochet_aucune_ligne_newsletter():
-    assert "newsletter" not in A.embed_liens("2026-05")["description"].lower()
+    assert "newsletter" not in _corps().lower()
 
 
 def test_le_crochet_newsletter_sallume_tout_seul(tmp_path, monkeypatch):
@@ -537,23 +590,23 @@ def test_le_crochet_newsletter_sallume_tout_seul(tmp_path, monkeypatch):
                      "newsletter_label": "Le récap de mai"}}),
         encoding="utf-8")
     monkeypatch.setattr(A, "CROCHETS_PATH", str(chemin))
-    d = A.embed_liens("2026-05")["description"]
-    assert "https://substack/x" in d and "Le récap de mai" in d
+    txt = _corps()
+    assert "https://substack/x" in txt and "Le récap de mai" in txt
 
 
 def test_le_crochet_image_reste_vide_en_v1():
     assert A.illustration("2026-05") == ""
-    assert "image" not in A.embed_annonce("2026-05", dt.date(2026, 6, 3),
-                                          "mai", "")
+    assert "http" not in A.entete("2026-05", dt.date(2026, 6, 3), "mai", "",
+                                  False)["content"]
 
 
-def test_avec_une_image_lembed_dannonce_la_porte(tmp_path, monkeypatch):
+def test_avec_une_image_lentete_la_porte(tmp_path, monkeypatch):
     chemin = tmp_path / "crochets.json"
     chemin.write_text(json.dumps({"2026-05": {"image_url": "https://img/x.png"}}),
                       encoding="utf-8")
     monkeypatch.setattr(A, "CROCHETS_PATH", str(chemin))
-    e = A.embed_annonce("2026-05", dt.date(2026, 6, 3), "mai", "")
-    assert e["image"]["url"] == "https://img/x.png"
+    tete = A.entete("2026-05", dt.date(2026, 6, 3), "mai", "", False)
+    assert tete["content"].splitlines()[-1] == "https://img/x.png"
 
 
 # ══════════════════════════════════ 11. LA LECTURE DU SHEET (regles empruntees)
@@ -564,9 +617,9 @@ def _ligne(nom, uuid, jour, series_uuid="s1", supply=1000, rarity="RARE"):
             "veve_licensor": "Marvel", "drop_method": "PURCHASE"}
 
 
-def test_le_comptage_NE_filtre_PAS_les_comics_du_mercredi():
-    """« Ce mois-ci 142 Drops » compte tout — c'est le chiffre que Preda
-    annonce (verifie sur mai 2026). Le filtre vit dans `retenir`, pas ici."""
+def test_la_lecture_ramene_TOUT_et_marque_le_mercredi():
+    """`series_du_mois` ne filtre rien : le COMPTEUR et la LISTE n'ecartent pas
+    les memes choses, et chacun dit sa regle chez lui."""
     sh = FauxSheet({
         "🟢C-COMICS": [_ligne("Comic du mercredi", "u1", "2026-07-08",
                               series_uuid="c1"),          # 08/07/2026 = mercredi
@@ -578,6 +631,16 @@ def test_le_comptage_NE_filtre_PAS_les_comics_du_mercredi():
     assert len(out) == 2
     assert {d["nom"]: d["mercredi"] for d in out} == {
         "Comic du mercredi": True, "Comic du jeudi": False}
+
+
+def test_le_compteur_ecarte_les_comics_du_mercredi():
+    """« Ce mois-ci N Drops » : le Comic Book Day est du volume, pas une
+    sortie a annoncer (decision Preda du 04/08)."""
+    series = [serie("a", "Collectible", "ua"),
+              serie("b", "Comic du jeudi", "ub", genre="comic"),
+              serie("c", "Comic du mercredi", "uc", genre="comic",
+                    mercredi=True)]
+    assert A.compter_drops(series) == 2
 
 
 def test_seul_le_mois_demande_entre():
@@ -632,19 +695,28 @@ def test_les_journees_couvertes_sont_celles_qui_existent():
 
 # ═══════════════════════════════════════════════ 12. LE RENDU NE CASSE PAS
 
-def test_aucun_embed_ne_depasse_les_limites_discord():
-    """4 096 pour une description, 1 024 pour un champ. Un 400 ici, c'est
-    l'annonce du mois qui saute — et un mois ne se rattrape pas."""
+def test_le_message_ne_depasse_jamais_2000_caracteres():
+    """Un 400 ici, c'est l'annonce du mois qui saute — et un mois ne se
+    rattrape pas."""
     s = A.classer([serie(f"s{i}", "Nom très long " * 20, f"u{i}")
                    for i in range(60)],
                   {f"u{i}": 100 + i for i in range(60)})
-    p = A.message("2026-05", dt.date(2026, 6, 3), "mai", 142, s,
-                  [serie(f"z{i}", "À venir " * 30, f"v{i}") for i in range(40)],
-                  True)
-    for e in p["embeds"]:
-        assert len(e.get("description", "")) <= 4096
-        for f in e.get("fields", []):
-            assert len(f["value"]) <= 1024
+    txt = A.corps("2026-05", "mai", 171, s,
+                  [serie(f"z{i}", "À venir " * 30, f"v{i}")
+                   for i in range(40)])["content"]
+    assert len(txt) <= 2000
+
+
+def test_ce_qui_deborde_est_la_LISTE_pas_les_liens():
+    """⭐ On coupe par le milieu : ce qui doit survivre, c'est le bloc du bas.
+    Tronquer la fin sacrifierait justement la partie utile."""
+    s = A.classer([serie(f"s{i}", "Nom très long " * 20, f"u{i}")
+                   for i in range(60)],
+                  {f"u{i}": 100 + i for i in range(60)})
+    txt = A.corps("2026-05", "mai", 171, s, [])["content"]
+    assert A.LIEN_PARRAINAGE in txt
+    assert A.LIEN_INVESTOR in txt
+    assert f"<#{A.SALON_RECAP}>" in txt
 
 
 def test_le_module_est_bien_dans_le_hub():
