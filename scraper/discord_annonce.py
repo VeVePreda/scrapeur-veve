@@ -705,11 +705,16 @@ def fabriquer_affiche(sh, cle: str, mois_passe: str,
                      image_repli=ai.visuel_de_tuile(comic)) if comic else {}
 
     sortie = os.path.join("data", f"annonce-{cle}.png")
-    banniere = crochets(cle).get("banniere_url", "")
-    if not banniere:
-        print(f"annonce : pas de banniere pour {cle} (crochet "
-              f"« banniere_url » vide) — le bandeau restera sombre.",
-              flush=True)
+    # 🔴 NE JAMAIS RECALCULER `banniere` ICI. Elle arrive en PARAMETRE, choisie
+    # par `banniere_du_mois()`. Ce bloc relisait le crochet et ecrasait le
+    # parametre par "" : le run du 04/08 a donc CHOISI une banniere (« position
+    # 1 du carrousel ») puis publie un bandeau sombre, en affichant les DEUX
+    # messages a la suite.
+    # ⭐⭐⭐ UN PARAMETRE QU'ON RECALCULE EN INTERNE N'EST PAS UN PARAMETRE,
+    # C'EST UN LEURRE — et aucun test ne le voyait, parce qu'aucun test ne
+    # suivait la banniere jusqu'au rendu. Il y en a un maintenant.
+    # ⭐⭐ UN `replace` QUI NE TROUVE PAS SA CIBLE NE CHANGE RIEN ET NE DIT RIEN :
+    # c'est comme ca que ce bloc a survecu a sa propre suppression.
     # ⭐ UNE TUILE MONTRE LA SERIE, PAS L'ELEMENT (demande de Preda) : `image_url`
     # est le rendu du produit detoure, pas l'illustration de serie. 5 pages
     # publiques lues, une par serie citee — la charge la plus faible possible.

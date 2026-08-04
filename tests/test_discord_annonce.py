@@ -849,6 +849,35 @@ def test_un_carrousel_sans_piece_rend_vide():
     ]) == {}
 
 
+def test_la_banniere_ARRIVE_JUSQU_AU_RENDU(monkeypatch, tmp_path):
+    """🔴 LE TEST QUI MANQUAIT, ET QUI A COUTE DEUX RUNS.
+
+    `fabriquer_affiche` recevait la banniere en parametre… et la RECALCULAIT en
+    interne depuis le crochet, donc "". Le run choisissait bien une banniere
+    (« position 1 du carrousel ») puis publiait un bandeau sombre, en affichant
+    les DEUX messages a la suite.
+    ⭐⭐⭐ **UN PARAMETRE QU'ON RECALCULE EN INTERNE N'EST PAS UN PARAMETRE,
+    C'EST UN LEURRE.** Aucun test ne le voyait parce qu'aucun test ne suivait la
+    valeur de bout en bout : on testait le CHOIX, et on testait le RENDU, mais
+    jamais le CHEMIN entre les deux."""
+    vu = {}
+    from outils.annonce_visuel import rendu
+
+    def capture(mois, banniere, tuiles, carte, sortie, fond=""):
+        vu["banniere"] = banniere
+        return sortie
+
+    monkeypatch.setattr(rendu, "composer", capture)
+    monkeypatch.setenv("DISCORD_ANNONCE_AFFICHE", "true")
+    monkeypatch.setattr(A, "CROCHETS_PATH", str(tmp_path / "vide.json"))
+
+    A.fabriquer_affiche(object(), "2026-07", "juillet",
+                        [serie("a", "X", "ua")],
+                        banniere="https://cdn/choisie.jpg")
+    assert vu.get("banniere") == "https://cdn/choisie.jpg", (
+        "la banniere choisie n'arrive pas au rendu")
+
+
 def test_le_crochet_manuel_garde_le_dernier_mot(monkeypatch, tmp_path):
     """⭐ Un automatisme qui ne se laisse pas contredire oblige a le debrancher
     entierement le jour ou il se trompe."""

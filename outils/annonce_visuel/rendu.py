@@ -75,8 +75,9 @@ class Journal:
     def resume(self) -> str:
         txt = f"visuel : {self.posees} image(s) posee(s)"
         if self.manquantes:
-            txt += (f", {len(self.manquantes)} case(s) en repli "
-                    f"({', '.join(self.manquantes)})")
+            txt += f", {len(self.manquantes)} case(s) en repli :"
+            for m in self.manquantes:
+                txt += f"\n    ⚠️ {m}"
         return txt
 
 
@@ -172,7 +173,14 @@ def _poser_tuile(cadre: Image.Image, zone, url: str, rayon: int,
     largeur, hauteur = d - g, b - h
     image = _charger_grand(url) if grand else _charger(url)
     if image is None:
-        journal.manquantes.append(nom)
+        # 🔴 DIRE L'URL, PAS SEULEMENT LE NOM DE LA CASE. Le run du 04/08 a
+        # sorti « 3 case(s) en repli (banniere, comic, tuile_2) » alors que les
+        # trois URL EXISTAIENT : c'est le TELECHARGEMENT qui a echoue, pas la
+        # donnee qui manquait. ⭐⭐ « Pas d'URL » et « URL morte » sont deux
+        # pannes opposees ; un journal qui les confond envoie chercher au
+        # mauvais endroit.
+        journal.manquantes.append(f"{nom}"
+                                  + (f" <{url[-58:]}>" if url else " (aucune URL)"))
         vignette = Image.new("RGBA", (largeur, hauteur), G.REPLI)
     else:
         # « couvrir » : la case est pleine, l'image deborde et se centre.
@@ -192,7 +200,8 @@ def _poser_contenu(cadre: Image.Image, zone, url: str, journal: Journal,
     largeur, hauteur = d - g, b - h
     image = _charger(url)
     if image is None:
-        journal.manquantes.append(nom)
+        journal.manquantes.append(f"{nom}"
+                                  + (f" <{url[-58:]}>" if url else " (aucune URL)"))
         return                            # rien : le fond reste visible
     petite = V.tenir_dans(image, largeur, hauteur)          # type: ignore
     journal.posees += 1
