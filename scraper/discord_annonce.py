@@ -444,12 +444,14 @@ def retenir(classees: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 pas_epuise += 1
                 continue
         gardees.append(d)
-    sortie = gardees[:max_lignes()]
-    print(f"annonce : {len(sortie)} serie(s) citee(s) sur {len(gardees)} "
-          f"eligible(s) · ecartees : {art} artwork(s), {merc} comic(s) du "
-          f"mercredi, {pas_epuise} comic(s) non sold out (sur {comics_vus} "
-          f"comic(s) vendus ce mois-ci).", flush=True)
-    return sortie
+    # ⭐ ON NE COUPE PLUS ICI. Le MESSAGE cite 7 lignes, l'AFFICHE veut 5
+    # COLLECTIBLES : deux besoins, deux decoupes. Couper trop tot dans une
+    # fonction commune obligeait l'affiche a se contenter des restes du message.
+    print(f"annonce : {len(gardees)} serie(s) eligible(s) · ecartees : {art} "
+          f"artwork(s), {merc} comic(s) du mercredi, {pas_epuise} comic(s) non "
+          f"sold out (sur {comics_vus} comic(s) vendus ce mois-ci).",
+          flush=True)
+    return gardees
 
 
 def theme(selection: List[Dict[str, Any]]) -> str:
@@ -690,6 +692,11 @@ def fabriquer_affiche(sh, cle: str, mois_passe: str,
               f"sans illustration.", file=sys.stderr)
         return ""
 
+    # 🔴 LA MOSAIQUE NE PORTE QUE DES COLLECTIBLES (Preda, 04/08). Le comic a
+    # DEJA sa carte en haut a droite : l'y remettre en bas, c'est le montrer
+    # deux fois et perdre une place. ⭐ Une piece a UNE place dans une
+    # composition ; deux places, c'est qu'on a confondu « le mieux vendu » avec
+    # « ce qu'on montre ou ».
     comic = next((d for d in selection if d.get("genre") == "comic"), None)
     fiche = {}
     if comic:
@@ -719,7 +726,13 @@ def fabriquer_affiche(sh, cle: str, mois_passe: str,
     # est le rendu du produit detoure, pas l'illustration de serie. 5 pages
     # publiques lues, une par serie citee — la charge la plus faible possible.
     cache_series: Dict[str, str] = {}
-    tuiles = [ai.visuel_de_tuile(d, cache_series) for d in selection[:5]]
+    collectibles = [d for d in selection if d.get("genre") != "comic"][:5]
+    if len(collectibles) < 5:
+        print(f"annonce : seulement {len(collectibles)} collectible(s) "
+              f"eligible(s) — {5 - len(collectibles)} case(s) de la mosaique "
+              f"resteront sombres. (Un comic ne les remplace pas : il a deja "
+              f"sa carte.)", flush=True)
+    tuiles = [ai.visuel_de_tuile(d, cache_series) for d in collectibles]
     try:
         return rendu.composer(mois_passe, banniere, tuiles, carte, sortie)
     except FileNotFoundError as e:
@@ -883,7 +896,8 @@ def run() -> int:
         return 1
 
     total_drops = compter_drops(series)
-    selection = retenir(classer(series, ventes))
+    eligibles = retenir(classer(series, ventes))
+    selection = eligibles[:max_lignes()]
     if not selection:
         print(f"::error::annonce : aucune serie a citer pour {cle} "
               f"({total_drops} serie(s) sortie(s)) — RIEN n'est poste. "
@@ -901,7 +915,9 @@ def run() -> int:
     lic = theme(selection)
     # L'affiche AVANT les messages : si elle echoue, elle ne doit pas le faire
     # entre deux envois. Elle ne bloque jamais — "" = on publie sans.
-    affiche = fabriquer_affiche(sh, cle, mois_passe, selection,
+    # ⚠️ L'affiche recoit les ELIGIBLES, pas les 7 lignes du message : elle
+    # cherche 5 collectibles, et les 7 mieux vendus peuvent en compter moins.
+    affiche = fabriquer_affiche(sh, cle, mois_passe, eligibles,
                                 banniere_du_mois(cle))
     # Les DEUX messages sont fabriques AVANT le premier envoi : une erreur de
     # rendu ne doit pas laisser une entete orpheline dans le salon.

@@ -37,6 +37,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import time
 import urllib.parse
 import urllib.request
 from typing import Any, Dict, List
@@ -49,6 +50,8 @@ UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
 BASE_SERIE = os.environ.get("ANNONCE_VISUEL_BASE_SERIE",
                             "https://www.veve.me/collectibles/en/series")
 DELAI = float(os.environ.get("ANNONCE_VISUEL_DELAI", "1.0"))
+# Le nombre d'essais de LECTURE d'une page publique.
+ESSAIS_PAGE = int(os.environ.get("ANNONCE_VISUEL_ESSAIS", "2"))
 
 
 def deballer(url: str) -> str:
@@ -98,18 +101,30 @@ def image_publique(uuid: str, genre: str = "collectible",
         return cache[cle]
     url = f"{BASE_COMIC if genre == 'comic' else BASE_SERIE}/{sid}"
     trouve = ""
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": UA})
-        with urllib.request.urlopen(req, timeout=20) as rep:
-            html = rep.read().decode("utf-8", "ignore")
-        m = re.search(r'og:image"[^>]*content="([^"]+)"', html) \
-            or re.search(r'content="([^"]+)"[^>]*property="og:image"', html)
-        if m:
-            # &amp; dans le HTML : sans ce remplacement, parse_qs echoue.
-            trouve = deballer(m.group(1).replace("&amp;", "&"))
-    except Exception as e:                                  # noqa: BLE001
-        print(f"annonce : image de serie {sid[:8]} indisponible ({e}) — on "
-              f"garde celle de l'element.", file=sys.stderr)
+    # ⚠️ DEUX ESSAIS, PAS UN. Un timeout unique coutait une tuile entiere :
+    # la page repond en general, mais pas toujours du premier coup. Le
+    # telechargement d'image, lui, reessayait deja 3 fois — **le maillon sans
+    # reprise etait la LECTURE, celui qu'on avait ajoute en dernier.**
+    derniere = None
+    for essai in range(ESSAIS_PAGE):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            with urllib.request.urlopen(req, timeout=25) as rep:
+                html = rep.read().decode("utf-8", "ignore")
+            m = re.search(r'og:image"[^>]*content="([^"]+)"', html) \
+                or re.search(r'content="([^"]+)"[^>]*property="og:image"', html)
+            if m:
+                # &amp; dans le HTML : sinon parse_qs echoue.
+                trouve = deballer(m.group(1).replace("&amp;", "&"))
+            break
+        except Exception as e:                              # noqa: BLE001
+            derniere = e
+            if essai + 1 < ESSAIS_PAGE:
+                time.sleep(DELAI * (essai + 1))
+    if derniere is not None and not trouve:
+        print(f"annonce : page de {genre} {sid[:8]} indisponible ({derniere}) "
+              f"apres {ESSAIS_PAGE} essais — on garde l'image du Sheet.",
+              file=sys.stderr)
     if cache is not None:
         cache[cle] = trouve
     return trouve

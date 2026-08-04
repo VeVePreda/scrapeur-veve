@@ -434,13 +434,59 @@ def test_un_collectible_na_pas_besoin_detre_sold_out():
     assert A.retenir(A.classer([col], {"ua": 12}))
 
 
-def test_pas_plus_de_7_lignes(monkeypatch):
+def test_retenir_ne_coupe_PLUS_il_rend_tous_les_eligibles():
+    """⭐ Le MESSAGE cite 7 lignes, l'AFFICHE veut 5 COLLECTIBLES : deux
+    besoins, deux découpes. Couper trop tôt dans une fonction commune obligeait
+    l'affiche à se contenter des restes du message."""
     s = [serie(f"s{i}", f"Nom {i}", f"u{i}") for i in range(20)]
     out = A.retenir(A.classer(s, {f"u{i}": 100 + i for i in range(20)}))
-    assert len(out) == 7
-    monkeypatch.setenv("DISCORD_ANNONCE_MAX", "3")
-    assert len(A.retenir(A.classer(s, {f"u{i}": 100 + i
-                                       for i in range(20)}))) == 3
+    assert len(out) == 20
+
+
+def test_le_message_coupe_a_7(monkeypatch, poste):
+    monkeypatch.setenv("DISCORD_ANNONCE_WEBHOOK", "https://annonces")
+    monkeypatch.setenv("DISCORD_ANNONCE_FORCE", "true")
+    _monde(monkeypatch,
+           series=[serie(f"s{i}", f"Nom {i}", f"u{i}") for i in range(20)],
+           ventes={f"u{i}": 100 + i for i in range(20)})
+    A.run()
+    corps = poste[1]["payload"]["content"]
+    assert corps.count("\n1. ") + corps.count("1. ") >= 1
+    assert "8." not in corps.split("👀")[0], "plus de 7 lignes citees"
+
+
+def test_la_mosaique_ne_prend_QUE_des_collectibles(monkeypatch, tmp_path):
+    """🔴 Preda (04/08) : le comic a DÉJÀ sa carte en haut à droite. L'y
+    remettre en bas, c'est le montrer deux fois et perdre une case.
+    ⭐ Une pièce a UNE place dans une composition."""
+    vues = {}
+    from outils.annonce_visuel import rendu
+    from scraper import annonce_images as ai
+
+    monkeypatch.setattr(ai, "visuel_de_tuile",
+                        lambda d, cache=None: f"img:{d['nom']}")
+    monkeypatch.setattr(rendu, "composer",
+                        lambda m, b, tuiles, c, s, fond="": vues.setdefault(
+                            "tuiles", tuiles) or s)
+    monkeypatch.setenv("DISCORD_ANNONCE_AFFICHE", "true")
+    monkeypatch.setattr(A, "CROCHETS_PATH", str(tmp_path / "vide.json"))
+
+    eligibles = [
+        serie("c1", "COMIC EN TETE", "u1", genre="comic"),
+        serie("a", "Collectible A", "ua"),
+        serie("b", "Collectible B", "ub"),
+        serie("c2", "COMIC 2", "u2", genre="comic"),
+        serie("c", "Collectible C", "uc"),
+        serie("d", "Collectible D", "ud"),
+        serie("e", "Collectible E", "ue"),
+        serie("f", "Collectible F", "uf"),
+    ]
+    A.fabriquer_affiche(object(), "2026-07", "juillet", eligibles,
+                        banniere="https://cdn/b.jpg")
+    assert vues["tuiles"] == ["img:Collectible A", "img:Collectible B",
+                              "img:Collectible C", "img:Collectible D",
+                              "img:Collectible E"], (
+        "un comic s'est glisse dans la mosaique, ou une case a ete gaspillee")
 
 
 # ═══════════════════════════════════════════ 8. LE THEME ET SON REPLI NEUTRE
