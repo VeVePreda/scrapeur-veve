@@ -68,18 +68,35 @@ def deballer(url: str) -> str:
         return url
 
 
-def image_de_serie(series_uuid: str, cache: Dict[str, str] = None) -> str:
-    """L'illustration de SERIE, lue dans l'`og:image` de sa page publique.
+# 🔴 LES DEUX FAMILLES DE PAGES PUBLIQUES. Un comic ne vit PAS sous /series/ :
+# `…/en/series/<uuid_de_comic>` rend un **404**. Confondre les deux, c'est
+# perdre la couverture sans savoir pourquoi.
+BASE_COMIC = os.environ.get("ANNONCE_VISUEL_BASE_COMIC",
+                            "https://www.veve.me/collectibles/en/comics")
 
-    Rend "" si la page est illisible : l'appelant garde l'image de l'element.
+
+def image_publique(uuid: str, genre: str = "collectible",
+                   cache: Dict[str, str] = None) -> str:
+    """L'image officielle d'une serie, lue dans l'`og:image` de sa page.
+
+    🔴 POURQUOI C'EST DEVENU LA SOURCE PRINCIPALE, ET PLUS UN COMPLEMENT :
+    le run du 04/08 a montre que **le Sheet garde des references d'images
+    MORTES** — `comic_cover.cd511719….4c50950d….full.jpeg` rend 403 sur toutes
+    ses variantes. La page publique, elle, sert la couverture VIVANTE, et pour
+    un comic c'est exactement celle de la rarete COMMON que Preda demande.
+    ⭐⭐ **UNE URL STOCKEE EST UNE PHOTO DU PASSE ; UNE PAGE EST L'ETAT ACTUEL.**
+    Quand les deux existent, c'est la page qui a raison.
+
+    Rend "" si la page est illisible : l'appelant retombe sur le Sheet.
     ⚠️ Le cache est passe par l'appelant — une meme serie ne se demande jamais
     deux fois dans un run."""
-    sid = (series_uuid or "").strip()
+    sid = (uuid or "").strip()
     if not sid:
         return ""
-    if cache is not None and sid in cache:
-        return cache[sid]
-    url = f"{BASE_SERIE}/{sid}"
+    cle = f"{genre}:{sid}"
+    if cache is not None and cle in cache:
+        return cache[cle]
+    url = f"{BASE_COMIC if genre == 'comic' else BASE_SERIE}/{sid}"
     trouve = ""
     try:
         req = urllib.request.Request(url, headers={"User-Agent": UA})
@@ -94,8 +111,13 @@ def image_de_serie(series_uuid: str, cache: Dict[str, str] = None) -> str:
         print(f"annonce : image de serie {sid[:8]} indisponible ({e}) — on "
               f"garde celle de l'element.", file=sys.stderr)
     if cache is not None:
-        cache[sid] = trouve
+        cache[cle] = trouve
     return trouve
+
+
+def image_de_serie(series_uuid: str, cache: Dict[str, str] = None) -> str:
+    """Alias historique — un collectible."""
+    return image_publique(series_uuid, "collectible", cache)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -220,20 +242,16 @@ def visuel_de_tuile(d: Dict[str, Any], cache: Dict[str, str] = None) -> str:
     exact, mais inexploitable — on ne savait NI quelle serie NI quelle source
     avait manque. ⭐⭐ **Un compteur d'echecs sans identite ne se repare pas :
     il se contemple.** Une case vide nommee se corrige en une minute."""
-    if d.get("genre") == "comic":
-        u = cover_commune(d.get("lignes")) or d.get("image", "")
-        if not u:
-            print(f"⚠️ visuel : aucune couverture pour le comic "
-                  f"« {d.get('nom', '?')} » — ni rarete COMMON, ni image "
-                  f"d'element dans le Sheet.", file=sys.stderr)
-        return u
-    serie = image_de_serie(d.get("cle", ""), cache)
-    u = serie or cover_commune(d.get("lignes")) or d.get("image", "")
+    genre = "comic" if d.get("genre") == "comic" else "collectible"
+    # ⭐ LA PAGE D'ABORD, LE SHEET ENSUITE. C'est l'inverse de ma 1re version :
+    # le Sheet est un cache, et un cache d'URL perime en silence.
+    page = image_publique(d.get("cle", ""), genre, cache)
+    u = page or cover_commune(d.get("lignes")) or d.get("image", "")
     if not u:
         print(f"⚠️ visuel : aucune image pour « {d.get('nom', '?')} » "
               f"(serie {str(d.get('cle', ''))[:8]}) — ni page de serie, ni "
               f"image d'element.", file=sys.stderr)
-    elif not serie:
-        print(f"visuel : « {d.get('nom', '?')} » retombe sur l'image de "
-              f"l'element (page de serie muette).", flush=True)
+    elif not page:
+        print(f"visuel : « {d.get('nom', '?')} » retombe sur le Sheet "
+              f"(page publique muette).", flush=True)
     return u

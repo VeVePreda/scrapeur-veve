@@ -180,7 +180,7 @@ def _poser_tuile(cadre: Image.Image, zone, url: str, rayon: int,
         # pannes opposees ; un journal qui les confond envoie chercher au
         # mauvais endroit.
         journal.manquantes.append(f"{nom}"
-                                  + (f" <{url[-58:]}>" if url else " (aucune URL)"))
+                                  + (f"\n       {url}" if url else " (aucune URL)"))
         vignette = Image.new("RGBA", (largeur, hauteur), G.REPLI)
     else:
         # « couvrir » : la case est pleine, l'image deborde et se centre.
@@ -201,7 +201,7 @@ def _poser_contenu(cadre: Image.Image, zone, url: str, journal: Journal,
     image = _charger(url)
     if image is None:
         journal.manquantes.append(f"{nom}"
-                                  + (f" <{url[-58:]}>" if url else " (aucune URL)"))
+                                  + (f"\n       {url}" if url else " (aucune URL)"))
         return                            # rien : le fond reste visible
     petite = V.tenir_dans(image, largeur, hauteur)          # type: ignore
     journal.posees += 1
