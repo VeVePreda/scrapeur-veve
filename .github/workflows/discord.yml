@@ -278,6 +278,10 @@ jobs:
           # ⚠️ ChainItems ne garde que 35 jours : sous ce seuil, le classement
           # « le plus vendu » serait fausse par une fenetre trouee -> rien.
           DISCORD_ANNONCE_MAX: ${{ vars.DISCORD_ANNONCE_MAX || '7' }}
+          # Le teaser « Et maintenant ? ». ⭐ C'est LUI qui cede en premier
+          # quand le message depasse 2 000 caracteres : le bilan du mois est le
+          # sujet, ce qui arrive est un a-cote.
+          DISCORD_ANNONCE_MAX_A_VENIR: ${{ vars.DISCORD_ANNONCE_MAX_A_VENIR || '4' }}
           # L'emoji de tete (« 🐱 Annonces 02/09 »). ⚠️ Un emoji PERSONNALISE du
           # serveur s'ecrit `<:nom:id>` : un webhook ne sait pas le poster
           # autrement (il afficherait le texte brut).
@@ -314,6 +318,11 @@ jobs:
           # L'epaisseur de l'anneau du mois (Horizon Outlined). ⚠️ 0.022 est un
           # maximum utile : au-dela, la contre-forme du « A » se referme.
           ANNONCE_VISUEL_MOIS_GRAS: ${{ vars.ANNONCE_VISUEL_MOIS_GRAS || '0.022' }}
+          # 🖼️ LA BANNIERE — DECORATIVE (Preda, 04/08). Le 2 du mois, on lit le
+          # carrousel de veve.me et on prend la 1re banniere VIVANTE qui mene
+          # vers une piece (series / collectibles / crafts / artworks) : le blog
+          # et le parrainage sont des affiches de texte. Aucun etat, aucun
+          # historique — le crochet `banniere_url` reste prioritaire.
           # Repli manuel : une URL d'image, utilisee SEULEMENT si l'affiche
           # n'a pas pu etre fabriquee. ⚠️ Pas une piece jointe Discord.
           DISCORD_ANNONCE_IMAGE: ${{ vars.DISCORD_ANNONCE_IMAGE || '' }}
