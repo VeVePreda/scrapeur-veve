@@ -20,6 +20,16 @@ name: Hub Discord
 #            ⚠️ Seul module qui a besoin de cairo (SVG -> PNG) : d'ou l'etape
 #            `apt-get install libcairo2` ci-dessous. Sans elle, l'import de
 #            cairosvg echoue EN PLEIN RUN, pas au pip.
+#   annonce -> l'annonce de debut de mois de VeVe France, le 2 (rattrapage le
+#            3), dans le salon « Annonces ». 🚨 SEUL MODULE QUI PEUT PINGER
+#            @everyone : l'interrupteur `DISCORD_ANNONCE_EVERYONE` est FERME
+#            par defaut, et le module refuse de publier si la selection est
+#            vide, le Sheet illisible ou la fenetre de ventes trouee.
+#            ⛔ PAS DE CRON DEDIE, ET C'EST VOULU. Un « 45 7 2 * * » ne
+#            tournerait qu'une fois par mois — or GitHub ABANDONNE des runs
+#            planifies quand il est charge : un abandon = un mois saute, sans
+#            rattrapage possible. Le cron quotidien ci-dessous repasse le 3,
+#            et la cle « YYYY-MM » du module interdit le doublon.
 # Ajouter un module demain = une ligne dans scraper/discord_hub.py. Rien ici.
 #
 # ⚠️ REMPLACE `stats-discord.yml` — SUPPRIME l'ancien fichier, sinon les stats
@@ -47,11 +57,11 @@ on:
       modules:
         description: "Modules a lancer"
         required: false
-        default: "stats,blog,drops,retour,feed,veille,calendrier"
+        default: "stats,blog,drops,retour,feed,veille,calendrier,annonce"
         type: choice
-        options: ["stats,blog,drops,retour,feed,veille,calendrier", "stats",
-                  "blog", "drops", "retour", "feed", "veille", "calendrier",
-                  "drops,retour"]
+        options: ["stats,blog,drops,retour,feed,veille,calendrier,annonce",
+                  "stats", "blog", "drops", "retour", "feed", "veille",
+                  "calendrier", "annonce", "drops,retour"]
       blocs:
         description: "Stats : quels messages (annees,mois,jours_court,jours)"
         required: false
@@ -84,6 +94,18 @@ on:
         default: "false"
         type: choice
         options: ["false", "true"]
+      forcer_annonce:
+        description: "Annonce : publier meme si on n'est pas le 2 (et rejouer le mois)"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+      annonce_everyone:
+        description: "Annonce : autoriser le ping @everyone sur CE run (defaut : la variable du depot)"
+        required: false
+        default: ""
+        type: choice
+        options: ["", "false", "true"]
 
 permissions:
   contents: write
@@ -144,7 +166,7 @@ jobs:
           # ⭐ Un defaut par repli ne se voit que le jour ou on lit le repli.
           # ➡️ AJOUTER UN MODULE = LE METTRE AUX DEUX ENDROITS (ici + `options`
           #    de workflow_dispatch, plus haut).
-          DISCORD_MODULES: ${{ github.event.inputs.modules || 'stats,blog,drops,retour,feed,veille,calendrier' }}
+          DISCORD_MODULES: ${{ github.event.inputs.modules || 'stats,blog,drops,retour,feed,veille,calendrier,annonce' }}
           # Rattrapage du miroir public : nb max de cartes retentees par
           # passage, et nb d'essais avant abandon bruyant.
           DISCORD_DROPS_MIROIR_RATTRAPAGE: ${{ vars.DISCORD_DROPS_MIROIR_RATTRAPAGE || '5' }}
@@ -234,6 +256,36 @@ jobs:
           DISCORD_CALENDRIER_SEMAINES: ${{ vars.DISCORD_CALENDRIER_SEMAINES || '5' }}
           DISCORD_CALENDRIER_MARQUES: ${{ vars.DISCORD_CALENDRIER_MARQUES || 'vevefrance,veveinsights' }}
           DISCORD_CALENDRIER_FORCE: ${{ github.event.inputs.forcer_calendrier || 'false' }}
+          # ═══ 📢 ANNONCE — le 2 du mois, salon « Annonces » de VeVe France ═══
+          # SALON NORMAL (pas un post de forum) : DISCORD_ANNONCE_THREAD vide.
+          # 🔴 LE SECRET NE RETOMBE SUR RIEN. Le module lit
+          # DISCORD_ANNONCE_WEBHOOK EN DIRECT (pas `api.webhook()`, qui se
+          # rabat sur DISCORD_HUB_WEBHOOK) : secret absent = SIMULATION dans
+          # les logs, jamais un @everyone dans le forum du hub.
+          DISCORD_ANNONCE_WEBHOOK: ${{ secrets.DISCORD_ANNONCE_WEBHOOK }}
+          DISCORD_ANNONCE_THREAD: ${{ vars.DISCORD_ANNONCE_THREAD || '' }}
+          # 🚨 L'INTERRUPTEUR D'ARRET DU @everyone — FERME par defaut.
+          # Le module publie quand meme (texte identique), il ne SONNE pas.
+          # Pour ouvrir : variable de depot DISCORD_ANNONCE_EVERYONE = true
+          # (ou l'input `annonce_everyone` pour un seul run manuel).
+          DISCORD_ANNONCE_EVERYONE: ${{ github.event.inputs.annonce_everyone || vars.DISCORD_ANNONCE_EVERYONE || 'false' }}
+          # Le 2, et le 3 en rattrapage (les crons GitHub arrivent avec 2 a 3 h
+          # de retard, et GitHub abandonne des runs quand il est charge).
+          DISCORD_ANNONCE_JOUR: ${{ vars.DISCORD_ANNONCE_JOUR || '2' }}
+          DISCORD_ANNONCE_TOLERANCE: ${{ vars.DISCORD_ANNONCE_TOLERANCE || '1' }}
+          # Nb de series citees · part de ventes minimale pour NOMMER un theme
+          # (« un mois Star Wars ») · nb minimal de journees de ChainItems.
+          # ⚠️ ChainItems ne garde que 35 jours : sous ce seuil, le classement
+          # « le plus vendu » serait fausse par une fenetre trouee -> rien.
+          DISCORD_ANNONCE_MAX: ${{ vars.DISCORD_ANNONCE_MAX || '6' }}
+          DISCORD_ANNONCE_SEUIL_THEME: ${{ vars.DISCORD_ANNONCE_SEUIL_THEME || '0.40' }}
+          DISCORD_ANNONCE_COUVERTURE: ${{ vars.DISCORD_ANNONCE_COUVERTURE || '20' }}
+          # v1 : aucune illustration. Le crochet est perce (fichier
+          # data/annonce_crochets.json ou cette variable) pour que le futur
+          # projet de generation n'ait qu'a le remplir.
+          # ⚠️ Pas d'URL de piece jointe Discord : elles EXPIRENT.
+          DISCORD_ANNONCE_IMAGE: ${{ vars.DISCORD_ANNONCE_IMAGE || '' }}
+          DISCORD_ANNONCE_FORCE: ${{ github.event.inputs.forcer_annonce || 'false' }}
         run: python -m scraper.discord_hub
 
       # L'etat porte les ids des messages (stats) et les slugs deja annonces
