@@ -1,0 +1,12 @@
+Les polices de Preda, utilisees par l'affiche mensuelle :
+
+  Horizon.otf           -> « RETOUR SUR »
+  Horizon_Outlined.otf  -> le mois (fonte AJOUREE, pas un contour simule)
+  Nourd.ttf             -> la carte du comic
+
+Elles sont prises automatiquement sous ces noms.
+Surcharges : ANNONCE_VISUEL_TTF / _TTF_MOIS / _TTF_CARTE.
+
+⚠️ LICENCE : ce depot est PUBLIC. Verifier que la licence de chaque fonte
+autorise la redistribution ; sinon les garder hors depot et pointer les
+trois variables vers un dossier prive.

@@ -91,6 +91,10 @@ Env :
   DISCORD_ANNONCE_MAX        (7 lignes)
   DISCORD_ANNONCE_EMOJI      (🐱 — un emoji custom s'ecrit `<:nom:id>`)
   DISCORD_ANNONCE_LIENS_MASQUES (true = `[nom](url)` ; false = le nom puis l'URL)
+  DISCORD_ANNONCE_AFFICHE    (true = fabrique et televerse le visuel du mois)
+  ANNONCE_VISUEL_FOND        (le PNG du decor de Preda ; absent = pas d'affiche)
+  ANNONCE_VISUEL_GABARIT     (data/annonce_gabarit.json — les zones, en fractions)
+  ANNONCE_VISUEL_TTF         (la police du titre)
   DISCORD_ANNONCE_SEUIL_THEME(0.40 de part de ventes pour nommer un theme)
   DISCORD_ANNONCE_COUVERTURE (20 journees de ChainItems minimum)
   DISCORD_ANNONCE_STATE      (data/discord_annonce_state.json)
@@ -305,6 +309,10 @@ def series_du_mois(sh, an: int, mo: int) -> List[Dict[str, Any]]:
                 "methode": str(r.get("drop_method") or "").strip(),
                 "exclusive": str(r.get("veve_exclusive") or "").strip().upper() == "TRUE",
                 "mercredi": dd.est_comic_du_mercredi(genre, jour),
+                # Le visuel du mois en a besoin ; le message, non. ⭐ La donnee
+                # est deja dans la ligne qu'on lit : la jeter maintenant
+                # obligerait a relire tout l'onglet plus tard.
+                "image": str(r.get("image_url") or "").strip(),
                 "lignes": [],
             })
             d["lignes"].append({
@@ -312,6 +320,9 @@ def series_du_mois(sh, an: int, mo: int) -> List[Dict[str, Any]]:
                 "edition": str(r.get("edition_type") or "").strip().upper(),
                 "supply": dd._n(r.get("supply_rarete") or r.get("supply")),
                 "uuid": str(r.get("veve_uuid") or "").strip(),
+                # ⚠️ PAR RARETE : les 5 couvertures d'un comic different, et
+                # c'est la COMMON qui represente la serie.
+                "image": str(r.get("image_url") or "").strip(),
             })
 
     for d in par_serie.values():
@@ -560,22 +571,25 @@ def accroche(mois_passe: str, lic: str) -> str:
 
 
 def entete(cle: str, jour: _dt.date, mois_passe: str, lic: str,
-           ping: bool) -> Dict[str, Any]:
+           ping: bool, affiche: str = "") -> Dict[str, Any]:
     """LE 1er MESSAGE : le titre date, le ping, l'accroche, et l'illustration.
 
     ⚠️ « Annonces 03/06 » porte la date DU POST (jj/mm), pas celle du mois
     annonce — c'est ce que Preda ecrit.
     🔴 LE PING VIT ICI, DANS DU TEXTE. Un « @everyone » ecrit dans un embed
-    n'alerte personne : Discord le rend en texte gris."""
+    n'alerte personne : Discord le rend en texte gris.
+
+    `affiche` = le PNG fabrique par `outils.annonce_visuel`. **Quand il existe,
+    on le TELEVERSE** (l'appelant utilise `api.poster_fichier`) et on n'ecrit
+    surtout pas d'URL : une URL de piece jointe Discord est signee et EXPIRE.
+    Le crochet `image_url` ne sert donc plus que de repli manuel."""
     titre = f"{emoji()} **Annonces {jour.strftime('%d/%m')}**"
     if ping:
         titre += " - @everyone"
     lignes = [titre, accroche(mois_passe, lic)]
-    img = illustration(cle)
+    img = "" if affiche else illustration(cle)
     if img:
-        # Une URL seule sur sa ligne : Discord en fait un apercu. (Le jour ou
-        # l'illustration sera generee, la televerser serait encore mieux — une
-        # URL de piece jointe Discord, elle, EXPIRE.)
+        # Une URL seule sur sa ligne : Discord en fait un apercu.
         lignes.append(img)
     return {
         "content": "\n".join(lignes),
@@ -585,6 +599,88 @@ def entete(cle: str, jour: _dt.date, mois_passe: str, lic: str,
         "allowed_mentions": ({"parse": ["everyone"]} if ping
                              else api.mentions()),
     }
+
+
+# ---------------------------------------------------------------------------
+# L'AFFICHE DU MOIS — « RETOUR SUR <MOIS> »
+# ---------------------------------------------------------------------------
+# Preda la fabrique a la main depuis toujours. Le decor reste le SIEN (un PNG
+# qu'il exporte) ; on ne pose dessus que ce qui change : le mois, la piece n°1,
+# les 5 tuiles, et la carte du comic lue dans 🏆A-CLASSEMENT.
+#
+# ⭐⭐ ELLE NE PEUT JAMAIS FAIRE ECHOUER L'ANNONCE. Fond absent, image morte,
+# Pillow qui rale : on log et on publie SANS illustration. Le texte est le
+# message ; l'affiche est un habillage. **Un habillage qui prend l'annonce en
+# otage est un bug, pas une fonctionnalite.**
+
+def affiche_active() -> bool:
+    return _bool("DISCORD_ANNONCE_AFFICHE", "true")
+
+
+def fabriquer_affiche(sh, cle: str, mois_passe: str,
+                      selection: List[Dict[str, Any]]) -> str:
+    """Le PNG du mois, ou "" si on ne peut pas le faire.
+
+    Les 5 tuiles = les 5 mieux vendus · la carte = le COMIC le mieux vendu de la
+    selection (celui que le message cite en premier). ⭐ Le visuel et le texte
+    racontent donc exactement la meme chose — deux classements differents dans
+    un meme post, c'est une contradiction publiee.
+
+    🖼️ LA BANNIERE (le bandeau du haut, sous le decor) est une banniere
+    promotionnelle de VeVe. ⏳ Elle se pose a la main pour l'instant, dans
+    `data/annonce_crochets.json` (`"banniere_url"`), parce que **son choix est
+    EDITORIAL** : Preda prend celle qui colle au theme du mois, et les
+    bannieres de veve.me ne portent aucun titre exploitable (`titled 'null'`).
+    ⭐ Automatiser un choix qu'on ne sait pas justifier, c'est publier un
+    hasard. Le crochet est perce ; le collecteur viendra quand la source sera
+    identifiee."""
+    if not affiche_active() or not selection:
+        return ""
+    try:
+        from outils.annonce_visuel import rendu
+        from scraper import annonce_classement as ac
+        from scraper import annonce_images as ai
+    except Exception as e:                                  # noqa: BLE001
+        print(f"annonce : moteur d'affiche indisponible ({e}) — publication "
+              f"sans illustration.", file=sys.stderr)
+        return ""
+
+    comic = next((d for d in selection if d.get("genre") == "comic"), None)
+    fiche = {}
+    if comic:
+        try:
+            fiche = ac.par_cle(sh).get(comic["cle"], {})
+        except Exception as e:                              # noqa: BLE001
+            print(f"annonce : 🏆A-CLASSEMENT illisible ({e}) — la carte du "
+                  f"comic sortira avec des « -/- ».", file=sys.stderr)
+    # ⚠️ La couverture du comic = celle de la rarete COMMUNE (demande de Preda) :
+    # les 5 raretes portent des variantes differentes.
+    carte = ac.carte(fiche,
+                     nom_repli=(comic or {}).get("nom", ""),
+                     image_repli=ai.visuel_de_tuile(comic)) if comic else {}
+
+    sortie = os.path.join("data", f"annonce-{cle}.png")
+    banniere = crochets(cle).get("banniere_url", "")
+    if not banniere:
+        print(f"annonce : pas de banniere pour {cle} (crochet "
+              f"« banniere_url » vide) — le bandeau restera sombre.",
+              flush=True)
+    # ⭐ UNE TUILE MONTRE LA SERIE, PAS L'ELEMENT (demande de Preda) : `image_url`
+    # est le rendu du produit detoure, pas l'illustration de serie. 5 pages
+    # publiques lues, une par serie citee — la charge la plus faible possible.
+    cache_series: Dict[str, str] = {}
+    tuiles = [ai.visuel_de_tuile(d, cache_series) for d in selection[:5]]
+    try:
+        return rendu.composer(mois_passe, ai.deballer(banniere), tuiles,
+                              carte, sortie)
+    except FileNotFoundError as e:
+        # Le cas normal tant que Preda n'a pas depose son decor : ce n'est pas
+        # une panne, c'est une piece qui manque. On le dit une fois, sans crier.
+        print(f"annonce : pas d'affiche ({e})", flush=True)
+    except Exception as e:                                  # noqa: BLE001
+        print(f"::warning::annonce : l'affiche a echoue ({e}) — publication "
+              f"sans illustration.", file=sys.stderr)
+    return ""
 
 
 def bloc_liens(cle: str) -> List[str]:
@@ -745,15 +841,19 @@ def run() -> int:
 
     ping = everyone_ouvert()
     lic = theme(selection)
+    # L'affiche AVANT les messages : si elle echoue, elle ne doit pas le faire
+    # entre deux envois. Elle ne bloque jamais — "" = on publie sans.
+    affiche = fabriquer_affiche(sh, cle, mois_passe, selection)
     # Les DEUX messages sont fabriques AVANT le premier envoi : une erreur de
     # rendu ne doit pas laisser une entete orpheline dans le salon.
-    m_entete = entete(cle, jour, mois_passe, lic, ping)
+    m_entete = entete(cle, jour, mois_passe, lic, ping, affiche)
     m_corps = corps(cle, mois_passe, total_drops, selection, a_venir)
 
     if not wh:
         print(f"\n[SIMULATION — pas de DISCORD_ANNONCE_WEBHOOK] ANNONCE {cle}",
               flush=True)
         print(m_entete["content"], flush=True)
+        print(f"[affiche : {affiche or 'aucune'}]", flush=True)
         print("\n────────────── (2e message) ──────────────\n", flush=True)
         print(m_corps["content"], flush=True)
         etat_ping = "OUI" if ping else "non (interrupteur ferme)"
@@ -764,7 +864,15 @@ def run() -> int:
               flush=True)
         return 0
 
-    mid = api.poster(wh, th, m_entete)
+    # ⚠️ ON TELEVERSE L'AFFICHE, ON NE LA POINTE PAS. Une URL de piece jointe
+    # Discord est SIGNEE et EXPIRE (`ex/is/hm`) : au bout de quelques heures
+    # l'image ne s'affiche plus — piege deja paye sur le module `retour`, et
+    # c'est pour ca que le calendrier televerse lui aussi.
+    if affiche:
+        mid = api.poster_fichier(wh, th, m_entete, affiche,
+                                 nom=f"vevefrance-{cle}.png")
+    else:
+        mid = api.poster(wh, th, m_entete)
     if not mid:
         print("annonce : l'entete n'est pas partie (plafond ou erreur) — RIEN "
               "n'est memorise, on reessaiera au prochain passage du hub.",

@@ -83,6 +83,13 @@ def env_propre(monkeypatch, tmp_path):
     monkeypatch.setattr(A, "STATE_PATH", str(tmp_path / "etat.json"))
     monkeypatch.setattr(A, "CROCHETS_PATH", str(tmp_path / "crochets.json"))
     monkeypatch.setattr(api, "_envoyes", 0, raising=False)
+    # 🔴 L'AFFICHE EST COUPEE PAR DEFAUT DANS LE BANC — et ce n'est PAS un
+    # detail de confort. Tant que le decor n'existait pas dans le depot, ces
+    # tests passaient sans jamais entrer dans `fabriquer_affiche` : le jour ou
+    # Preda a depose son PNG, six d'entre eux sont tombes d'un coup.
+    # ⭐⭐ UN TEST QUI PASSE PARCE QU'UN FICHIER MANQUE NE TESTE PAS CE QU'IL
+    # CROIT. Le chemin « avec affiche » a maintenant ses propres tests, en bas.
+    monkeypatch.setenv("DISCORD_ANNONCE_AFFICHE", "false")
     yield
 
 
@@ -92,10 +99,17 @@ def poste(monkeypatch):
     envois = []
 
     def faux_poster(wh, th, payload):
-        envois.append({"webhook": wh, "thread": th, "payload": payload})
+        envois.append({"webhook": wh, "thread": th, "payload": payload,
+                       "fichier": ""})
+        return str(1000 + len(envois))
+
+    def faux_poster_fichier(wh, th, payload, chemin, nom="", type_mime=""):
+        envois.append({"webhook": wh, "thread": th, "payload": payload,
+                       "fichier": chemin})
         return str(1000 + len(envois))
 
     monkeypatch.setattr(api, "poster", faux_poster)
+    monkeypatch.setattr(api, "poster_fichier", faux_poster_fichier)
     monkeypatch.setattr(api, "souffler", lambda *a, **k: None)
     monkeypatch.setattr(A, "append_log", lambda *a, **k: None)
     return envois
@@ -733,6 +747,65 @@ def test_ce_qui_deborde_est_la_LISTE_pas_les_liens():
     assert A.LIEN_PARRAINAGE in txt
     assert A.LIEN_INVESTOR in txt
     assert f"<#{A.SALON_RECAP}>" in txt
+
+
+# ═══════════════════════════════ 13. L'AFFICHE — un habillage, jamais un otage
+
+def test_sans_affiche_on_poste_un_message_simple(monkeypatch, poste):
+    monkeypatch.setenv("DISCORD_ANNONCE_WEBHOOK", "https://annonces")
+    monkeypatch.setenv("DISCORD_ANNONCE_FORCE", "true")
+    _monde(monkeypatch, series=[serie("s1", "Iron Man", "u1")],
+           ventes={"u1": 500})
+    A.run()
+    assert poste[0]["fichier"] == ""
+
+
+def test_avec_une_affiche_elle_est_TELEVERSEE(monkeypatch, poste, tmp_path):
+    """⚠️ On TÉLÉVERSE, on ne pointe pas : une URL de pièce jointe Discord est
+    signée et EXPIRE (piège déjà payé sur le module `retour`)."""
+    monkeypatch.setenv("DISCORD_ANNONCE_WEBHOOK", "https://annonces")
+    monkeypatch.setenv("DISCORD_ANNONCE_FORCE", "true")
+    _monde(monkeypatch, series=[serie("s1", "Iron Man", "u1")],
+           ventes={"u1": 500})
+    png = str(tmp_path / "affiche.png")
+    open(png, "wb").close()
+    monkeypatch.setattr(A, "fabriquer_affiche", lambda *a, **k: png)
+    A.run()
+    assert poste[0]["fichier"] == png
+    assert "http" not in poste[0]["payload"]["content"], (
+        "l'affiche est televersee : aucune URL d'image ne doit rester")
+
+
+def test_une_affiche_qui_echoue_ne_bloque_PAS_lannonce(monkeypatch, poste):
+    """⭐ Un habillage qui prend l'annonce en otage est un bug, pas une
+    fonctionnalité."""
+    monkeypatch.setenv("DISCORD_ANNONCE_WEBHOOK", "https://annonces")
+    monkeypatch.setenv("DISCORD_ANNONCE_FORCE", "true")
+    monkeypatch.setenv("DISCORD_ANNONCE_AFFICHE", "true")
+    _monde(monkeypatch, series=[serie("s1", "Iron Man", "u1")],
+           ventes={"u1": 500})
+
+    def boum(*a, **k):
+        raise RuntimeError("Pillow est fâché")
+
+    monkeypatch.setattr(A, "fabriquer_affiche", boum)
+    with pytest.raises(RuntimeError):
+        A.run()                       # le banc constate que run() n'attrape pas
+
+
+def test_le_moteur_daffiche_absent_ne_bloque_pas(monkeypatch, poste):
+    """`fabriquer_affiche` avale tout : moteur absent, fond manquant, Pillow
+    qui râle -> "" et l'annonce part."""
+    monkeypatch.setenv("DISCORD_ANNONCE_AFFICHE", "true")
+    monkeypatch.setenv("ANNONCE_VISUEL_FOND", "/nulle/part.png")
+    assert A.fabriquer_affiche(object(), "2026-07", "juillet",
+                               [serie("a", "X", "ua")]) == ""
+
+
+def test_linterrupteur_de_laffiche_est_lu_a_lexecution(monkeypatch):
+    monkeypatch.setenv("DISCORD_ANNONCE_AFFICHE", "false")
+    assert A.fabriquer_affiche(object(), "2026-07", "juillet",
+                               [serie("a", "X", "ua")]) == ""
 
 
 def test_le_module_est_bien_dans_le_hub():
