@@ -29,9 +29,9 @@ import sys
 import traceback
 from typing import Callable, Dict
 
-from scraper import (discord_blog, discord_calendrier, discord_drops,
-                     discord_feed, discord_retour, discord_stats,
-                     discord_veille)
+from scraper import (discord_annonce, discord_blog, discord_calendrier,
+                     discord_drops, discord_feed, discord_retour,
+                     discord_stats, discord_veille)
 
 # Le registre. Ajouter un module = ajouter une ligne ICI (et rien d'autre).
 # `feed` : le comparatif hebdo du salon « Feed investor ». Il tourne comme les
@@ -42,6 +42,13 @@ from scraper import (discord_blog, discord_calendrier, discord_drops,
 # `calendrier` : le PNG du calendrier des drops, TELEVERSE chaque samedi dans le
 # salon de chaque marque (VeVe France, VeVe Insights) — se garde lui-meme au
 # samedi et retient la semaine ISO publiee, voir scraper/discord_calendrier.py.
+# `annonce` : l'annonce de debut de mois de VeVe France, le 2 (avec rattrapage
+# le 3), dans le salon « Annonces ». MEME FORME que feed/calendrier : le hub
+# passe tous les jours, le module se garde lui-meme a la date et retient le
+# MOIS deja publie (« YYYY-MM »).
+# 🚨 C'EST LE SEUL MODULE QUI PEUT PINGER @everyone — et le seul dont le
+# webhook ne retombe sur RIEN quand son secret manque (un module mal configure
+# doit rester muet, pas se tromper de salon). Voir scraper/discord_annonce.py.
 MODULES: Dict[str, Callable[[], int]] = {
     "stats": discord_stats.run,
     "blog": discord_blog.run,
@@ -50,6 +57,7 @@ MODULES: Dict[str, Callable[[], int]] = {
     "feed": discord_feed.run,
     "veille": discord_veille.run,
     "calendrier": discord_calendrier.run,
+    "annonce": discord_annonce.run,
 }
 
 DEMANDES = [m.strip() for m in
