@@ -319,13 +319,6 @@ def test_le_classement_suit_les_ventes_pas_le_tirage():
         "une serie a 0 vente n'est pas « notable »")
 
 
-def test_le_sold_out_ne_sannonce_que_quand_il_est_vrai():
-    epuise = A.classer([serie("a", "Vador", "ua", supply=500)], {"ua": 500})[0]
-    reste = A.classer([serie("b", "Thor", "ub", supply=500)], {"ub": 499})[0]
-    assert "SOLD OUT" in A.ligne_serie(1, epuise)
-    assert "SOLD OUT" not in A.ligne_serie(1, reste)
-
-
 def test_une_serie_additionne_ses_elements():
     d = serie("a", "Phoenix Five", "u1")
     d["lignes"].append({"rarete": "ULTRA_RARE", "supply": 75, "uuid": "u2"})
@@ -360,38 +353,92 @@ def test_une_seule_grosse_sortie_ne_fait_pas_un_mois():
     assert A.theme(s) == ""
 
 
-def test_le_titre_du_corps_suit_le_theme(monkeypatch):
-    s = A.classer([serie("a", "Vador", "ua", licence="Star Wars"),
-                   serie("b", "Yoda", "ub", licence="Star Wars")],
-                  {"ua": 5000, "ub": 4000})
-    titre = A.corps("2026-07", "juillet 2026", s, [], 31, 31)["embeds"][0]["title"]
-    assert "Star Wars" in titre
-    neutre = A.corps("2026-07", "juillet 2026",
-                     A.classer([serie("a", "X", "ua", licence="Marvel"),
-                                serie("b", "Y", "ub", licence="Disney")],
-                               {"ua": 100, "ub": 100}),
-                     [], 31, 31)["embeds"][0]["title"]
-    assert neutre == "🌟 Le mois de juillet 2026", (
-        "sans licence dominante, le titre ne doit NOMMER aucun theme")
+def test_laccroche_suit_le_theme():
+    assert A.accroche("mai", "Starwars") == (
+        "Si vous n'étiez pas là en Mai, vous avez certainement manqué le mois "
+        "Starwars !")
+    assert A.accroche("mai", "") == (
+        "Si vous n'étiez pas là en Mai, voici ce que vous avez manqué !"), (
+        "sans licence dominante, l'accroche ne doit NOMMER aucun thème")
 
 
-# ══════════════════════════════════════════ 8. LA FENETRE PARTIELLE SE DIT
+# ═══════════════════════ 8. LA FORME — le gabarit est un vrai post de Preda
 
-def test_une_fenetre_incomplete_est_ECRITE_dans_le_message():
-    """Un filtre silencieux est un mensonge par omission."""
-    s = A.classer([serie("a", "Vador", "ua")], {"ua": 500})
-    pied = A.corps("2026-07", "juillet 2026", s, [], 24, 31)["embeds"][0]["footer"]["text"]
-    assert "24" in pied and "31" in pied
-    complet = A.corps("2026-07", "juillet 2026", s, [], 31, 31)["embeds"][0]["footer"]["text"]
-    assert "31 jours sur" not in complet
+def test_lentete_porte_la_date_du_POST():
+    """« Annonces 03/06 » : le jour ou l'on poste, pas le mois annonce."""
+    tete = A.entete("2026-05", dt.date(2026, 6, 3), "mai", "Starwars", True)
+    assert tete["content"].startswith("🐱 **Annonces 03/06** - @everyone")
+
+
+def test_lentete_sans_ping_na_pas_de_tiret_orphelin():
+    tete = A.entete("2026-05", dt.date(2026, 6, 3), "mai", "", False)
+    assert tete["content"].splitlines()[0] == "🐱 **Annonces 03/06**"
+
+
+def test_le_corps_est_du_TEXTE_pas_un_embed():
+    """La v1 rendait un embed ; Preda poste du texte brut. Un message
+    automatique doit ressembler a celui qu'il remplace."""
+    m = A.corps("2026-07", A.classer([serie("a", "BB-8", "ua")], {"ua": 500}), [])
+    assert "embeds" not in m
+    assert m["content"].startswith("**Ainsi que :**")
+
+
+def test_la_liste_est_au_format_de_preda():
+    d = A.classer([serie("a", "BB-8", "ua", licence="Starwars")], {"ua": 5})[0]
+    assert A.nom_affiche(d) == "-Le Collectible Starwars BB-8"
+
+
+def test_un_comic_se_dit_comic():
+    d = serie("a", "Hulk #340", "ua", licence="Marvel", genre="comic")
+    assert A.nom_affiche(d) == "-Le Comic Marvel Hulk #340"
+
+
+def test_la_licence_nest_pas_repetee_quand_le_nom_la_porte():
+    """« -Le Collectible Street Fighter V - Guile », pas « … Street Fighter V
+    Street Fighter V - Guile »."""
+    d = serie("a", "Street Fighter V - Guile", "ua", licence="Street Fighter V")
+    assert A.nom_affiche(d) == "-Le Collectible Street Fighter V - Guile"
+
+
+def test_aucun_chiffre_de_vente_naffiche():
+    """Les ventes sont le critere de SELECTION, pas le sujet du message."""
+    s = A.classer([serie("a", "BB-8", "ua", supply=2500)], {"ua": 2500})
+    contenu = A.corps("2026-07", s, [])["content"]
+    assert "2500" not in contenu and "2 500" not in contenu
+
+
+def test_les_salons_sont_des_mentions_pas_des_urls():
+    """`<#id>` reste cliquable meme ping ferme (allowed_mentions ne bride que
+    les membres, les roles et @everyone) — et suit un salon renomme."""
+    contenu = A.corps("2026-07",
+                      A.classer([serie("a", "BB-8", "ua")], {"ua": 5}),
+                      [])["content"]
+    assert f"<#{A.SALON_CLASSEMENTS}>" in contenu
+    assert f"<#{A.SALON_RECAP}>" in contenu
+    assert f"<#{A.SALON_INVESTOR}>" in contenu
+    assert "discord.com/channels" not in contenu
+
+
+def test_le_bloc_promo_est_present_au_mot_pres():
+    contenu = A.corps("2026-07",
+                      A.classer([serie("a", "BB-8", "ua")], {"ua": 5}),
+                      [])["content"]
+    for bout in ("**Ainsi que :**", "**A venir ?**",
+                 "et bien d'autres surprises !!",
+                 "⚠️ **Profitez de 10$ lors de votre Inscription à VeVe !**",
+                 f"Lien de parrainage : {A.LIEN_PARRAINAGE}",
+                 "**Comme chaque mois, mise à jour des Classements Publics :**",
+                 "**Actualités en temps réel sur X (Twitter) :**",
+                 A.LIEN_X, "**Bulletin Récap dans le canal**",
+                 A.PHRASE_INVESTOR):
+        assert bout in contenu, f"manquant : {bout!r}"
 
 
 # ═══════════════════════════════ 9. LES CROCHETS v1 (newsletter, illustration)
 
 def test_sans_crochet_aucune_ligne_newsletter():
     s = A.classer([serie("a", "Vador", "ua")], {"ua": 500})
-    champs = A.corps("2026-07", "juillet 2026", s, [], 31, 31)["embeds"][0]["fields"]
-    assert not [c for c in champs if "newsletter" in c["name"].lower()]
+    assert "newsletter" not in A.corps("2026-07", s, [])["content"].lower()
 
 
 def test_le_crochet_newsletter_sallume_tout_seul(tmp_path, monkeypatch):
@@ -404,14 +451,14 @@ def test_le_crochet_newsletter_sallume_tout_seul(tmp_path, monkeypatch):
         encoding="utf-8")
     monkeypatch.setattr(A, "CROCHETS_PATH", str(chemin))
     s = A.classer([serie("a", "Vador", "ua")], {"ua": 500})
-    champs = A.corps("2026-07", "juillet 2026", s, [], 31, 31)["embeds"][0]["fields"]
-    ligne = [c for c in champs if "newsletter" in c["name"].lower()]
-    assert ligne and "substack" in ligne[0]["value"]
+    contenu = A.corps("2026-07", s, [])["content"]
+    assert "https://substack/x" in contenu and "Le récap de juillet" in contenu
 
 
 def test_le_crochet_image_reste_vide_en_v1():
     assert A.illustration("2026-07") == ""
-    assert "embeds" not in A.entete("2026-07", "juillet 2026", "août", False)
+    assert "embeds" not in A.entete("2026-07", dt.date(2026, 8, 2), "juillet",
+                                    "", False)
 
 
 def test_avec_une_image_lentete_la_porte(tmp_path, monkeypatch):
@@ -419,7 +466,7 @@ def test_avec_une_image_lentete_la_porte(tmp_path, monkeypatch):
     chemin.write_text(json.dumps({"2026-07": {"image_url": "https://img/x.png"}}),
                       encoding="utf-8")
     monkeypatch.setattr(A, "CROCHETS_PATH", str(chemin))
-    tete = A.entete("2026-07", "juillet 2026", "août", False)
+    tete = A.entete("2026-07", dt.date(2026, 8, 2), "juillet", "", False)
     assert tete["embeds"][0]["image"]["url"] == "https://img/x.png"
 
 
@@ -488,24 +535,24 @@ def test_les_journees_couvertes_sont_celles_qui_existent():
 
 # ═══════════════════════════════════════════════ 11. LE RENDU NE CASSE PAS
 
-def test_un_champ_ne_depasse_jamais_la_limite_discord():
-    """1 024 caracteres par champ. Un 400 ici, c'est l'annonce du mois qui
-    saute — et un mois ne se rattrape pas."""
+def test_le_message_ne_depasse_jamais_2000_caracteres():
+    """Un 400 ici, c'est l'annonce du mois qui saute — et un mois ne se
+    rattrape pas."""
     s = A.classer([serie(f"s{i}", "Nom très long " * 12, f"u{i}")
-                   for i in range(40)],
-                  {f"u{i}": 100 + i for i in range(40)})
-    emb = A.corps("2026-07", "juillet 2026", s, [], 31, 31)["embeds"][0]
-    for champ in emb["fields"]:
-        assert len(champ["value"]) <= 1024
+                   for i in range(60)],
+                  {f"u{i}": 100 + i for i in range(60)})
+    assert len(A.corps("2026-07", s, [])["content"]) <= 2000
 
 
-def test_les_liens_de_veve_france_sont_dans_le_message():
-    s = A.classer([serie("a", "Vador", "ua")], {"ua": 500})
-    champs = A.corps("2026-07", "juillet 2026", s, [], 31, 31)["embeds"][0]["fields"]
-    tout = " ".join(c["value"] for c in champs)
-    for lien in (A.LIEN_PARRAINAGE, A.LIEN_CLASSEMENTS, A.LIEN_RECAP,
-                 A.LIEN_INVESTOR, A.LIEN_X):
-        assert lien in tout
+def test_ce_qui_deborde_est_la_LISTE_pas_les_liens():
+    """⭐ On coupe par le milieu : ce qui doit survivre, c'est le bloc promo du
+    bas. Tronquer la fin sacrifierait justement la partie utile."""
+    s = A.classer([serie(f"s{i}", "Nom très long " * 12, f"u{i}")
+                   for i in range(60)],
+                  {f"u{i}": 100 + i for i in range(60)})
+    contenu = A.corps("2026-07", s, [])["content"]
+    assert A.LIEN_PARRAINAGE in contenu
+    assert f"<#{A.SALON_INVESTOR}>" in contenu
 
 
 def test_le_module_est_bien_dans_le_hub():
