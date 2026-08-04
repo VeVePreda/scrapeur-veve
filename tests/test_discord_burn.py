@@ -156,6 +156,29 @@ def test_analyse_relit_le_nombre_restant_de_la_carte():
     assert par_uuid[RON]["restant"] == 341
 
 
+def test_la_date_de_la_carte_n_est_pas_avalee_par_le_nombre_restant():
+    """🔴 RUN RÉEL DU 04/08. La carte du craft affiche sa date : le texte à plat
+    donne « … 26 Jul 26 341 left ». Le « 26 » de l'année et le « 341 » se
+    lisaient comme UN nombre groupé — 26 341 — et la contre-mesure criait un
+    écart de 26 000 **chaque matin**.
+    ⭐⭐ Un séparateur de milliers ambigu avec le séparateur de MOTS n'est pas un
+    séparateur. veve.me est anglais : il groupe à la virgule.
+    ⚠️ Et une fausse alarme quotidienne est pire qu'une alarme absente : elle
+    apprend à ne plus lire les logs."""
+    page = ('<h1>Leaving Soon</h1>'
+            f'<a href="/collectibles/en/crafts/{RON}">'
+            '<h3>Ron English Collectors Reward</h3>'
+            '<span>26 Jul 26</span><span>341 left</span>'
+            '<span>Secret Rare</span></a>')
+    assert B.analyser(page)[0]["restant"] == 341
+
+
+def test_les_milliers_a_la_virgule_restent_lus():
+    page = (f'<h1>Leaving Soon</h1><a href="/collectibles/en/comics/{SPIDEY}">'
+            '<span>9,517 left</span></a>')
+    assert B.analyser(page)[0]["restant"] == 9517
+
+
 def test_le_badge_va_a_la_carte_la_plus_proche_et_une_seule_fois():
     par_uuid = {i["uuid"]: i for i in B.analyser(PAGE)}
     assert par_uuid[SPIDEY]["jours"] == 5
@@ -275,6 +298,26 @@ def test_un_ecart_entre_l_annonce_et_le_reel_est_ecrit_noir_sur_blanc():
     d = B.carte(_d(statut="fait", brulees_reelles=300, a_bruler_annonce=341,
                    ecart=True))
     assert "Annoncé : 341" in desc(d) and "réel : 300" in desc(d)
+
+
+def test_une_paire_atl_superieure_a_ath_n_est_pas_publiee_du_tout():
+    """🔴 RUN RÉEL DU 04/08 : « 📉 ATL 13 $ · 📈 ATH 8 $ » sur le comic.
+    ⭐⭐ Quand deux nombres se contredisent, on ne sait pas LEQUEL est faux —
+    en garder un, c'est choisir au hasard lequel on publie. On n'en montre
+    aucun. Une carte muette reste vraie ; une carte qui place le plus-bas
+    au-dessus du plus-haut perd toute sa crédibilité, et c'est une carte
+    d'investisseur."""
+    corps = desc(B.carte(_d(fiche={"atl": 13, "ath": 8})))
+    assert "ATL" not in corps and "ATH" not in corps
+    # …et une paire saine passe toujours (sinon le correctif aurait tout muté)
+    saine = desc(B.carte(_d(fiche={"atl": 20, "ath": 38})))
+    assert "ATL 20 $" in saine and "ATH 38 $" in saine
+
+
+def test_une_borne_manquante_n_est_pas_une_incoherence():
+    assert B.extremes_incoherents({"atl": None, "ath": 38}) is False
+    assert B.extremes_incoherents({}) is False
+    assert "ATH 38 $" in desc(B.carte(_d(fiche={"ath": 38})))
 
 
 def test_la_note_de_classement_figure_sur_la_carte():

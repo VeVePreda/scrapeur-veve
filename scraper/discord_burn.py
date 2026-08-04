@@ -186,7 +186,13 @@ RE_BADGE = re.compile(r"Leaving\s+(?:in\s+(?P<n>\d+)\s+days?|(?P<today>today))",
 RE_RESTANT = re.compile(
     # ⛔ `(?<!\d)` : sans lui, le motif demarrait AU MILIEU de « 1999 » et
     # rendait « 999 517 ». Un nombre commence la ou le precedent finit.
-    r"(?<!\d)(\d{1,3}(?:[,.\u00a0\u202f ]\d{3})*|\d+)\s*left", re.I)
+    # ⛔ PAS D'ESPACE ORDINAIRE dans le separateur de milliers (run reel du
+    # 04/08). La carte du craft affiche sa date : « … 26 Jul 26 341 left » —
+    # le « 26 » de l'annee + « 341 » se lisaient comme UN nombre, 26 341, et
+    # la contre-mesure criait un ecart de 26 000 chaque matin. veve.me est un
+    # site anglais : il groupe a la VIRGULE. Un separateur ambigu avec le
+    # separateur de MOTS n'est pas un separateur.
+    r"(?<!\d)(\d{1,3}(?:[,\u00a0\u202f]\d{3})*|\d+)\s*left", re.I)
 RE_BALISE = re.compile(r"<[^>]+>")
 
 # Marqueur de « on est bien sur la bonne page ». Sans lui, un 200 peut etre une
@@ -434,6 +440,25 @@ def _bloc_chiffres(d: Dict[str, Any], fait: bool) -> str:
         f"{k:<16}{v:>{largeur}}" for k, v in lignes) + "\n```"
 
 
+def extremes_incoherents(fiche: Dict[str, Any]) -> bool:
+    """ATL > ATH : la paire est IMPOSSIBLE, on n'en publie AUCUNE des deux.
+
+    🔴 Vu au 1er run reel (04/08) : « 📉 ATL 13 $ · 📈 ATH 8 $ » sur le comic
+    Spider-Man. La cause est en amont, dans le magasin de prix, et elle n'est
+    pas soignee — le site, lui, masque deja ces paires.
+    ⭐⭐ **Quand deux nombres se contredisent, on ne sait pas LEQUEL est faux :
+    en garder un, c'est choisir au hasard lequel on publie.** On n'en montre
+    donc aucun. Une carte muette sur ce point reste vraie ; une carte qui
+    affiche un plus-bas au-dessus du plus-haut se decredibilise entierement,
+    et c'est une carte d'investisseur.
+    """
+    try:
+        atl, ath = float(fiche.get("atl")), float(fiche.get("ath"))
+    except (TypeError, ValueError):
+        return False                       # une borne manquante n'est pas un conflit
+    return atl > 0 and ath > 0 and atl > ath
+
+
 def _lignes_fiche(fiche: Dict[str, Any], note: str, d: Dict[str, Any],
                   genre: str) -> List[str]:
     """Rarete, prix, note de classement, extremes — ce qu'un investisseur
@@ -454,15 +479,16 @@ def _lignes_fiche(fiche: Dict[str, Any], note: str, d: Dict[str, Any],
         out.append(" · ".join(tete))
     if note:
         out.append(f"📊 Note de classement : **{note}**")
-    atl = _prix(fiche.get("atl")).replace(".", ",")
-    ath = _prix(fiche.get("ath")).replace(".", ",")
-    bornes = []
-    if atl:
-        bornes.append(f"📉 ATL {atl} $")
-    if ath:
-        bornes.append(f"📈 ATH {ath} $")
-    if bornes:
-        out.append(" · ".join(bornes))
+    if not extremes_incoherents(fiche):
+        atl = _prix(fiche.get("atl")).replace(".", ",")
+        ath = _prix(fiche.get("ath")).replace(".", ",")
+        bornes = []
+        if atl:
+            bornes.append(f"📉 ATL {atl} $")
+        if ath:
+            bornes.append(f"📈 ATH {ath} $")
+        if bornes:
+            out.append(" · ".join(bornes))
     return out
 
 
@@ -744,6 +770,12 @@ def run() -> int:                                           # noqa: C901
         # sous nos pieds — et dans les deux cas on veut le savoir AVANT que le
         # chiffre publie devienne faux. On le NOTE, on ne corrige pas : deux
         # definitions qui se reecrivent l'une l'autre, c'est la guerre.
+        if extremes_incoherents(fiche):
+            print(f"  ⚠️ {nom} : ATL {fiche.get('atl')} > ATH {fiche.get('ath')} "
+                  f"— paire impossible, les DEUX bornes sont retirées de la "
+                  f"carte. Cause en amont, cf. le chantier des extrêmes.",
+                  file=sys.stderr)
+
         vu = _n(it.get("restant"))
         if statut == "attente" and vu and abs(vu - c["a_bruler"]) > max(
                 5, 0.05 * max(vu, 1)):
