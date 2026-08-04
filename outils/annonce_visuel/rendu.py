@@ -43,6 +43,7 @@ coordonnees.**
 from __future__ import annotations
 
 import os
+import sys
 from typing import Any, Dict, List, Optional, Sequence
 
 from PIL import Image, ImageDraw, ImageFont
@@ -108,6 +109,49 @@ def _charger(url: str) -> Optional[Image.Image]:
         return None
 
 
+# 🔴 LE CACHE DU CALENDRIER PLAFONNE LES IMAGES A 480 px (`visuels.COTE_CACHE`).
+# C'est le bon choix pour une vignette de calendrier ; c'est desastreux pour la
+# BANNIERE, qui occupe 1 920 px de large : elle etait telechargee en 3 080,
+# reduite a 480, puis re-agrandie a 1 920. Resultat : une bouillie.
+# ⭐⭐ REUTILISER UN OUTIL, C'EST AUSSI HERITER DE SES COMPROMIS. Celui-ci a ete
+# calibre pour un autre usage — on ne le change pas (le calendrier en depend),
+# on lui met un frere pour le seul cas ou son plafond gene.
+CACHE_GRAND = os.path.join("data", "annonce_bannieres_cache")
+
+
+def _charger_grand(url: str) -> Optional[Image.Image]:
+    """Une image SANS plafond de taille, avec son propre cache disque."""
+    if not url:
+        return None
+    if not url.lower().startswith(("http://", "https://")):
+        try:
+            return Image.open(url).convert("RGBA")
+        except Exception:                                   # noqa: BLE001
+            return None
+    import hashlib
+    import urllib.request
+    os.makedirs(CACHE_GRAND, exist_ok=True)
+    chemin = os.path.join(CACHE_GRAND,
+                          hashlib.sha1(url.encode()).hexdigest() + ".png")
+    if os.path.exists(chemin):
+        try:
+            return Image.open(chemin).convert("RGBA")
+        except Exception:                                   # noqa: BLE001
+            os.remove(chemin)
+    try:
+        ua = getattr(V, "UA", "Mozilla/5.0 ScrapeurVeVe-annonce/1.0")
+        req = urllib.request.Request(url, headers={"User-Agent": ua})
+        with urllib.request.urlopen(req, timeout=30) as rep:
+            brut = rep.read()
+        import io
+        img = Image.open(io.BytesIO(brut)).convert("RGBA")
+        img.save(chemin, "PNG")            # ⚠️ webp -> PNG, comme le calendrier
+        return img
+    except Exception as e:                                  # noqa: BLE001
+        print(f"⚠️ visuel : banniere indisponible ({e}).", file=sys.stderr)
+        return None
+
+
 def _coins_arrondis(image: Image.Image, rayon: int) -> Image.Image:
     """Le masque arrondi des tuiles. Sans lui, une vignette carree posee sur un
     fond aux cases arrondies saute aux yeux."""
@@ -122,11 +166,11 @@ def _coins_arrondis(image: Image.Image, rayon: int) -> Image.Image:
 
 
 def _poser_tuile(cadre: Image.Image, zone, url: str, rayon: int,
-                 journal: Journal, nom: str) -> None:
+                 journal: Journal, nom: str, grand: bool = False) -> None:
     """Une case de la mosaique : l'image RECADREE pour remplir la case."""
     g, h, d, b = G.boite(zone, cadre.width, cadre.height)
     largeur, hauteur = d - g, b - h
-    image = _charger(url)
+    image = _charger_grand(url) if grand else _charger(url)
     if image is None:
         journal.manquantes.append(nom)
         vignette = Image.new("RGBA", (largeur, hauteur), G.REPLI)
@@ -426,7 +470,9 @@ def composer(mois: str, banniere_url: str, tuiles_urls: Sequence[str],
     rayon = max(2, round(G.RAYON_TUILE * decor.width))
 
     cadre = Image.new("RGBA", decor.size, G.REPLI)
-    _poser_tuile(cadre, z["banniere"], banniere_url, 0, journal, "banniere")
+    # `grand=True` : la banniere echappe au plafond de 480 px du calendrier.
+    _poser_tuile(cadre, z["banniere"], banniere_url, 0, journal, "banniere",
+                 grand=True)
     cadre.alpha_composite(decor)         # le decor recouvre, son trou revele
 
     _logo(cadre, z["logo"])              # muet par defaut : le fond le porte

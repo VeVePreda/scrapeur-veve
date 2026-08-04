@@ -808,6 +808,71 @@ def test_linterrupteur_de_laffiche_est_lu_a_lexecution(monkeypatch):
                                [serie("a", "X", "ua")]) == ""
 
 
+# ═══════════════════════════ 14. LA BANNIERE — decorative, rien de plus
+
+def test_la_banniere_mene_vers_une_PIECE_pas_vers_le_blog(monkeypatch):
+    """⭐⭐ Preda a tranché : elle est DÉCORATIVE. Le seul filtre qui garde du
+    sens est la cible — une bannière « programme de parrainage » est une
+    affiche de texte, elle ne montre aucune pièce."""
+    from scraper import annonce_images as ai
+    liste = [
+        {"id": "a", "position": 1, "backup": False,
+         "cible": "https://www.veve.me/blog/veve/updates/referral-program",
+         "image": "https://cdn/blog.jpg"},
+        {"id": "b", "position": 4, "backup": False,
+         "cible": "https://www.veve.me/collectibles/en/series/xxx",
+         "image": "https://cdn/serie.jpg"},
+        {"id": "c", "position": 2, "backup": True,
+         "cible": "https://www.veve.me/collectibles/en/series/yyy",
+         "image": "https://cdn/reserve.jpg"},
+    ]
+    b = ai.banniere_decorative(liste)
+    assert b["id"] == "b", "le blog et la reserve doivent etre ecartes"
+
+
+def test_a_egalite_on_prend_la_premiere_du_carrousel():
+    from scraper import annonce_images as ai
+    liste = [
+        {"id": "loin", "position": 8, "backup": False,
+         "cible": "/collectibles/en/series/a", "image": "https://cdn/8.jpg"},
+        {"id": "tete", "position": 2, "backup": False,
+         "cible": "/collectibles/en/crafts/b", "image": "https://cdn/2.jpg"},
+    ]
+    assert ai.banniere_decorative(liste)["id"] == "tete"
+
+
+def test_un_carrousel_sans_piece_rend_vide():
+    from scraper import annonce_images as ai
+    assert ai.banniere_decorative([
+        {"id": "a", "position": 1, "backup": False,
+         "cible": "https://www.veve.me/blog/x", "image": "https://cdn/x.jpg"}
+    ]) == {}
+
+
+def test_le_crochet_manuel_garde_le_dernier_mot(monkeypatch, tmp_path):
+    """⭐ Un automatisme qui ne se laisse pas contredire oblige a le debrancher
+    entierement le jour ou il se trompe."""
+    chemin = tmp_path / "crochets.json"
+    chemin.write_text(json.dumps({"2026-07": {"banniere_url":
+        "https://www.veve.me/_next/image?url=https%3A%2F%2Fcdn%2Fx.jpg&w=1200"}}),
+        encoding="utf-8")
+    monkeypatch.setattr(A, "CROCHETS_PATH", str(chemin))
+    from scraper import annonce_images as ai
+
+    def jamais(*a, **k):
+        raise AssertionError("le carrousel ne doit pas etre interroge")
+
+    monkeypatch.setattr(ai, "banniere_decorative", jamais)
+    assert A.banniere_du_mois("2026-07") == "https://cdn/x.jpg"
+
+
+def test_sans_banniere_le_bandeau_reste_sombre_et_le_DIT(monkeypatch, capsys):
+    from scraper import annonce_images as ai
+    monkeypatch.setattr(ai, "banniere_decorative", lambda *a, **k: {})
+    assert A.banniere_du_mois("2026-07") == ""
+    assert "bandeau restera sombre" in capsys.readouterr().out
+
+
 def test_le_module_est_bien_dans_le_hub():
     from scraper import discord_hub
     assert discord_hub.MODULES.get("annonce") is A.run

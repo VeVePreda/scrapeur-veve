@@ -32,6 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from outils.annonce_visuel import gabarit as G              # noqa: E402
 from outils.annonce_visuel import rendu as R                # noqa: E402
 from scraper import annonce_classement as ac                # noqa: E402
+from scraper import annonce_images as ai                    # noqa: E402
 
 
 # ═══════════════════════════════════════════════════════════ outillage du banc

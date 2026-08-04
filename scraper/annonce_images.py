@@ -98,6 +98,100 @@ def image_de_serie(series_uuid: str, cache: Dict[str, str] = None) -> str:
     return trouve
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# 🖼️ LES BANNIERES DU CARROUSEL VeVe
+# ═══════════════════════════════════════════════════════════════════════════
+# La page d'accueil ne rend PAS les bannieres en HTML : elle embarque leur JSON
+# dans les donnees Next.js. Chaque banniere y porte tout ce qu'il faut :
+#
+#   {"id":…, "position":1, "isBackup":false,
+#    "startDate":"2026-07-29T…", "endDate":"2026-08-09T…",
+#    "url":"https://www.veve.me/collectibles/en/series/<uuid>",
+#    "desktopMedia":{"url":"https://…/marketing_window_web.<id>.<img>.full.jpeg"}}
+#
+# ⭐⭐⭐ LA BANNIERE EST DECORATIVE — TRANCHE PAR PREDA (04/08).
+# J'avais bati un archivage quotidien du carrousel pour retrouver « la banniere
+# affichee pendant le mois annonce ». Correct, et **surdimensionne** : cette
+# image ne porte aucune information, elle remplit un bandeau. Preda a coupe
+# court — **on prend une banniere VIVANTE qui mene vers un collectible.**
+# ⭐⭐ LE COUT D'UN MECANISME SE JUGE A CE QU'IL PORTE, PAS A SON ELEGANCE : un
+# historique persistant, un etat commite chaque jour et une requete quotidienne
+# pour choisir un fond d'image, c'est payer un entrepot pour ranger un poster.
+# ⛔ Ne pas reintroduire l'archivage sans une raison NEUVE.
+#
+# Le seul filtre qui reste a du sens : **la cible**. Les bannieres du carrousel
+# pointent vers des series, mais aussi vers le blog ou le parrainage — celles-la
+# ne montrent pas de piece, elles montrent du texte.
+
+ACCUEIL = os.environ.get("ANNONCE_VISUEL_ACCUEIL",
+                         "https://www.veve.me/collectibles/en")
+
+# Un bloc de banniere, dans le JSON aplati de la page.
+_BLOC = re.compile(
+    r'\{"id":"(?P<id>[0-9a-f-]{36})","title":.*?'
+    r'"position":(?P<position>\d+),"isBackup":(?P<backup>\w+),'
+    r'"url":"(?P<cible>[^"]*)".*?'
+    r'"desktopMedia":\{"url":"(?P<image>[^"]+)"\}', re.S)
+_DATES = re.compile(r'"startDate":"([^"]*)","endDate":"([^"]*)"')
+
+
+def bannieres(html: str = "") -> List[Dict[str, Any]]:
+    """Les bannieres du carrousel, dans l'ordre du site.
+
+    Rend [] si la page est illisible : l'affiche sortira avec un bandeau
+    sombre, elle ne echouera pas."""
+    if not html:
+        try:
+            req = urllib.request.Request(ACCUEIL, headers={"User-Agent": UA})
+            with urllib.request.urlopen(req, timeout=25) as rep:
+                html = rep.read().decode("utf-8", "ignore")
+        except Exception as e:                              # noqa: BLE001
+            print(f"annonce : carrousel VeVe illisible ({e}) — pas de "
+                  f"banniere relevee ce passage.", file=sys.stderr)
+            return []
+    # Le JSON est echappe dans un `self.__next_f.push([1,"…"])` : on desechappe
+    # une fois, sinon aucun motif ne matche.
+    brut = html.replace('\\"', '"').replace("\\\\", "\\")
+    dates = _DATES.findall(brut)
+    out: List[Dict[str, Any]] = []
+    for i, m in enumerate(_BLOC.finditer(brut)):
+        debut, fin = (dates[i] if i < len(dates) else ("", ""))
+        out.append({
+            "id": m.group("id"),
+            "position": int(m.group("position")),
+            "backup": m.group("backup") == "true",
+            "cible": m.group("cible"),
+            "image": m.group("image"),
+            "debut": debut[:10],
+            "fin": fin[:10],
+        })
+    return out
+
+
+# Les cibles qui montrent une PIECE. ⛔ Le blog et les marques n'en montrent
+# pas : une banniere « programme de parrainage » est une affiche de texte.
+CIBLES_PIECE = ("/series/", "/collectibles/", "/crafts/", "/artworks/")
+
+
+def banniere_decorative(liste: List[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """UNE banniere vivante qui mene vers un collectible — la premiere du
+    carrousel qui remplit cette condition.
+
+    ⭐ Le critere tient en une phrase et se verifie a l'oeil : **elle montre une
+    piece**. Pas de date, pas d'historique, pas d'etat a maintenir.
+    ⛔ Les `isBackup` (la reserve de VeVe) restent ecartees : ce sont des
+    bouche-trous, pas des visuels de campagne.
+    Rend {} si le carrousel est illisible ou n'a que du blog — l'affiche sortira
+    avec un bandeau sombre, elle n'echouera pas."""
+    liste = bannieres() if liste is None else liste
+    candidates = [b for b in liste
+                  if not b.get("backup")
+                  and any(c in (b.get("cible") or "") for c in CIBLES_PIECE)]
+    if not candidates:
+        return {}
+    return min(candidates, key=lambda b: int(b.get("position", 99)))
+
+
 def cover_commune(lignes: List[Dict[str, Any]]) -> str:
     """La couverture de la rarete COMMON d'un comic.
 
@@ -119,9 +213,27 @@ def visuel_de_tuile(d: Dict[str, Any], cache: Dict[str, str] = None) -> str:
     """L'image a poser dans une tuile de la mosaique.
 
     COLLECTIBLE -> l'illustration de SERIE (demande de Preda) · COMIC -> la
-    couverture COMMUNE · et, si l'un ou l'autre manque, l'image de l'element."""
+    couverture COMMUNE · et, si l'un ou l'autre manque, l'image de l'element.
+
+    🔴 QUAND LES TROIS SOURCES SONT VIDES, ON LE DIT AVEC LE NOM DE LA SERIE.
+    Le 1er run reel a sorti « 3 case(s) en repli (banniere, comic, tuile_2) » :
+    exact, mais inexploitable — on ne savait NI quelle serie NI quelle source
+    avait manque. ⭐⭐ **Un compteur d'echecs sans identite ne se repare pas :
+    il se contemple.** Une case vide nommee se corrige en une minute."""
     if d.get("genre") == "comic":
-        return cover_commune(d.get("lignes")) or d.get("image", "")
-    return (image_de_serie(d.get("cle", ""), cache)
-            or cover_commune(d.get("lignes"))
-            or d.get("image", ""))
+        u = cover_commune(d.get("lignes")) or d.get("image", "")
+        if not u:
+            print(f"⚠️ visuel : aucune couverture pour le comic "
+                  f"« {d.get('nom', '?')} » — ni rarete COMMON, ni image "
+                  f"d'element dans le Sheet.", file=sys.stderr)
+        return u
+    serie = image_de_serie(d.get("cle", ""), cache)
+    u = serie or cover_commune(d.get("lignes")) or d.get("image", "")
+    if not u:
+        print(f"⚠️ visuel : aucune image pour « {d.get('nom', '?')} » "
+              f"(serie {str(d.get('cle', ''))[:8]}) — ni page de serie, ni "
+              f"image d'element.", file=sys.stderr)
+    elif not serie:
+        print(f"visuel : « {d.get('nom', '?')} » retombe sur l'image de "
+              f"l'element (page de serie muette).", flush=True)
+    return u

@@ -208,6 +208,16 @@ def max_lignes() -> int:
     return int(os.environ.get("DISCORD_ANNONCE_MAX", "7"))
 
 
+def max_a_venir() -> int:
+    """Le teaser « Et maintenant ? » n'est pas la liste du mois.
+
+    🔴 1er run reel : 3 lignes du palmares ont saute pour tenir dans les 2 000
+    caracteres — alors que le teaser, lui, etait servi en entier. **Le bilan
+    du mois passe est le SUJET ; ce qui arrive est un a-cote.** On borne donc
+    le teaser, et c'est LUI qui cede en premier quand ca deborde."""
+    return int(os.environ.get("DISCORD_ANNONCE_MAX_A_VENIR", "4"))
+
+
 def emoji() -> str:
     """L'emoji de tete (« 🐱 Annonces 02/09 »). Reglable : celui de Preda est
     peut-etre un emoji PERSONNALISE du serveur, qui s'ecrit `<:nom:id>` — un
@@ -617,8 +627,43 @@ def affiche_active() -> bool:
     return _bool("DISCORD_ANNONCE_AFFICHE", "true")
 
 
+def banniere_du_mois(cle: str) -> str:
+    """L'URL de la banniere a poser sous le decor.
+
+    ⭐⭐ ELLE EST DECORATIVE (Preda, 04/08) : elle ne porte aucune information,
+    elle remplit un bandeau. On prend donc **une banniere vivante du carrousel
+    VeVe qui mene vers un collectible**, et c'est tout. J'avais construit un
+    archivage quotidien pour retrouver « celle du mois » : correct, et
+    surdimensionne — **le cout d'un mecanisme se juge a ce qu'il porte.**
+
+    Le crochet manuel garde le dernier mot : ⭐ un automatisme qui ne se laisse
+    pas contredire oblige a le debrancher entierement le jour ou il se trompe."""
+    try:
+        from scraper import annonce_images as ai
+    except Exception:                                       # noqa: BLE001
+        return ""
+    manuel = crochets(cle).get("banniere_url", "")
+    if manuel:
+        print("annonce : banniere posee a la main (crochet).", flush=True)
+        return ai.deballer(manuel)
+    try:
+        b = ai.banniere_decorative()
+    except Exception as e:                                  # noqa: BLE001
+        print(f"annonce : carrousel illisible ({e}) — bandeau sombre.",
+              file=sys.stderr)
+        return ""
+    if not b:
+        print("annonce : aucune banniere du carrousel ne mene vers une piece "
+              "— le bandeau restera sombre.", flush=True)
+        return ""
+    print(f"annonce : banniere = position {b.get('position')} du carrousel, "
+          f"vers {b.get('cible', '')[-46:]}", flush=True)
+    return b.get("image", "")
+
+
 def fabriquer_affiche(sh, cle: str, mois_passe: str,
-                      selection: List[Dict[str, Any]]) -> str:
+                      selection: List[Dict[str, Any]],
+                      banniere: str = "") -> str:
     """Le PNG du mois, ou "" si on ne peut pas le faire.
 
     Les 5 tuiles = les 5 mieux vendus · la carte = le COMIC le mieux vendu de la
@@ -671,8 +716,7 @@ def fabriquer_affiche(sh, cle: str, mois_passe: str,
     cache_series: Dict[str, str] = {}
     tuiles = [ai.visuel_de_tuile(d, cache_series) for d in selection[:5]]
     try:
-        return rendu.composer(mois_passe, ai.deballer(banniere), tuiles,
-                              carte, sortie)
+        return rendu.composer(mois_passe, banniere, tuiles, carte, sortie)
     except FileNotFoundError as e:
         # Le cas normal tant que Preda n'a pas depose son decor : ce n'est pas
         # une panne, c'est une piece qui manque. On le dit une fois, sans crier.
@@ -719,7 +763,7 @@ def corps(cle: str, mois_passe: str, total_drops: int,
     entrees = [ligne_sortie(i, d) for i, d in enumerate(selection, 1)]
 
     if a_venir:
-        suite = [ligne_a_venir(d) for d in a_venir]
+        suite = [ligne_a_venir(d) for d in a_venir[:max_a_venir()]]
         suite.append("et bien d'autres surprises !!")
     else:
         # ⭐ Rien de prevu dans la fenetre : on ne fabrique pas une liste, on
@@ -736,15 +780,24 @@ def corps(cle: str, mois_passe: str, total_drops: int,
         lignes += bloc_liens(cle)
         return "\n".join(lignes)
 
+    # ⭐ L'ORDRE DES SACRIFICES EST UNE DECISION EDITORIALE, PAS UNE BOUCLE :
+    #   1. le teaser « Et maintenant ? » (un a-cote) ;
+    #   2. seulement ensuite, le palmares du mois (le sujet) ;
+    #   3. jamais le bloc de liens (la seule partie utile).
     n = len(entrees)
     texte = assembler(n)
+    coupes_suite = 0
+    while len(texte) > MAX_CONTENU and len(suite) > 1:
+        suite.pop(-2 if len(suite) > 1 else 0)   # on garde la phrase de fin
+        coupes_suite += 1
+        texte = assembler(n)
     while len(texte) > MAX_CONTENU and n > 1:
         n -= 1
         texte = assembler(n)
-    if n < len(entrees):
-        print(f"annonce : message trop long — {len(entrees) - n} ligne(s) de "
-              f"la liste retiree(s). Le bloc de liens, lui, est intact.",
-              flush=True)
+    if coupes_suite or n < len(entrees):
+        print(f"annonce : message trop long — {coupes_suite} ligne(s) du "
+              f"teaser et {len(entrees) - n} ligne(s) du palmares "
+              f"retiree(s). Le bloc de liens est intact.", flush=True)
 
     return {
         "content": texte[:MAX_CONTENU],
@@ -843,7 +896,8 @@ def run() -> int:
     lic = theme(selection)
     # L'affiche AVANT les messages : si elle echoue, elle ne doit pas le faire
     # entre deux envois. Elle ne bloque jamais — "" = on publie sans.
-    affiche = fabriquer_affiche(sh, cle, mois_passe, selection)
+    affiche = fabriquer_affiche(sh, cle, mois_passe, selection,
+                                banniere_du_mois(cle))
     # Les DEUX messages sont fabriques AVANT le premier envoi : une erreur de
     # rendu ne doit pas laisser une entete orpheline dans le salon.
     m_entete = entete(cle, jour, mois_passe, lic, ping, affiche)
