@@ -277,7 +277,11 @@ jobs:
           # (« un mois Star Wars ») · nb minimal de journees de ChainItems.
           # ⚠️ ChainItems ne garde que 35 jours : sous ce seuil, le classement
           # « le plus vendu » serait fausse par une fenetre trouee -> rien.
-          DISCORD_ANNONCE_MAX: ${{ vars.DISCORD_ANNONCE_MAX || '6' }}
+          DISCORD_ANNONCE_MAX: ${{ vars.DISCORD_ANNONCE_MAX || '10' }}
+          # L'emoji de tete (« 🐱 Annonces 02/09 »). ⚠️ Un emoji PERSONNALISE du
+          # serveur s'ecrit `<:nom:id>` : un webhook ne sait pas le poster
+          # autrement (il afficherait le texte brut).
+          DISCORD_ANNONCE_EMOJI: ${{ vars.DISCORD_ANNONCE_EMOJI || '🐱' }}
           DISCORD_ANNONCE_SEUIL_THEME: ${{ vars.DISCORD_ANNONCE_SEUIL_THEME || '0.40' }}
           DISCORD_ANNONCE_COUVERTURE: ${{ vars.DISCORD_ANNONCE_COUVERTURE || '20' }}
           # v1 : aucune illustration. Le crochet est perce (fichier
