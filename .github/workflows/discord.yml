@@ -289,10 +289,33 @@ jobs:
           DISCORD_ANNONCE_LIENS_MASQUES: ${{ vars.DISCORD_ANNONCE_LIENS_MASQUES || 'true' }}
           DISCORD_ANNONCE_SEUIL_THEME: ${{ vars.DISCORD_ANNONCE_SEUIL_THEME || '0.40' }}
           DISCORD_ANNONCE_COUVERTURE: ${{ vars.DISCORD_ANNONCE_COUVERTURE || '20' }}
-          # v1 : aucune illustration. Le crochet est perce (fichier
-          # data/annonce_crochets.json ou cette variable) pour que le futur
-          # projet de generation n'ait qu'a le remplir.
-          # ⚠️ Pas d'URL de piece jointe Discord : elles EXPIRENT.
+          # ═══ 🖼️ L'AFFICHE « RETOUR SUR <MOIS> » (lot 54) ═══
+          # Le DECOR vient de Preda (un PNG depose dans le depot), pas du code :
+          # on ne recree pas une charte, on compose dessus. Fond absent = pas
+          # d'affiche, et l'annonce part quand meme (le texte EST le message).
+          # ⚠️ L'affiche est TELEVERSEE, jamais pointee : une URL de piece
+          # jointe Discord est signee et EXPIRE.
+          DISCORD_ANNONCE_AFFICHE: ${{ vars.DISCORD_ANNONCE_AFFICHE || 'true' }}
+          ANNONCE_VISUEL_FOND: ${{ vars.ANNONCE_VISUEL_FOND || 'outils/annonce_visuel/fond/retour-sur-vevefrance.png' }}
+          # Les zones, en FRACTIONS du cadre. Corriger le JSON suffit : aucune
+          # ligne de code a toucher pour recadrer une case.
+          #   python3 -m outils.annonce_visuel.rendu --grille --fond <le fond>
+          ANNONCE_VISUEL_GABARIT: ${{ vars.ANNONCE_VISUEL_GABARIT || 'data/annonce_gabarit.json' }}
+          # La police du titre. Vide = Inter-Bold (livre pour le calendrier) —
+          # PROPRE mais pas identique a celle de Preda.
+          ANNONCE_VISUEL_TTF: ${{ vars.ANNONCE_VISUEL_TTF || '' }}
+          # ⛔ Le coeur VeVe France reste MUET : le decor le porte deja. Poser
+          # '1' ne se justifie que si le fond exporte ne l'a plus.
+          ANNONCE_VISUEL_LOGO: ${{ vars.ANNONCE_VISUEL_LOGO || '' }}
+          # ⚠️ LE COEUR DU DECOR EST SEMI-TRANSPARENT : avec une banniere
+          # CLAIRE, le titre tricolore devient illisible. Ce voile degrade le
+          # protege. '0' le supprime.
+          ANNONCE_VISUEL_VOILE: ${{ vars.ANNONCE_VISUEL_VOILE || '180' }}
+          # L'epaisseur de l'anneau du mois (Horizon Outlined). ⚠️ 0.022 est un
+          # maximum utile : au-dela, la contre-forme du « A » se referme.
+          ANNONCE_VISUEL_MOIS_GRAS: ${{ vars.ANNONCE_VISUEL_MOIS_GRAS || '0.022' }}
+          # Repli manuel : une URL d'image, utilisee SEULEMENT si l'affiche
+          # n'a pas pu etre fabriquee. ⚠️ Pas une piece jointe Discord.
           DISCORD_ANNONCE_IMAGE: ${{ vars.DISCORD_ANNONCE_IMAGE || '' }}
           DISCORD_ANNONCE_FORCE: ${{ github.event.inputs.forcer_annonce || 'false' }}
         run: python -m scraper.discord_hub
