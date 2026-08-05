@@ -73,7 +73,7 @@ import datetime as _dt
 import os
 import sys
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from scraper import discord_api as api
 from scraper import discord_drops as dd
@@ -123,23 +123,74 @@ IMAGE_FAIBLES = os.environ.get("DISCORD_RETOUR_IMAGE_FAIBLES", "").strip()
 SIGNATURE = os.environ.get("DISCORD_RETOUR_SIGNATURE", "— Maow")
 
 
-def total_serie(genre: str, supplies: List[int]) -> int:
-    """LE TIRAGE D'UNE SERIE. ⚠️ PIEGE MAJEUR, deja paye au chantier classement
-    et repaye ici :
+class TirageIncoherent(ValueError):
+    """Un comic dont les lignes ne s'accordent pas sur leur propre tirage."""
 
-    **Pour un COMIC, `supply` (= totalIssued) est le tirage de la SERIE, recopie
-    sur CHACUNE des lignes de rarete.** L'additionner donne 5 x 1 000 = 5 000 —
-    et Captain America #7, qui a fait SOLD OUT a 1 000, s'affichait a 20 % du
-    tirage. On prend donc le MAXIMUM, pas la somme.
 
-    Pour un COLLECTIBLE, `supply` est bien propre a chaque element (Phoenix
-    Five : 75 / 1 975 / 475) : la somme est juste.
-    Additionner ou maximiser n'est pas un detail de calcul, c'est une question
-    de MODELE : que represente une ligne ?"""
-    supplies = [s for s in supplies if s]
-    if not supplies:
-        return 0
-    return max(supplies) if genre == "comic" else sum(supplies)
+def total_serie(genre: str, *, supply_serie: Optional[List[int]] = None,
+                supplies_element: Optional[List[int]] = None,
+                nom: str = "") -> int:
+    """LE TIRAGE D'UNE SERIE. ⚠️ PIEGE MAJEUR, paye TROIS FOIS (chantier
+    classement, retour du mercredi, puis l'annonce mensuelle du 04/08/2026).
+
+    ⭐⭐⭐ **UNE FONCTION DONT LE CONTRAT VIT DANS LE CONTENU DE SON ARGUMENT,
+    PAS DANS SA SIGNATURE, N'A PAS DE CONTRAT.** L'ancienne version prenait une
+    liste anonyme `supplies` et faisait `max()` pour un comic. C'etait juste a
+    une condition JAMAIS ECRITE : que la liste porte le `supply` comic-level
+    recopie sur chaque rarete. `discord_annonce` lui passait
+    `supply_rarete or supply` — cinq valeurs DIFFERENTES — et le `max` rendait
+    **la plus grosse rarete** : Captain America Comics #1 annonce a 6 000 quand
+    son tirage grave est 10 000, donc « 9 625 vendus sur 6 000 ».
+    Trois appelants, trois significations, une seule entree, aucune erreur.
+
+    ➡️ Les deux entrees sont desormais **nommees par leur CONTENU** et
+    exclusivement mot-cle. On ne peut plus se tromper en silence : donner la
+    mauvaise a un genre leve `ValueError` au premier run.
+
+    `supply_serie`     : le `supply` COMIC-LEVEL (= `totalIssued`), recopie a
+                         l'identique sur chacune des lignes de rarete.
+                         **Le seul valable pour un COMIC.**
+    `supplies_element` : le tirage propre a CHAQUE element de la serie.
+                         **Le seul valable pour un COLLECTIBLE** (Phoenix
+                         Five : 75 / 1 975 / 475 — leur somme est le tirage).
+
+    POURQUOI un comic ne s'additionne pas : ses numeros d'edition courent de 1
+    au tirage TOTAL et les raretes **puisent dans ce meme pot**. Mesure du
+    04/08/2026 sur 16 170 lignes d'archive : le `supply` du catalogue == le
+    `total_editions` GRAVE dans le NFT sur 16 164 d'entre elles (99,96 %).
+    Additionner les cinq `supply_rarete` ne reconstitue rien — ca fabrique un
+    nombre plus petit.
+
+    ⚠️ LE DESACCORD EST BRUYANT, PAS FATAL. Si les lignes d'un comic annoncent
+    des tirages DIFFERENTS, c'est une anomalie de catalogue : on ecrit la serie
+    et ses valeurs sur stderr, puis on retient la plus grande. Mesure du
+    05/08/2026 (proxy serie+jour de mint) : **2 series sur 3 509** sont dans ce
+    cas — faire echouer toute l'annonce mensuelle pour 0,06 % des series serait
+    un plus mauvais echange que de la publier avec un aveu dans les logs.
+    ⭐ *Un compteur d'echecs sans identite ne se repare pas, il se contemple* :
+    la serie est NOMMEE."""
+    if genre == "comic":
+        if supply_serie is None:
+            raise ValueError(
+                "total_serie : un COMIC se compte sur supply_serie=... (le "
+                "`supply` comic-level, recopie sur chaque rarete), jamais sur "
+                "supplies_element. Voir la cicatrice Captain America #1.")
+        vus = [s for s in supply_serie if s]
+        if not vus:
+            return 0
+        distinctes = sorted(set(vus))
+        if len(distinctes) > 1:
+            print(f"tirage incoherent pour « {nom or '(serie sans nom)'} » : "
+                  f"ses lignes annoncent {distinctes} — on retient "
+                  f"{distinctes[-1]}. Un comic n'a qu'un tirage : c'est le "
+                  f"catalogue qui se contredit.", file=sys.stderr, flush=True)
+        return distinctes[-1]
+
+    if supplies_element is None:
+        raise ValueError(
+            "total_serie : un COLLECTIBLE se compte sur supplies_element=... "
+            "(le tirage propre a chaque element), jamais sur supply_serie.")
+    return sum(s for s in supplies_element if s)
 
 
 # ---------------------------------------------------------------------------
@@ -316,8 +367,14 @@ def a_debriefer(sh, connus: List[str]) -> List[Dict]:
         d["lignes"].sort(key=lambda l: (dd.ORDRE_RARETE.index(l["rarete"])
                                         if l["rarete"] in dd.ORDRE_RARETE
                                         else 99))
-        d["total"] = total_serie(d["genre"],
-                                 [l["supply"] for l in d["lignes"]])
+        # ⚠️ ICI, `l["supply"]` est la colonne `supply` du Sheet, et RIEN
+        # d'autre : comic-level pour un comic, propre a l'element pour un
+        # collectible. C'est le seul appelant ou la meme liste convient aux
+        # deux roles — on la nomme quand meme, sinon le prochain lecteur croit
+        # que les deux entrees sont interchangeables. Elles ne le sont pas.
+        supplies = [l["supply"] for l in d["lignes"]]
+        d["total"] = total_serie(d["genre"], supply_serie=supplies,
+                                 supplies_element=supplies, nom=d.get("nom", ""))
     return sorted(par_serie.values(), key=lambda d: d["jour"])
 
 
@@ -361,8 +418,9 @@ def comic_day_recent(sh):
         return None, []
     jour = max(par_jour)
     series = list(par_jour[jour].values())
-    for s_ in series:                       # ⚠️ un comic : le MAX, pas la somme
-        s_["total"] = total_serie("comic", s_.pop("supplies"))
+    for s_ in series:      # ⚠️ un comic : son `supply` comic-level, pas une somme
+        s_["total"] = total_serie("comic", supply_serie=s_.pop("supplies"),
+                                  nom=s_.get("nom", ""))
     return jour, series
 
 

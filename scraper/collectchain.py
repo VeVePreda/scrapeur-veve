@@ -163,6 +163,35 @@ def _categorise(instance: Dict[str, Any]) -> Tuple[str, str]:
     return "unknown", ""
 
 
+# ---------------------------------------------------------------------------
+# 🔗 CE QUE LA CHAINE LIVRE DANS CHAQUE TRANSFERT — le contrat, ecrit
+#
+# Chaque transfert embarque la metadonnee COMPLETE du NFT. On ne paie rien de
+# plus pour l'avoir : elle est deja dans la page qu'on pagine. Jusqu'au
+# 05/08/2026, `_flatten` en gardait 7 champs sur 13 et jetait les autres — et on
+# les rachetait ensuite a my-nft-tracker et au GraphQL VeVe.
+#
+# ⭐⭐⭐ **QUATRIEME FOIS** (apres `supply`, `veve_comic_name`,
+# `editions_in_circulation`) : *la donnee manquante etait deja dans la reponse.*
+# Les trois premieres fois, c'etait `DROP_COLUMNS` qui jetait. Ici c'est plus
+# sournois : un `return {}` qui ne recopie pas tout ne JETTE rien visiblement,
+# il OUBLIE — et un oubli ne laisse aucune trace a chercher.
+#
+# ➡️ D'ou ces deux listes. **Tout champ de metadonnee doit figurer dans l'une ou
+# dans l'autre**, et `tests/test_collectchain_metadonnee.py` echoue sinon. Le
+# jour ou VeVe ajoute un champ, le banc le nomme au lieu de le laisser tomber.
+# ⭐⭐ **UN CHAMP NEUF DANS LA REPONSE DOIT FAIRE ECHOUER LE BANC, PAS
+# DISPARAITRE EN SILENCE.**
+META_GARDES = {
+    "name", "rarity", "series", "comicNumber", "startYear", "totalEditions",
+    "edition", "brand", "licensor", "description", "dropDate", "editionType",
+    "image", "mintDate",
+}
+# Champ -> la RAISON de ne pas le garder. ⛔ Pas de set muet : une exclusion sans
+# motif se relit comme un oubli, et c'est exactement ce qu'on repare.
+META_ECARTES: Dict[str, str] = {}
+
+
 def _flatten(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """One raw API transfer -> compact record (or None if unparseable)."""
     ts = _parse_ts(item.get("timestamp"))
@@ -209,6 +238,21 @@ def _flatten(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         # Edition / mint number of THIS token — joins to the Market issueNumber
         # (veve_uuid, edition) so we can attribute an offer's pseudo to a wallet.
         "edition": md.get("edition") if md.get("edition") not in (None, "") else "",
+        # 🔗 RAMASSES DEPUIS LE 05/08/2026 — deja recus, plus jetes.
+        # ⚠️ La chaine porte les NOMS de marque et de licence, PAS leurs uuid :
+        # `brand_uuid`/`licensor_uuid` restent au GraphQL. Croire l'inverse
+        # ferait une jointure a zero match, pas une erreur.
+        "brand": md.get("brand") or "",
+        "licensor": md.get("licensor") or "",
+        "description": md.get("description") or "",
+        # `dropDate` = la sortie ANNONCEE ; `mintDate` = le jour ou CE jeton est
+        # ne. Sur un drop ils coincident, sur un craft non. ⭐ Deux dates qui se
+        # ressemblent 9 fois sur 10 sont un piege : on garde les deux plutot que
+        # d'arbitrer une fois pour toutes a la place de l'appelant.
+        "drop_date": str(md.get("dropDate") or ""),
+        "mint_date": str(md.get("mintDate") or ""),
+        "edition_type": md.get("editionType") or "",
+        "image_url": md.get("image") or "",
     }
 
 

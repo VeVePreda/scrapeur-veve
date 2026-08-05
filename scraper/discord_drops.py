@@ -425,16 +425,31 @@ def comic_day_a_venir(sh):
         d = par_jour.setdefault(jour, {}).setdefault(cle, {
             "cle": cle, "jour": jour, "ts": ts,
             "nom": str(r.get("veve_series_name") or r.get("name") or ""),
-            "prix": r.get("store_price_gems"), "total": 0,
+            "prix": r.get("store_price_gems"), "total": 0, "supplies": [],
         })
-        d["total"] += _n(r.get("supply_rarete") or r.get("supply"))
+        # 🔴 CE `+=` ETAIT LE 3e CONSOMMATEUR DU MEME PIEGE (corrige le
+        # 05/08/2026). Il recevait `supply_rarete or supply` — exactement
+        # l'expression qui a fausse l'annonce mensuelle — et l'ADDITIONNAIT.
+        # Deux facons de mentir : sommer 5 `supply_rarete` rend un tirage TROP
+        # PETIT ; si la colonne par rarete manque, le repli sur `supply`
+        # (comic-level, recopie) rend un tirage ×5 TROP GRAND. Ici c'est un
+        # COMIC : son tirage est son `supply` comic-level, point.
+        # ⭐ Le tri du message se fait par TIRAGE CROISSANT — un tirage faux ne
+        # se voit pas, il reordonne juste la liste.
+        d["supplies"].append(_n(r.get("supply")))
         if not d["prix"] and r.get("store_price_gems"):
             d["prix"] = r["store_price_gems"]
 
     if not par_jour:
         return None, []
     jour = min(par_jour)                          # le comic day le plus proche
-    return jour, list(par_jour[jour].values())
+    # ⚠️ import RETARDE : `discord_retour` importe deja ce module au chargement.
+    from scraper import discord_retour as dr
+    series = list(par_jour[jour].values())
+    for d in series:
+        d["total"] = dr.total_serie("comic", supply_serie=d.pop("supplies"),
+                                    nom=d.get("nom", ""))
+    return jour, series
 
 
 def message_comic_day(jour: str, series: List[Dict], ping: bool) -> Dict:
