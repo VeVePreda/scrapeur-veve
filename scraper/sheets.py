@@ -224,15 +224,63 @@ def _client() -> gspread.Client:
     return gspread.authorize(creds)
 
 
+def elargir_si_besoin(ws, cols: int) -> int:
+    """Garantit que l'onglet a AU MOINS `cols` colonnes. Rend le nombre ajoute.
+
+    🔴🔴 LE DEFAUT QUE CECI CORRIGE (05/08/2026, lot 68)
+    ---------------------------------------------------
+    `_open_worksheet(sh, tab, cols=N)` ne posait N qu'a la CREATION. Sur un
+    onglet qui existe deja, le parametre ne servait a rien — et personne ne
+    pouvait le voir, parce que le cas ne se produit que le jour ou une colonne
+    est ajoutee.
+
+    Ce jour-la etait le 05/08 : le lot 67 a fait passer 🟢C-COMICS de **39 a 40**
+    colonnes (derniere lettre AM -> AN, verifie par Preda sur le Sheet). Or
+    `sync_catalogue` ecrit la grille entiere en un `values.update` ancre en A1 :
+    une grille plus large que l'onglet fait rendre a Google
+    **« Range … exceeds grid limits »**, et c'est TOUT le sync catalogue qui
+    tombe — pas seulement la colonne neuve.
+
+    ⭐⭐⭐ **UN PARAMETRE QUI NE S'APPLIQUE QU'A LA CREATION EST UN PARAMETRE QUI
+    NE S'APPLIQUE PRESQUE JAMAIS.** `cols=` voulait dire « cet onglet a besoin
+    d'au moins N colonnes » ; il ne le disait qu'une fois dans la vie de
+    l'onglet. Il le dit desormais a chaque ouverture.
+
+    ⛔ ON N'ELARGIT QUE, ON NE RETRECIT JAMAIS. `resize` vers le bas
+    **detruirait des donnees**, et une colonne de trop ne gene personne.
+    ⭐ Le test `ws.col_count < cols` rend l'appel GRATUIT dans le cas normal :
+    aucune requete supplementaire tant que la largeur suffit.
+    """
+    try:
+        actuel = int(ws.col_count)
+    except (TypeError, ValueError, AttributeError):
+        return 0                       # largeur inconnue : on ne touche a rien
+    if actuel >= cols:
+        return 0
+    manque = cols - actuel
+    ws.add_cols(manque)
+    print(f"  {getattr(ws, 'title', '?')} : onglet élargi de {actuel} à "
+          f"{cols} colonnes (+{manque}). ⭐ Une colonne a été ajoutée au "
+          f"catalogue ; sans cet élargissement, l'écriture entière échouait.",
+          flush=True)
+    return manque
+
+
 def _open_worksheet(sh, tab: str, cols: int = 26):
-    """Ouvre (ou cree) un onglet — en survivant aux hoquets de Google.
+    """Ouvre (ou cree) un onglet — en survivant aux hoquets de Google, et en
+    garantissant sa LARGEUR.
 
     22/07/2026 : le daily #105 est tombe sur un 503 « service unavailable »
     PILE sur l'ouverture de l'onglet Marques — tout le sync catalogue etait
     deja ecrit, et le step entier est sorti en erreur pour un hoquet d'API.
     Meme parade que le _retry d'export_elements : on rejoue les 429/503
     (transitoires par definition), backoff genereux, et on ne re-attrape
-    JAMAIS les autres erreurs (un 403/404 doit continuer de crier)."""
+    JAMAIS les autres erreurs (un 403/404 doit continuer de crier).
+
+    05/08/2026 : `cols` s'applique desormais AUSSI aux onglets existants
+    (cf. `elargir_si_besoin`). ⭐⭐ **UN MEME TRAITEMENT SUR DEUX CHEMINS N'EST
+    PAS LE MEME TRAITEMENT** — creation et reouverture donnaient deux largeurs
+    differentes pour la meme demande."""
     import time as _t
     for i, d in enumerate((0, 10, 20, 40, 60)):
         if d:
@@ -240,7 +288,9 @@ def _open_worksheet(sh, tab: str, cols: int = 26):
                   f"(essai {i}/4)...", flush=True)
             _t.sleep(d)
         try:
-            return sh.worksheet(tab)
+            ws = sh.worksheet(tab)
+            elargir_si_besoin(ws, cols)
+            return ws
         except gspread.WorksheetNotFound:
             return sh.add_worksheet(title=tab, rows=100, cols=cols)
         except gspread.exceptions.APIError as e:

@@ -83,6 +83,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
+from scraper import burn_prevu
 from scraper import discord_api as api
 from scraper import veve_detail
 from scraper.discord_drops import _n, _prix, _records
@@ -110,10 +111,25 @@ PAGE_URL = os.environ.get(
 # — on memorise et on le DIT, on ne reveille pas le salon pour un bug.
 MAX_NEUFS = int(os.environ.get("DISCORD_BURN_MAX", "6"))
 
-# La fenetre boutique avant burn, en jours. Sert UNIQUEMENT a estimer la date
-# affichee quand la page ne porte pas de compte a rebours lisible. Elle n'entre
-# dans AUCUNE decision : ce n'est pas elle qui declare un burn fait.
+# La fenetre boutique avant burn, en jours. ⚠️ CETTE CONSTANTE NE SERT PLUS A
+# ESTIMER (lot 68) : le calcul vit dans `burn_prevu.DELAI_JOURS`, avec sa
+# mesure et ses conditions. Elle est gardee pour ne pas casser un reglage
+# existant, et parce que la lecon tient : elle n'entre dans AUCUNE decision —
+# ce n'est pas elle qui declare un burn fait.
 DELAI_JOURS = int(os.environ.get("DISCORD_BURN_DELAI", "30"))
+
+# 🆕 Jusqu'a combien de jours a l'avance on annonce un burn CALCULE, que VeVe
+# n'a pas encore mis sur sa page. 30 = toute la fenetre : un comic entre dans le
+# post le jour de sa sortie. ⭐ C'est le gain du lot 68 — avant, ce module ne
+# savait rien avant que VeVe ne parle.
+HORIZON_JOURS = int(os.environ.get("DISCORD_BURN_HORIZON", "30"))
+
+# Plafond PROPRE aux cartes calculees. ⚠️ Volontairement separe de MAX_NEUFS :
+# celui-la protege d'un gabarit de page mal lu (un symptome), celui-ci borne
+# une population qu'on maitrise (6 comics au 05/08). Les melanger ferait taire
+# l'un des deux signaux. ⭐⭐ *Deux garde-fous qui protegent de deux choses
+# differentes ne partagent pas leur compteur.*
+CALC_MAX = int(os.environ.get("DISCORD_BURN_CALC_MAX", "8"))
 
 SEUIL_SUPPLY = int(os.environ.get("DISCORD_BURN_SEUIL_SUPPLY", "100"))
 SEUIL_PCT = float(os.environ.get("DISCORD_BURN_SEUIL_PCT", "90"))
@@ -373,6 +389,17 @@ def decor(sh) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, str]]:
             for cle in [c for c in cles if c]:
                 f = fiches.setdefault(cle, {
                     "genre": genre,
+                    # 🆕 lot 68 — de quoi CALCULER la date de burn sans une
+                    # requete. Les trois entrees de `burn_prevu` : la sortie
+                    # (deja la, plus bas), le tirage (`supply`, deja la) et les
+                    # RETENUES, qui manquaient. ⛔ `supply_withheld` est la
+                    # colonne FROIDE ; le champ brut a ete jete par
+                    # DROP_COLUMNS avant d'arriver au Sheet.
+                    "retenues": r.get("supply_withheld"),
+                    # La cle de SERIE, retenue explicitement : `fiches` est
+                    # indexe deux fois (series_uuid ET veve_uuid), et sans elle
+                    # on ne peut pas parcourir les comics une seule fois.
+                    "cle_serie": str(r.get("series_uuid") or "").strip().lower(),
                     "nom": (str(r.get("veve_comic_name") or "").strip()
                             or str(r.get("veve_series_name") or "").strip()
                             or str(r.get("name") or "").strip()),
@@ -397,15 +424,96 @@ def decor(sh) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, str]]:
 
 def _jour_burn(it: Dict[str, Any],
                fiche: Dict[str, Any]) -> Optional[_dt.date]:
-    """La date de burn : le badge de la page d'abord, la date de drop + DELAI
-    ensuite, rien enfin. ⭐ Une estimation s'annonce comme une estimation."""
+    """La date de burn : le badge de la page d'abord, le CALCUL ensuite, rien
+    enfin. ⭐ Une estimation s'annonce comme une estimation.
+
+    🔴 CE QUI A CHANGE AU LOT 68, ET POURQUOI.
+    Le repli etait `sortie + 30 j` **applique a tout item sans badge**. Il
+    donnait donc une date de burn a des items qui **ne brulent jamais** — les
+    comics dont VeVe ne retient que 2,0 % du tirage : 108 sur 164 dans la mesure
+    du 05/08. Et sur un CRAFT il etait faux d'a peu pres quinze jours (Ron
+    English : fenetre de 14 jours, pas 30).
+    ⭐⭐ **UN REPLI QUI REND UN NOMBRE PLAUSIBLE EST PIRE QU'UN VIDE : IL
+    SUPPRIME LA QUESTION.**
+    ➡️ On passe par `burn_prevu`, qui ne repond QUE sur la population mesuree
+    (comic · hors mercredi · retenues >= ~5 % du tirage) et rend "" partout
+    ailleurs. Quand il ne sait pas, la carte le dit — au lieu d'inventer.
+    """
     if it.get("jours") is not None:
         return _dt.date.today() + _dt.timedelta(days=int(it["jours"]))
-    brut = str((fiche or {}).get("sortie") or "")[:10]
-    try:
-        return _dt.date.fromisoformat(brut) + _dt.timedelta(days=DELAI_JOURS)
-    except ValueError:
+    f = fiche or {}
+    calc = burn_prevu.date_burn_prevue(f.get("sortie"), f.get("supply"),
+                                       f.get("retenues"),
+                                       f.get("genre") or "comic")
+    if not calc:
         return None
+    return _dt.date.fromisoformat(calc)
+
+
+def burns_calcules(fiches: Dict[str, Dict[str, Any]],
+                   presents: Dict[str, Any],
+                   dossier: Dict[str, Dict],
+                   aujourdhui: Optional[_dt.date] = None,
+                   horizon: int = 0) -> List[Dict[str, Any]]:
+    """🆕 LES BURNS QUE VEVE N'A PAS ENCORE ANNONCES — jusqu'a 30 j d'avance.
+
+    C'est tout l'apport du lot 68. Jusqu'ici ce module ne connaissait que ce
+    que la page `burning-soon` voulait bien lui dire : il decouvrait un burn
+    **le jour ou VeVe l'affichait**. Le calcul, lui, les donne des la sortie du
+    comic — et sans une seule requete de plus.
+
+    Rend des pseudo-items de la MEME FORME que ceux d'`analyser()` : la boucle
+    principale ne fait donc aucune difference entre les deux, et un item qui
+    finit par apparaitre sur la page **retrouve sa carte** (meme uuid, meme
+    entree d'etat, message EDITE et non redouble).
+
+    ⛔ TROIS GARDE-FOUS, ET AUCUN N'EST DECORATIF :
+      1. **`restant` = 0 et `jours` = None.** On ne fabrique pas un « N left »
+         qu'on n'a pas lu : la contre-mesure page-vs-calcul doit rester
+         silencieuse ici, sinon elle crierait un ecart contre elle-meme.
+      2. **`calcule` = True**, et la carte l'ECRIT. ⭐⭐ *Une deduction publiee
+         sans dire qu'elle en est une devient une observation dans l'esprit du
+         lecteur.*
+      3. **Jamais un item deja sur la page ni deja clos** : la page fait foi
+         des qu'elle parle, et une carte close ne se rouvre pas.
+    """
+    auj = aujourdhui or _dt.date.today()
+    horizon = horizon or HORIZON_JOURS
+    limite = auj + _dt.timedelta(days=horizon)
+
+    out: List[Dict[str, Any]] = []
+    vus = set()
+    for cle, f in (fiches or {}).items():
+        # Une fiche est indexee deux fois (series_uuid + veve_uuid) : on ne
+        # retient que le passage par la cle de SERIE, celle que la page
+        # emploierait pour un comic.
+        if f.get("genre") != "comic" or cle != f.get("cle_serie") or not cle:
+            continue
+        if cle in vus or cle in presents:
+            continue
+        suivi = (dossier or {}).get(cle) or {}
+        if suivi.get("clos") or suivi.get("mid"):
+            continue                       # deja publie, ou deja clos
+        calc = burn_prevu.date_burn_prevue(f.get("sortie"), f.get("supply"),
+                                           f.get("retenues"), "comic")
+        if not calc:
+            continue
+        jour = _dt.date.fromisoformat(calc)
+        if not (auj <= jour <= limite):
+            continue
+        vus.add(cle)
+        out.append({
+            "famille": "comics",
+            "uuid": cle,
+            "url": f.get("url") or f"{VEVE_BASE}/comics/{cle}",
+            "titre": (f.get("nom") or "")[:120],
+            "restant": 0,
+            "jours": None,
+            "calcule": True,
+            "_jour_calcule": jour,
+        })
+    out.sort(key=lambda i: i["_jour_calcule"])
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -515,10 +623,18 @@ def carte(d: Dict[str, Any]) -> Dict[str, Any]:
         if d.get("ts"):
             quand = f"⏳ Burn **<t:{d['ts']}:D>**"
             if d.get("estime"):
-                quand += " *(estimé)*"
+                quand += (" *(au plus tôt — calculé)*" if d.get("calcule")
+                          else " *(estimé)*")
             corps.append(quand)
         else:
             corps.append("⏳ Burn imminent — date non communiquée par VeVe")
+        if d.get("calcule"):
+            # ⭐ La phrase dit D'OU vient la date ET ce qu'elle ne dit pas.
+            # Un lecteur qui ne trouve pas l'item sur veve.me doit comprendre
+            # pourquoi, sinon il conclut que la carte est fausse.
+            corps.append("📐 *Date **calculée** (sortie + 30 j) — VeVe ne l'a "
+                         "pas encore mis en « Leaving Soon ». Le feu peut "
+                         "tomber plus tard, jamais plus tôt.*")
         corps.append("")
         corps.append(_bloc_chiffres(d, fait=False))
         corps.append(f"🔥 **{_pct(d['part'])} %** du supply en circulation "
@@ -684,15 +800,42 @@ def run() -> int:                                           # noqa: C901
 
     aujourdhui = _dt.date.today()
     presents = {i["uuid"]: i for i in liste}
-    # Les items a traiter : ceux de la page + ceux qu'on suit encore.
+
+    # 🆕 LOT 68 — LES BURNS QUE VEVE N'A PAS ENCORE ANNONCES.
+    # ⛔ APRES `presents` et APRES le Sheet : le calcul ne parle que de ce que
+    # la page ne dit pas encore, et il a besoin des fiches pour ses trois
+    # entrees. Sans Sheet, `fiches` est vide et cette section ne rend rien —
+    # le module retombe exactement sur son comportement d'avant.
+    calcules = burns_calcules(fiches, presents, dossier, aujourdhui)
+    if len(calcules) > CALC_MAX:
+        print(f"  ⚠️ {len(calcules)} burns calculés (plafond {CALC_MAX}) — on "
+              f"garde les {CALC_MAX} plus proches. Les autres reviendront "
+              f"d'eux-mêmes en approchant.", file=sys.stderr)
+        calcules = calcules[:CALC_MAX]
+    if calcules:
+        print(f"🔮 burns CALCULÉS (VeVe ne les annonce pas encore) : "
+              + " · ".join(f"{i['_jour_calcule']} {i['titre'][:28]}"
+                           for i in calcules), flush=True)
+    for it in calcules:
+        presents.setdefault(it["uuid"], it)
+
+    # Les items a traiter : ceux de la page + les calcules + ceux qu'on suit.
     a_voir = list(presents) + [u for u, s in dossier.items()
                                if not s.get("clos") and u not in presents]
 
-    neufs = [u for u in presents if u not in dossier]
+    # 🔴 SUR LES ITEMS DE LA **PAGE** SEULEMENT (lot 68). `presents` contient
+    # desormais aussi les burns calcules : les compter ici ferait franchir le
+    # plafond par une population parfaitement normale, et le garde-fou
+    # marquerait TOUTES les cartes `clos` — y compris celles qu'on venait de
+    # calculer. ⭐⭐ **UN GARDE-FOU QUI CHANGE DE DENOMINATEUR SANS QU'ON LE
+    # RELISE SE RETOURNE CONTRE CE QU'IL PROTEGE.**
+    # Ce plafond-ci ne surveille qu'une chose : une page mal lue qui deverse
+    # vingt uuid d'un coup. Les calcules ont leur propre plafond, `CALC_MAX`.
+    neufs = [i["uuid"] for i in liste if i["uuid"] not in dossier]
     if len(neufs) > MAX_NEUFS:
-        print(f"⛔ {len(neufs)} items neufs d'un coup (plafond {MAX_NEUFS}) — "
-              f"VeVe n'en met jamais autant en même temps. On MÉMORISE sans "
-              f"publier ; relève le plafond si c'est légitime.",
+        print(f"⛔ {len(neufs)} items neufs d'un coup sur la PAGE (plafond "
+              f"{MAX_NEUFS}) — VeVe n'en met jamais autant en même temps. On "
+              f"MÉMORISE sans publier ; relève le plafond si c'est légitime.",
               file=sys.stderr)
         for u in neufs:
             dossier[u] = {"nom": presents[u]["titre"][:80],
@@ -762,6 +905,10 @@ def run() -> int:                                           # noqa: C901
                 jour, _dt.time(12, 0), _dt.timezone.utc).timestamp())
                 if jour else 0,
             "estime": bool(jour) and it.get("jours") is None,
+            # 🆕 VeVe n'a PAS encore annoncé cet item : la carte doit le dire.
+            # ⭐⭐ *Une déduction publiée sans dire qu'elle en est une devient
+            # une observation dans l'esprit du lecteur.*
+            "calcule": bool(it.get("calcule")),
         })
 
         # ⭐ CONTRE-MESURE : la page annonce « N left », GraphQL calcule
