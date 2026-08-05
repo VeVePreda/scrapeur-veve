@@ -13,6 +13,11 @@ on:
         default: "all"
         required: true
 
+# 🔑 Necessaire au `gh release download` du step 0bis. daily.yml declare
+# `contents: write` parce qu'il commite ; ici on ne fait que LIRE une Release.
+permissions:
+  contents: read
+
 concurrency:
   group: veve-scrape
   cancel-in-progress: false
@@ -31,10 +36,53 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+      # 🖼️ 0bis) LE CATALOGUE-CHAINE, POUR LES COUVERTURES (lot 69, 05/08/2026)
+      #
+      # 🔴 CE QUI MANQUAIT ICI, ET CE QUE CA COUTAIT.
+      # `scraper.run` appelle `couvertures_chaine`, qui lit `data/elements_v3.csv`
+      # — un fichier qui n'existe QUE si on telecharge la Release `elements-v3`.
+      # `daily.yml` le fait (step 0bis) et `catalogue-export.yml` aussi ; CE
+      # workflow, non. Le run du 05/08 (`ENRICH_MODE=all`, 19 327 produits,
+      # `status=OK`) a donc tourne SANS catalogue-chaine :
+      #     🖼️ couvertures chaine : `data/elements_v3.csv` absent
+      #     -> 0 fiche(s) remplie(s), 11 336 SANS COUVERTURE apres passage.
+      #
+      # ⭐⭐ **UN MEME TRAITEMENT SUR DEUX CHEMINS N'EST PAS LE MEME TRAITEMENT.**
+      # Le run manuel etait le seul des trois a travailler sans le catalogue —
+      # et rien ne le signalait comme une anomalie : le message dit « le
+      # catalogue reste valide, il aura juste ses trous ». Un manque annonce
+      # comme normal ne se lit pas comme un manque.
+      #
+      # ⛔ ETAPE RECOPIEE A L'IDENTIQUE DE `daily.yml`, controle de colonne
+      # compris. Ecrire « a peu pres pareil » recreerait exactement l'ecart
+      # qu'on repare : deux chemins qui divergent sans que personne le voie.
+      # ⭐ `|| echo` : une Release indisponible ne doit PAS faire tomber le run.
+      # Les fiches garderont leurs trous — ce qui etait deja le cas avant ce
+      # lot — mais l'enrichissement des 19 000 produits, lui, aboutit.
+      - name: "0bis) Catalogue chaine (pour les couvertures)"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p data
+          gh release download elements-v3 --pattern elements_v3.csv --dir data --clobber 2>/dev/null \
+            || echo "catalogue chaine indisponible — les fiches sans visuel le resteront ce tour."
+          if [ -f data/elements_v3.csv ]; then
+            head -1 data/elements_v3.csv | grep -q ",image" \
+              && echo "✅ colonne image presente." \
+              || echo "⚠️ elements_v3.csv SANS colonne image : moisson d'avant le 03/08/2026, rejouer elements-v3-moisson."
+          fi
+
       - name: Scrape + full collectible enrichment + sync sheet
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           SHEET_ID: ${{ secrets.SHEET_ID }}
           ENRICH_MODE: ${{ github.event.inputs.mode }}
           APIFY_PROXY_PASSWORD: ${{ secrets.APIFY_PROXY_PASSWORD }}
+          # ⭐ Les deux memes reglages que `daily.yml` step 1. `ELEMENTS_V3`
+          # vaut deja `data/elements_v3.csv` par defaut et `COUVERTURES_CHAINE`
+          # est ALLUME par defaut — on les ECRIT quand meme, pour que le
+          # workflow dise lui-meme ce dont il depend. Un defaut implicite se
+          # relit comme une absence de decision.
+          ELEMENTS_V3: data/elements_v3.csv
+          COUVERTURES_CHAINE: ${{ vars.COUVERTURES_CHAINE || '1' }}
         run: python -m scraper.run
