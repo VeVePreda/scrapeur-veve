@@ -316,6 +316,19 @@ def appliquer_identite(items: list, chaine: dict, *, autorise: bool = False,
     lignes parfaitement valides — c'est toute la lecon de `verifier_churn`.
     """
     avant = {i["uuid"]: dict(i) for i in items}
+
+    # 🔎 LES DIVERGENCES, MESUREES AVANT LA FUSION — apres, la chaine a gagne
+    # et l'ecart a disparu. ⭐ MESURER AVANT DE REPARER.
+    # ⛔ Non bloquant par construction : ce bloc INFORME, il ne decide rien.
+    # Ce qui bloque, c'est `verifier_churn` (l'ampleur) et `valider` (les
+    # lignes). Un troisieme veto ici ferait echouer l'export le jour ou VeVe
+    # corrige une rarete — c'est-a-dire le jour ou tout fonctionne.
+    try:
+        d = ID.comparer_divergences(avant, chaine, ID.charger_arbitrees())
+        print(ID.rapport_divergences(d))
+    except Exception as exc:                          # noqa: BLE001
+        print(f"divergences : rapport indisponible ({exc}) — export poursuivi.")
+
     for i in items:
         i.update(ID.fusionner(i, chaine.get(i["uuid"])))
     apres = {i["uuid"]: i for i in items}

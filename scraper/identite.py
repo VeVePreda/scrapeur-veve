@@ -42,6 +42,7 @@ ces 450 couvertures deviennent des doublons visuels.
 
 from __future__ import annotations
 
+import os
 import re
 import unicodedata
 from typing import Dict, Iterable, List, Optional, Tuple
@@ -327,6 +328,139 @@ def verifier_churn(avant: Dict[str, Dict[str, str]],
             + "\n  - ".join(depassements)
             + "\n  Si c'est voulu, relancer en autorisant explicitement le "
               "churn. Si ce n'est pas voulu, la source d'identite est degradee.")
+
+
+# ---------------------------------------------------------------------------
+# 🔎 LES DIVERGENCES ARBITREES — le garde-fou demande par Preda le 05/08/2026
+# ---------------------------------------------------------------------------
+# « priorite a la chaine, ET une passe de verification VeVe a l'occasion,
+#   garde-fou pour ceux deja connus. »
+#
+# ⭐⭐⭐ POURQUOI CE GARDE-FOU EXISTE, DIT PAR PREDA LUI-MEME : « Tiny Jones a
+# ete droppe en SECRET_RARE mais VeVe a corrige en COMMON ». La chaine dit
+# l'HISTOIRE (la rarete gravee au mint), le Sheet dit l'ETAT (ce que VeVe
+# affiche aujourd'hui). LES DEUX SONT VRAIES, A DES MOMENTS DIFFERENTS.
+# ⭐⭐ CE N'EST DONC PAS UNE DIVERGENCE, C'EST UNE CHRONOLOGIE — et aucun taux
+# de concordance ne peut faire la difference : 99,96 % s'imprime pareil que la
+# source ait tort ou que le temps ait passe.
+#
+# Consequence : on ne peut pas « corriger » ces cas, seulement les CONNAITRE.
+# D'ou une table de cas ARBITRES, et trois etats au lieu de deux :
+#
+#     CONNUE    deja vue, deja tranchee        -> silencieuse (comptee)
+#     NEUVE     jamais vue                     -> NOMMEE (a examiner)
+#     RESORBEE  connue, mais les deux sources  -> NOMMEE (VeVe a rebouge,
+#               sont de nouveau d'accord          ou la moisson a rattrape)
+#
+# ⭐⭐⭐ UN AVERTISSEMENT QUI SE DECLENCHE SUR LE CAS NORMAL EST DU BRUIT, ET LE
+# BRUIT SE LIT COMME DU SILENCE. `rapport()` imprime « rarity 7 modifies » a
+# CHAQUE run depuis le 28/07 : au bout d'une semaine plus personne ne le lit,
+# et le jour ou ce sera 8 personne ne le verra.
+#
+# ⛔ CE GARDE-FOU NE VAUT QUE SUR LES COLONNES OU LA DIVERGENCE EST RARE
+# (`rarity` 7 cas, `licensor` 75, `edition_type` 30). Sur `name` (~8 080),
+# `brand` (~4 270) ou `series` (16 418), une table de cas connus ne dirait rien
+# — c'est le PLAFOND DE CHURN qui les surveille, pas une liste.
+# ⭐⭐ UN GARDE-FOU DE CAS CONNUS NE FONCTIONNE QUE LA OU LES CAS SONT RARES :
+# ailleurs, la liste devient la donnee.
+
+DIVERGENCES_ARBITREES = os.environ.get("DIVERGENCES_ARBITREES",
+                                       "data/divergences_arbitrees.json")
+
+# Normalisation PAR COLONNE, la meme que celle de la mesure 3.1 — sinon on
+# reouvrirait ici des divergences de pure forme (`SECRET RARE` vs
+# `SECRET_RARE`, `#131` vs `131`) qui ne sont pas des divergences.
+_NORME_DIV = {
+    "rarity": lambda v: v.upper().replace(" ", "_"),
+    "kind": lambda v: v.lower(),
+    "edition_type": lambda v: v.lstrip("#"),
+}
+
+
+def _norme_div(col: str, v: object) -> str:
+    v = nettoyer(v)
+    f = _NORME_DIV.get(col)
+    return f(v) if f else v
+
+
+def charger_arbitrees(chemin: str = None) -> Dict[str, Dict[str, dict]]:
+    """{uuid: {colonne: {sheet, chaine, nom}}} — {} si absent ou illisible.
+
+    ⭐ Un fichier absent ne fait pas echouer l'export : il fait seulement que
+    TOUTES les divergences seront rapportees comme NEUVES. Bruyant, jamais
+    faux. ⛔ L'inverse — se taire faute de table — serait le pire des deux.
+    """
+    import json
+    chemin = chemin or DIVERGENCES_ARBITREES
+    try:
+        with open(chemin, encoding="utf-8") as f:
+            return json.load(f).get("cas", {}) or {}
+    except (OSError, ValueError):
+        return {}
+
+
+def comparer_divergences(sheet: Dict[str, Dict[str, object]],
+                         chaine: Dict[str, Dict[str, object]],
+                         arbitrees: Dict[str, Dict[str, dict]],
+                         colonnes: Iterable[str] = ("rarity", "licensor",
+                                                    "edition_type", "kind",
+                                                    "tirage"),
+                         ) -> Dict[str, list]:
+    """Range chaque divergence en CONNUE / NEUVE / RESORBEE.
+
+    `sheet` et `chaine` sont indexes par uuid. On compare AVANT fusion : apres,
+    la chaine a gagne et la divergence a disparu.
+    ⭐ MESURER AVANT DE REPARER — un ecart se constate sur les deux sources
+    telles qu'elles sont arrivees, pas sur le resultat de leur fusion.
+    """
+    src = {"rarity": "rarity", "licensor": "licensor",
+           "edition_type": "edition_type", "kind": "category",
+           "tirage": "supply"}
+    dst = {"rarity": "rarity", "licensor": "licensor",
+           "edition_type": "edition_type", "kind": "kind", "tirage": "tirage"}
+    out = {"connues": [], "neuves": [], "resorbees": []}
+    vues = set()
+    for uid, ligne_sheet in sheet.items():
+        ligne_ch = chaine.get(uid)
+        if not ligne_ch:
+            continue
+        for col in colonnes:
+            a = _norme_div(col, ligne_sheet.get(dst[col]))
+            b = _norme_div(col, ligne_ch.get(src[col]))
+            if not a or not b:
+                continue          # un vide n'est pas un desaccord
+            connue = (arbitrees.get(uid) or {}).get(col)
+            if a == b:
+                if connue:
+                    out["resorbees"].append((uid, col, connue))
+                continue
+            vues.add((uid, col))
+            cible = "connues" if connue else "neuves"
+            out[cible].append((uid, col, nettoyer(ligne_sheet.get(dst[col])),
+                               nettoyer(ligne_ch.get(src[col]))))
+    return out
+
+
+def rapport_divergences(d: Dict[str, list], *, exemples: int = 8) -> str:
+    """Le texte du log. Les CONNUES se comptent, les autres se NOMMENT."""
+    l = [f"divergences chaine/Sheet : {len(d['connues'])} connue(s) "
+         f"(arbitrees, silencieuses) · {len(d['neuves'])} NEUVE(s) · "
+         f"{len(d['resorbees'])} RESORBEE(s)"]
+    if d["neuves"]:
+        l.append("  🆕 NEUVES — jamais vues, a examiner :")
+        for uid, col, a, b in d["neuves"][:exemples]:
+            l.append(f"     {uid[:8]} {col:13s} Sheet={a!r} -> chaine={b!r}")
+        if len(d["neuves"]) > exemples:
+            l.append(f"     … et {len(d['neuves']) - exemples} autre(s)")
+    if d["resorbees"]:
+        l.append("  ♻️ RESORBEES — les deux sources sont de nouveau d'accord "
+                 "(VeVe a rebouge, ou la moisson a rattrape) :")
+        for uid, col, connue in d["resorbees"][:exemples]:
+            l.append(f"     {uid[:8]} {col:13s} etait "
+                     f"{connue.get('sheet')!r} vs {connue.get('chaine')!r}")
+        if len(d["resorbees"]) > exemples:
+            l.append(f"     … et {len(d['resorbees']) - exemples} autre(s)")
+    return "\n".join(l)
 
 
 def rapport(avant: Dict[str, Dict[str, str]],
