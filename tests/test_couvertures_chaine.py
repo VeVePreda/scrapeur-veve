@@ -52,14 +52,33 @@ def _propre(monkeypatch):
 # 1. La colonne existe et sort de l'export
 # --------------------------------------------------------------------------
 
-def test_image_est_la_derniere_colonne_de_lentete():
-    """⛔ EN FIN, jamais inseree : les 18 premieres ne bougent pas d'un octet."""
-    assert ENTETE[-1] == "image"
+def test_image_est_ajoutee_EN_FIN_et_ne_decale_rien():
+    """⛔ EN FIN, jamais inseree : les 19 premieres ne bougent pas d'un octet.
+
+    ⭐⭐ CORRIGE LE 05/08/2026 — ce banc epinglait `ENTETE[-1] == "image"`.
+    Il ne verifiait pas que `image` etait AJOUTEE EN FIN, il verifiait qu'elle
+    etait LA DERNIERE — c'est-a-dire qu'il interdisait la colonne suivante.
+    Le lot 64 (`start_year`) l'a fait tomber alors qu'il respectait exactement
+    la regle que ce banc croyait defendre.
+    ⭐⭐⭐ UN BANC QUI EPINGLE « X EST LE DERNIER » N'EST PAS UN GARDE-FOU, C'EST
+    UN VERROU : il transforme chaque ajout conforme en regression apparente, et
+    la seule facon de le faire passer est de le modifier — donc il ne protege
+    plus rien le jour ou ca compte.
+    ➡️ Ce qu'il faut tenir, c'est le PREFIXE : `image` a un index >= 18, et les
+    18 colonnes qui la precedent sont intactes. Un ajout en fin passe, une
+    INSERTION au milieu echoue. C'est la vraie regle.
+    """
+    assert ENTETE.index("image") >= 18, (
+        "`image` a ete deplacee vers l'avant : les colonnes precedentes se "
+        "decalent, et `reattacher_offchain` indexe par POSITION.")
     assert ENTETE[:18] == [
         "veve_uuid", "series_uuid", "name", "category", "rarity",
         "edition_type", "supply", "first_public", "listings", "note",
         "brand", "licensor", "atl", "atl_date", "ath", "ath_date",
         "series", "source"]
+    # aucun doublon : une colonne ajoutee deux fois passerait les deux tests
+    # ci-dessus sans que rien ne crie.
+    assert len(ENTETE) == len(set(ENTETE)), "colonne en double dans ENTETE"
 
 
 def test_catalogue_from_instance_rend_ladresse_telle_quelle():

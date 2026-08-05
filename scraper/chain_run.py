@@ -34,8 +34,40 @@ from scraper import chain_sheets as cs
 # Colonnes de l'archive des transferts — IDENTIQUES a celles du scan profond
 # (wallet_scan / Release chain-archive du repo astronema) pour que ledger.py
 # lise les deux sources uniformement.
+#
+# 🆕 11e colonne (05/08/2026) — `token_id`, L'IDENTITE DE L'EXEMPLAIRE.
+# ⭐⭐⭐ PHASE 2 DE « COLLECTCHAIN D'ABORD ». `collectchain._flatten` PRODUIT
+# deja `token_id` (`str(total.get("token_id") or "")`) : la donnee survivait a
+# la collecte et mourait ICI, a l'ecriture. Le second endroit ne ressemble pas
+# au premier, donc on ne l'y cherchait pas.
+# ⭐⭐ UNE DONNEE QUI SURVIT A LA COLLECTE PEUT ENCORE MOURIR AU STOCKAGE.
+#
+# LE CHIFFRE, MESURE LE 05/08 sur Archive/base/veve.duckdb :
+#     ere imx : 24 501 297 / 24 501 301 transferts portent un token_id (100 %)
+#     ere cc  :          0 /  7 130 601                                (  0 %)
+# La colonne EXISTE DEJA en aval : `base_build.py` ecrit
+# `CAST(NULL AS BIGINT) AS token_id` pour l'ere CC. Le contenant etait pret,
+# c'est la source qui ne le remplissait pas — il n'y a rien a creer plus loin.
+#
+# ⛔ AJOUTEE EN FIN, ET C'EST LA CONDITION DE SURETE. Les trois lecteurs de ce
+# format n'ont pas la meme discipline :
+#     ledger.py           csv.DictReader   -> par NOM,      ignore l'ajout
+#     base_build.py       read_csv_auto    -> par NOM,      ignore l'ajout
+#     merge_transfers.py  p[0]..p[9]       -> par POSITION, garde `len(p) < 10`
+# Le troisieme casserait si on inserait au milieu — et il vit dans un AUTRE
+# depot (fanablefrance/jetonveve) : il ne casserait donc pas ici, il casserait
+# ailleurs, plus tard, sans rien dire.
+# ⭐⭐ UN FORMAT PARTAGE PAR TROIS DEPOTS NE SE MODIFIE QU'EN FIN : CE QUI LIT
+# PAR POSITION NE SE PLAINT JAMAIS, IL SE DECALE.
+#
+# ⚠️ CE QUE CE LOT NE FAIT PAS : le scan PROFOND
+# (`astronema/wallet_scan.py`) ecrit le meme format et n'a pas encore la
+# colonne. Les deux sources restent lisibles ensemble (lecture par nom, valeur
+# vide toleree), mais l'archive ancienne ne se remplit pas retroactivement :
+# seules les journees ecrites APRES ce lot portent un token_id. Ecrit ici pour
+# que ca ne se redecouvre pas dans six mois comme une anomalie.
 ARCHIVE_HEADER = ["block", "log_index", "ts_utc", "date_pt", "kind", "category",
-                  "veve_uuid", "edition", "from", "to"]
+                  "veve_uuid", "edition", "from", "to", "token_id"]
 
 
 def _archive_records(records, min_complete_day: str):
@@ -69,10 +101,17 @@ def _archive_records(records, min_complete_day: str):
             w = csv.writer(f, lineterminator="\n")
             w.writerow(ARCHIVE_HEADER)
             for r in recs:
+                # ⭐ `.get()` et pas `r["token_id"]` : `_archive_records`
+                # accepte n'importe quel record au format `_flatten`, y compris
+                # celui d'une COPIE plus ancienne du collecteur (astronema,
+                # paolo). Un KeyError ici arreterait l'archivage d'une journee
+                # entiere pour une colonne d'appoint — le prix est sans commune
+                # mesure avec le gain.
                 w.writerow([r["block"], r["log_index"] or 0,
                             r["ts"].strftime("%Y-%m-%d %H:%M:%S"), r["date"],
                             r["kind"], r["category"], r["veve_uuid"],
-                            r["edition"], r["from"], r["to"]])
+                            r["edition"], r["from"], r["to"],
+                            r.get("token_id") or ""])
         counts[day] = len(recs)
     return counts
 

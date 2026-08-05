@@ -96,7 +96,30 @@ ENTETE = ["veve_uuid", "series_uuid", "name", "category", "rarity",
           # Ajoutee EN FIN : les 18 premieres colonnes ne bougent pas d'un
           # octet, `charger_graine` lit par NOM (une graine d'avant rend ""),
           # et `combler_series` allonge deja les lignes courtes.
-          "image"]
+          "image",
+          # 🆕 20e colonne (05/08/2026) — L'ANNEE DE DEBUT DE LA SERIE.
+          # 🔴🔴 QUATRIEME FOIS DANS CE MEME FICHIER, et le commentaire de
+          # `image` juste au-dessus disait deja « TROISIEME FOIS ». Celle-ci
+          # etait deux lignes plus bas et personne ne l'a vue.
+          # `catalogue_from_instance` fait, dans la branche comic :
+          #     start_year = str(md.get("startYear") or "").strip()
+          #     if start_year: name = f"{name} ({start_year})"
+          # La valeur est LUE, CONSOMMEE pour composer le nom, puis relachee.
+          # ⭐⭐ CE QUI SERT DE CLE SERT AUSSI DE VALEUR — exactement le motif
+          # deja documente pour `image`, `ath_date` et `description`.
+          # ⭐⭐⭐ REPARER LA COLLECTE NE REPARE PAS L'EXPORT : le lot 63 a
+          # appris a `_flatten` a RAMASSER `startYear` (il est dans
+          # `META_GARDES`), et la donnee mourait un etage plus loin. CHAQUE
+          # ETAGE A SON PROPRE SILENCE, et le silence du second ne ressemble
+          # pas a celui du premier.
+          # ⭐ POURQUOI CA COMPTE : c'est la seule des 4 colonnes non mesurees
+          # par la mesure 3.1 qui n'attend PAS une moisson neuve. La donnee
+          # arrive deja dans chaque reponse ; il suffisait de l'ecrire.
+          # ⛔ COMICS UNIQUEMENT — la chaine ne grave `startYear` que sur eux.
+          # Vide sur un collectible n'est pas un trou, c'est un non-sujet, et
+          # la regle « une valeur vide ne remplace jamais » s'en charge.
+          # Ajoutee EN FIN, pour la meme raison que les trois precedentes.
+          "start_year"]
 
 # Le vocabulaire de `source` — declare ici, nulle part ailleurs.
 #   "chaine"  : la ligne SORT de la moisson CollectChain de ce run.
@@ -180,8 +203,12 @@ def catalogue_from_instance(inst: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     total_ed = _num(md.get("totalEditions"))
     series = str(md.get("series") or "").strip()
 
+    start_year = ""
     if cat == "comic":
         comic_no = str(md.get("comicNumber") or "").strip()
+        # ⭐ HISSE HORS DE LA BRANCHE (05/08/2026) : la variable existait deja,
+        # mais sa portee s'arretait au `if`, donc le `return` ne pouvait pas la
+        # voir. Une donnee peut etre parfaitement lue et rester INACCESSIBLE.
         start_year = str(md.get("startYear") or "").strip()
         # name = "{serie} #{numero} ({annee})" (calibre sur l'officiel 23/07).
         # ⭐ SANS NUMERO, PAS DE `#` (28/07/2026). Composer `#` avec un numero
@@ -215,6 +242,12 @@ def catalogue_from_instance(inst: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         # regex d'identification. On ne la retouche pas, on ne la valide pas :
         # ce que la chaine a inscrit est ce qu'on recopie.
         "image": img,
+        # 🆕 L'ANNEE DE DEBUT DE SERIE, telle quelle. Vide sur un collectible.
+        # ⛔ ON NE LA REEXTRAIT PAS DU `name` : `name` est deja une COMPOSITION
+        # (« serie #numero (annee) »), et relire une valeur dans la chaine
+        # qu'on vient d'en fabriquer, c'est faire confiance a son propre
+        # formatage. On rend la source, pas son empreinte.
+        "start_year": start_year,
     }
 
 
@@ -308,6 +341,7 @@ def construire_v3(catalogue: Dict[str, Dict[str, Any]],
             c["series"],                               # 🆕 CHAINE
             SRC_CHAINE,                                # 🆕 provenance : moisson
             c.get("image") or "",                      # 🆕 CHAINE : le visuel
+            c.get("start_year") or "",                 # 🆕 CHAINE : annee serie
         ])
     rows.sort(key=lambda l: (l[3], l[6] if l[6] != "" else 0, l[2]))
     return rows
