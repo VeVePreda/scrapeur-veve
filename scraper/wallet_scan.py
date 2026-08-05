@@ -67,8 +67,28 @@ ARCHIVE_DIR = os.environ.get("SCAN_ARCHIVE_DIR", "archive")
 
 PT = ZoneInfo("America/Los_Angeles")
 HEADER = ["wallet", "first_seen", "last_active", "tx_count"]
+# 🆕 11e colonne (05/08/2026) — `token_id`. ⛔ MEME COLONNE, MEME PLACE que
+# `chain_run.ARCHIVE_HEADER` : les deux ecrivent LE MEME FORMAT d'archive.
+#
+# 🔴🔴 CE FICHIER A ETE OUBLIE PAR LE LOT 64, LE MATIN MEME OU J'ECRIVAIS QUE
+# LES COPIES DIVERGENT « LE JOUR OU UNE SEULE EST CORRIGEE ». Le lot 64 a
+# corrige `chain_run.py` et laisse celui-ci a 10 colonnes — dans LE MEME DEPOT.
+# Le commentaire du lot 64 designait meme le coupable : « le scan profond
+# (astronema/wallet_scan.py) n'a pas encore la colonne ». Il disait vrai, et il
+# ne voyait pas que le meme fichier etait a cote de lui, ici.
+# ⭐⭐⭐ UNE COPIE QU'ON DESIGNE PAR SON AUTRE DEPOT DEVIENT INVISIBLE DANS LE
+# SIEN. Nommer « astronema/wallet_scan.py » range le fichier chez le voisin ;
+# `grep ARCHIVE_HEADER scraper/` l'aurait montre en une seconde.
+# ➡️ D'ou `tests/test_format_archive_partage.py` : desormais le depot REFUSE
+# que ses deux en-tetes divergent.
+#
+# Pourquoi la colonne : `_categorise` lit l'uuid dans l'ADRESSE DE L'IMAGE de la
+# metadonnee, absente au MINT. Mesure du 05/08 : 167 159 transferts CC sans
+# veve_uuid, dont 103 672 mint et 63 386 vault_mint (99,96 %). `total.token_id`
+# est un champ du TRANSFERT : il survit la ou l'uuid meurt.
+# ⭐⭐ UNE LIGNE ANONYME EST UNE LIGNE DONT ON A LU LE MAUVAIS CHAMP.
 ARCHIVE_HEADER = ["block", "log_index", "ts_utc", "date_pt", "kind",
-                  "category", "veve_uuid", "edition", "from", "to"]
+                  "category", "veve_uuid", "edition", "from", "to", "token_id"]
 SAVE_EVERY_PAGES = 2000          # checkpoint intermediaire (crash-safety)
 COUNTERS_URL = f"{cc.API_BASE}/tokens/{cc.CONTRACT}/counters"
 
@@ -199,7 +219,10 @@ def _archive_row(it: Dict[str, Any], ts: _dt.datetime, d: str,
     ed = md.get("edition") if isinstance(md, dict) else ""
     return [it.get("block_number"), it.get("log_index"),
             ts.strftime("%Y-%m-%d %H:%M:%S"), d, _kind(frm, to), cat, uuid,
-            ed if ed not in (None, "") else "", frm, to]
+            ed if ed not in (None, "") else "", frm, to,
+            # ⭐ depuis `total`, PAS depuis `metadata` : c'est ce qui le rend
+            # present sur les mints, ou `uuid` sort vide juste au-dessus.
+            str(total.get("token_id") or "")]
 
 
 def _flush_archive(path: str, rows: List[List[Any]], write_header: bool) -> int:
