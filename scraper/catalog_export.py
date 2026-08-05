@@ -70,6 +70,41 @@ COLD_MAP = [
     # « VeVe Collectibles »). ⛔ Le code HTTP ne prouve RIEN ici : veve.me est
     # une application a rendu client, elle rend 200 sur une adresse morte.
     ("veve_url", "veve_url"),
+    # ═══════════════════════════════════════════════════════════════════════
+    # 🆕 LOT 78 — LES SIX CHAMPS DE LA FICHE, demande de Preda du 05/08/2026
+    # ═══════════════════════════════════════════════════════════════════════
+    # ⭐⭐⭐ CINQUIEME FOIS EXACTEMENT LE MEME MOTIF SUR CE FICHIER, apres
+    # `image`, `ath_date`, `description` et `veve_url`. Ces six colonnes sont
+    # collectees par `veve_detail` (elles sont dans QUERY / COMIC_QUERY depuis
+    # toujours), ecrites dans les onglets froids par `sheets.py`, et perdues a
+    # la derniere etape parce que personne n'ajoutait la ligne.
+    # ⛔ CE N'EST PAS UNE DONNEE MANQUANTE, C'EST UNE LIGNE MANQUANTE — et le
+    # symptome est un tiret sur 1 200 fiches, pas une erreur.
+    # ⚠️ CHAQUE COLONNE N'EXISTE QUE DANS UN ONGLET OU LES DEUX, et c'est sans
+    # danger : les lignes sont lues en dictionnaire, `.get()` rend "" pour une
+    # colonne absente, et `DictWriter` ecrit une case vide.
+    #   market_fee               les deux    (dixiemes de %, 85 -> 8,5 %)
+    #   drop_method              les deux
+    #   first_available_edition  les deux
+    #   is_blindbox              collectibles
+    #   season                   collectibles (retiree de DROP_COLUMNS, lot 78)
+    #   start_year               comics
+    # ⛔ `veve_comic_name` (le titre de l'oeuvre) N'EST PAS AJOUTE : il etait
+    #    DEJA dans COLD_MAP. Je l'y ai remis avant de verifier — c'est la
+    #    faute miroir de celle qu'on repare ici, et le seul controle qui
+    #    l'attrape est de RELIRE L'EN-TETE PRODUIT, pas la liste source.
+    # ⛔ `daily_mcp_points` N'EST PAS DANS CETTE LISTE, ET C'EST DELIBERE : la
+    #    colonne est connue FAUSSE (voir la fiche `veve-mcp-points`). Le site
+    #    affiche le BAREME publie, qui est une constante juste. Exporter une
+    #    valeur fausse « parce qu'elle est disponible » remplacerait un tiret
+    #    honnete par un chiffre qui ment — le seul echange qu'un site de cotes
+    #    ne peut pas faire.
+    ("market_fee", "market_fee"),
+    ("drop_method", "drop_method"),
+    ("first_available_edition", "first_available_edition"),
+    ("is_blindbox", "is_blindbox"),
+    ("season", "season"),
+    ("start_year", "start_year"),
     ("ath", "ath"), ("atl", "atl"),
     # 📅 LES DATES DES EXTRÊMES. Elles sont dans le Sheet (`ath_date`,
     # `atl_date`, ajoutées EN FIN de COLLECTIBLE_COLD/COMICS_COLD) et ne

@@ -64,10 +64,20 @@ COLLECTIBLE_COLD = [
     "veve_url", "image_url", "tracker_uuid", "special_edition",
     "market_fee", "supply", "store_price_gems",
     "first_available_edition", "is_blindbox", "drop_method",
+    # 🆕 LOT 78 — EN FIN DE LISTE, comme ATH/ATL : une colonne inseree au milieu
+    # decale tout ce qui suit, et plusieurs modules relisent cet onglet PAR
+    # POSITION. ⭐ L'elargissement de l'onglet est automatique depuis le lot 68
+    # (`elargir_si_besoin`), donc ajouter une colonne ne casse plus le `daily`.
     # ATH/ATL du floor (source : allTimeHighest/Lowest de MyNftTracker, deja
     # collecte gratuitement par veve_scraper). Ajoutees EN FIN pour ne rien
     # decaler.
     "atl", "atl_date", "ath", "ath_date",
+    # 🆕 LOT 78 — LA SAISON, TOUT A LA FIN. Elle sortait de DROP_COLUMNS ou elle
+    # etait rangee parmi les « legacy empties » alors que l'API la renseigne.
+    # ⛔ EN DERNIERE POSITION, comme ATH/ATL : plusieurs modules relisent cet
+    # onglet PAR POSITION, une colonne inseree au milieu decale tout ce qui suit.
+    # ⭐ L'onglet s'elargit tout seul depuis le lot 68 (`elargir_si_besoin`).
+    "season",
 ]
 COMICS_COLD = [
     "veve_uuid", "name", "description", "category", "edition_type", "rarity", "releaseDate",
@@ -146,7 +156,19 @@ BOOKKEEPING = ["veve_enriched_at", "first_seen", "last_seen"]
 DROP_COLUMNS = {
     # legacy empties
     "provider", "series_edition", "licensor_fee", "isEcl", "image_cloudflare",
-    "season",
+    # ⛔⛔ `season` A QUITTE CETTE LISTE (lot 78, 05/08/2026).
+    # Elle y etait rangee parmi les « legacy empties » — les colonnes toujours
+    # vides. Elle ne l'est pas : `veve_detail.QUERY` demande `series{ season }`
+    # depuis toujours et `_map_node` la mappe. Elle valait 2 sur la fiche
+    # NTTD - Movie Ticket, verifiee sur veve.me le 05/08.
+    # ⭐⭐⭐ UNE ENTREE MAL CLASSEE DANS UNE LISTE DE REJET EST INDETECTABLE :
+    # rien n'echoue, la colonne n'apparait jamais, et le classement (« vides »)
+    # explique lui-meme pourquoi personne ne la reverifie. J'ai moi-meme ecrit
+    # a Preda que « VeVe ne publie pas de saison » apres avoir cherche dans le
+    # catalogue — c'est-a-dire au BOUT de la chaine, pas a sa source.
+    # ⚠️ COLLECTIBLES SEULEMENT : `COMIC_QUERY` ne demande pas `series`, donc la
+    # colonne resterait vide sur 🟢C-COMICS. On ne cree pas une colonne froide
+    # dont on sait qu'elle ne se remplira pas.
     # duplicates folded into veve_* / edition_type
     "series_name", "brand_name", "licensor_name", "edition",
     "storePrice", "availableAmount", "drop_date", "rarity_editions",
