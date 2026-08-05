@@ -84,64 +84,50 @@ DYN_COMIC_QUERY = (
 )
 
 # ---------------------------------------------------------------------------
-# 🔥 LA DATE DE BURN — un nom de champ que je n'ai PAS pu sonder hors ligne
+# 🔥 LA DATE DE BURN — LE PARI EST RETIRE (05/08/2026, lot 67). ELLE SE CALCULE.
 #
-# La fiche publique d'un comic affiche « Burn Date » (Captain America #1 :
-# 23 Aug 26). Le nom GraphQL, lui, est un PARI : `brand.image` avait deja coute
-# un HTTP 400 en juillet pour exactement cette raison.
+# CE QU'IL Y AVAIT ICI : trois noms candidats (`burnDate`, `burnsAt`, `burnAt`)
+# demandes dans l'ordre, chaque HTTP 400 faisant reculer d'un cran jusqu'a la
+# requete PROUVEE. Le mecanisme etait BON, et sa lecon reste vraie — un champ
+# inconnu ne degrade pas la reponse, il la REFUSE, et `fetch_comic` traduit un
+# 400 en « comic introuvable » : un seul nom mal devine aurait rendu zero comic
+# enrichi sur tout le catalogue.
+# ⭐⭐⭐ **UN CHAMP OPTIONNEL DEMANDE DANS UNE REQUETE OBLIGATOIRE REND TOUTE LA
+# REQUETE OPTIONNELLE.** C'est pour cette phrase qu'on garde le pave au lieu
+# d'effacer l'histoire.
 #
-# 🔴🔴 UN CHAMP INCONNU NE DEGRADE PAS LA REPONSE, IL LA REFUSE. VeVe rend
-# **HTTP 400 sur la requete ENTIERE** — et `fetch_comic` traduit un 400 en
-# `None`, c'est-a-dire « comic introuvable ». Un seul nom mal deviné aurait donc
-# rendu **zero comic enrichi**, sans une seule exception, sur tout le catalogue.
-# ⭐⭐⭐ **UN CHAMP OPTIONNEL DEMANDE DANS LA REQUETE OBLIGATOIRE REND TOUTE LA
-# REQUETE OPTIONNELLE.**
+# POURQUOI IL PART QUAND MEME : il n'y a rien a gagner. Sonde du 05/08
+# (`outils/sonde_champ_burn.py`) : **37 noms** essayes sur `ce33b280-…` (The
+# X-Men, 1963), un comic qui a REELLEMENT brule (`editionsBurnt` = 471,
+# 1 000 = 430 vendues + 99 retenues + 471 brulees). Les 37 sont refuses ; seuls
+# `dropDate` et `startYear` passent. Le champ n'existe pas dans le SCHEMA — il
+# n'est pas « absent sur cet item-la ».
 #
-# ➡️ On demande donc les noms candidats DANS L'ORDRE, et le premier 400 fait
-# reculer tout le monde d'un cran — jusqu'a la requete PROUVEE, qui ne porte
-# aucun pari. Le pire cas coute 3 requetes et fait perdre un champ agreable ;
-# il ne peut pas faire perdre le catalogue.
-BURN_CANDIDATS = ("burnDate", "burnsAt", "burnAt")
-_burn_essai = 0                     # index dans BURN_CANDIDATS ; == len -> abandon
-_burn_lock = threading.Lock()
-
-
-def champ_burn() -> str:
-    """Le nom de champ encore en lice, ou "" si VeVe les a tous refuses."""
-    return (BURN_CANDIDATS[_burn_essai] if _burn_essai < len(BURN_CANDIDATS)
-            else "")
-
-
-def _burn_recule(comic_id: str, detail: str) -> bool:
-    """VeVe a refuse la requete. On abandonne le candidat courant.
-
-    Rend True s'il reste un candidat (ou la requete prouvee) a essayer — donc
-    toujours True tant qu'on n'avait pas deja abandonne. ⭐ Le refus est ECRIT :
-    un pari qui perd en silence se relit comme un champ qui n'existe pas."""
-    global _burn_essai
-    with _burn_lock:
-        if _burn_essai >= len(BURN_CANDIDATS):
-            return False                       # deja sur la requete prouvee
-        refuse = BURN_CANDIDATS[_burn_essai]
-        _burn_essai += 1
-        suite = (f"on essaie « {BURN_CANDIDATS[_burn_essai]} »"
-                 if _burn_essai < len(BURN_CANDIDATS)
-                 else "plus de candidat : on repasse a la requete PROUVEE, sans "
-                      "date de burn (la circulation ne saura plus dire si elle "
-                      "est perimee)")
-        print(f"VeVe refuse le champ « {refuse} » sur publicComicType "
-              f"({detail}, comic {comic_id}) — {suite}.",
-              file=sys.stderr, flush=True)
-        return True
-
-
+# 🔴 ET LE VRAI COUT N'ETAIT PAS LES 3 REQUETES, C'ETAIT LA PHRASE.
+# Le repli imprimait « VeVe refuse le champ ». Le 05/08 au matin, cette phrase a
+# ete lue comme « VeVe a RETIRE le champ », puis recopiee en memoire comme un
+# fait etabli. Elle n'etait ni l'un ni l'autre : elle etait une INTERPRETATION
+# d'un HTTP 400, ecrite par du code qui ne pouvait pas connaitre la cause.
+# ⭐⭐⭐ **UN MESSAGE D'ERREUR QUI INTERPRETE AU LIEU DE DECRIRE PROPAGE SON
+# HYPOTHESE A TOUS SES LECTEURS.** Un repli muet aurait coute une demi-journee
+# de moins qu'un repli bavard et sur de lui.
+#
+# ⛔ NE PAS LE REINTRODUIRE « au cas ou » sans rejouer la sonde d'abord : elle
+# repond en 40 requetes et sort en rc=1 si un nom passe.
+#
+# ➡️ LA DATE DE BURN VIT DESORMAIS DANS `scraper/burn_prevu.py`, ou elle se
+# CALCULE : sortie + 30 j pour les comics HORS MERCREDI dont la part retenue
+# atteint ~10 % du tirage (mesure du 05/08 : 164 comics, zero exception). Zero
+# requete, et 30 jours d'avance au lieu d'aucun.
+# ---------------------------------------------------------------------------
 def requete_comic() -> str:
-    """COMIC_QUERY, plus le champ de date de burn encore en lice."""
-    champ = champ_burn()
-    if not champ:
-        return COMIC_QUERY
-    return COMIC_QUERY.replace("firstAvailableEdition ",
-                               f"firstAvailableEdition {champ} ", 1)
+    """COMIC_QUERY, sans plus aucun pari.
+
+    ⭐ Gardee comme point d'entree unique bien qu'elle ne fasse plus rien : les
+    appelants n'ont pas a apprendre que la question s'est refermee, et le jour
+    ou un champ optionnel redeviendra sondable, il y a un seul endroit ou le
+    remettre."""
+    return COMIC_QUERY
 
 
 REQUEST_TIMEOUT = 30
@@ -324,12 +310,11 @@ def fetch_comic(comic_id: str) -> Optional[Dict[str, Any]]:
                 if not node:
                     return None
                 return _map_comic(node, comic_id)
-            # 🔴 400/422 = la REQUETE est refusee, pas le comic. Si on portait
-            # encore un pari, c'est lui le suspect : on recule et on REJOUE tout
-            # de suite, sans consommer d'essai ni de temporisation.
-            if r.status_code in (400, 422) and _burn_recule(comic_id,
-                                                            f"HTTP {r.status_code}"):
-                continue
+            # 🔴 400/422 = la REQUETE est refusee, pas le comic. Il n'y a plus
+            # de pari a faire reculer (lot 67) : la requete ne porte que des
+            # champs prouves, donc un 400 ici est une VRAIE anomalie et doit
+            # remonter telle quelle. ⭐ On DECRIT, on n'interprete pas — c'est
+            # l'inverse exact du message que ce bloc imprimait avant.
             last_err = f"HTTP {r.status_code}"
         except Exception as e:
             last_err = str(e)
@@ -389,9 +374,15 @@ def _map_comic(n: Dict[str, Any], comic_id: str) -> Dict[str, Any]:
         "withheld_editions": _num(n.get("withheldEditions")),
         "first_available_edition": _num(n.get("firstAvailableEdition")),
         "veve_total_available": _num(n.get("totalAvailable")),
-        # 🔥 Quel que soit le nom qui a fini par passer — ou "" si aucun.
-        "burn_date": next((str(n[c]) for c in BURN_CANDIDATS
-                           if n.get(c) not in (None, "")), ""),
+        # 🔥 `burn_date` RESTE UNE COLONNE, ET RESTE VIDE (lot 67). VeVe
+        # n'expose aucun champ de date de burn (37 noms sondes le 05/08). La
+        # colonne n'est pas supprimee pour autant : elle est la place reservee
+        # a la donnee OBSERVEE, le jour ou VeVe l'exposera ou qu'un burn sera
+        # constate. La PREVISION, elle, vit dans `burn_date_prevue`.
+        # ⭐⭐ **UNE PREVISION ET UNE MESURE NE SE RANGENT PAS DANS LA MEME
+        # COLONNE** : sinon plus personne ne saura, en la lisant, si la date a
+        # ete vue ou deduite.
+        "burn_date": "",
         "veve_comic_name": n.get("name"),
         "veve_enriched_at": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
     }

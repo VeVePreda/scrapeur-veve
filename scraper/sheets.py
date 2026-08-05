@@ -44,6 +44,11 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 from scraper import couvertures_chaine as _cc
+# 🔥 Le calcul de la date de burn. ⭐ Module VOLONTAIREMENT sans dependance :
+# `discord_drops` (qui porte l'autre parseur de `releaseDate`) importe `sheets`,
+# donc le reutiliser ici serait un import circulaire. L'accord des deux
+# parseurs est epingle par tests/test_burn_prevu.py au lieu d'etre suppose.
+from scraper import burn_prevu
 from scraper.veve_scraper import build_veve_url
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -98,6 +103,16 @@ COMICS_COLD = [
     # ⭐ Colonne NEUVE, `name` intact : `name` nourrit le slug, et une adresse
     # ne se renomme pas au passage d'un correctif d'affichage.
     "veve_comic_name",
+    # 🔥 LA DATE DE BURN **CALCULEE** (05/08/2026, lot 67) — « au plus tot le ».
+    # ⛔ EN FIN DE LISTE, comme les colonnes ATH/ATL : une colonne inseree au
+    # milieu decale tout ce qui suit, et 🟢C-COMICS est relu par position par
+    # plusieurs modules.
+    # ⚠️ ELLE NE REMPLACE PAS `burn_date`, elle vit A COTE. `burn_date` est la
+    # place de la donnee OBSERVEE (vide : VeVe n'expose rien, 37 noms sondes) ;
+    # celle-ci porte une DEDUCTION. Les melanger rendrait la colonne illisible :
+    # personne ne saurait plus si la date a ete vue ou calculee.
+    # Le calcul, ses trois conditions et sa mesure : `scraper/burn_prevu.py`.
+    "burn_date_prevue",
 ]
 # ---------------------------------------------------------------------------
 # Colonnes FROIDES ajoutees le 2026-07-13 (chantier "page Classement").
@@ -122,7 +137,7 @@ COMICS_COLD = [
 # ---------------------------------------------------------------------------
 NEW_COLD_COLUMNS = ["supply", "supply_rarete", "store_price_gems", "veve_exclusive",
                     "supply_circulation", "supply_withheld", "supply_vu_le",
-                    "burn_date"]
+                    "burn_date", "burn_date_prevue"]
 # Operational bookkeeping columns appended after the cold columns (needed by the
 # pipeline: new-drop detection, ordering, enrichment tracking).
 BOOKKEEPING = ["veve_enriched_at", "first_seen", "last_seen"]
@@ -398,6 +413,28 @@ def _fill_new_cold(rec: Dict[str, Any]) -> None:
     # ⛔ `burn_date` NE SE RECOPIE PAS : `_map_comic` l'ecrit deja sous ce nom
     # et DROP_COLUMNS ne le jette pas. Le recopier ici en ferait une 2e
     # definition de la meme colonne — la guerre exacte que ce module evite.
+    #
+    # 🔥 `burn_date_prevue` — LA DATE CALCULEE (lot 67, 05/08/2026).
+    # ⭐⭐ ELLE SE RECALCULE A CHAQUE PASSAGE, ET C'EST VOULU — contrairement a
+    # tout ce qui precede dans cette fonction, qui ne remplit que du vide. Une
+    # DEDUCTION n'est pas un backfill : elle ne se conserve pas, elle se refait.
+    # Si la regle change, ou si `supply_withheld` arrive enfin sur une ligne qui
+    # ne l'avait pas, la colonne doit suivre le meme jour. Une prevision figee
+    # deviendrait un souvenir de prevision.
+    # ⛔ Ses trois entrees (sortie, tirage, retenues) NE BOUGENT JAMAIS : le
+    # recalcul est donc stable, il ne fait pas clignoter la colonne d'un run a
+    # l'autre. C'est ce qui rend le « toujours recalculer » sans danger ici et
+    # dangereux ailleurs.
+    if is_comic:
+        rec["burn_date_prevue"] = burn_prevu.date_burn_prevue(
+            rec.get("releaseDate"),
+            rec.get("supply") or rec.get("rarity_editions"),
+            # ⚠️ La colonne FROIDE d'abord, le champ BRUT en repli : sur une
+            # ligne relue du Sheet, `withheld_editions` a deja ete jete par
+            # DROP_COLUMNS et seul `supply_withheld` subsiste. L'ordre inverse
+            # aurait vide la colonne sur tout le catalogue existant, en silence.
+            rec.get("supply_withheld") or rec.get("withheld_editions"),
+            "comic")
     if not rec.get("store_price_gems"):
         prix = rec.get("veve_store_price") or rec.get("storePrice") or ""
         # ⚠️ COMICS : VeVe melange DEUX echelles dans `storePrice`. Les vieux comics
