@@ -72,6 +72,22 @@ COMICS_COLD = [
     "market_fee", "supply", "supply_rarete", "store_price_gems",
     "veve_exclusive", "first_available_edition", "start_year",
     "atl", "atl_date", "ath", "ath_date",
+    # 🔥 LE TIRAGE REELLEMENT MIS EN CIRCULATION (05/08/2026, lot 62).
+    # ⛔ `supply` (= totalIssued) N'EST PAS LE DENOMINATEUR D'UN « SOLD OUT ».
+    # VeVe retient une part du tirage qu'elle ne met jamais en vente et la brule
+    # a la date de burn. Captain America #1 : 10 000 emises, **375 retenues**,
+    # donc 9 625 en circulation — et 9 625 vendues, donc SOLD OUT. Juger sur
+    # 10 000 le declarait « 96 %, pas epuise » ; juger sur le max des raretes
+    # (6 000) le declarait « 9 625 vendus sur 6 000 ». Les deux etaient faux.
+    # ⭐⭐⭐ **CE QUI EST EMIS N'EST PAS CE QUI EST EN VENTE** — et c'est la
+    # deuxieme grandeur, pas la premiere, qui decide d'un sold out.
+    # ⛔ CES VALEURS ETAIENT DEJA COLLECTEES (veve_detail.COMIC_QUERY les demande
+    # depuis toujours, `_map_comic` les mappe) PUIS JETEES par DROP_COLUMNS.
+    # Meme histoire que `supply` en juillet et `veve_comic_name` en aout :
+    # ⭐⭐ *la donnee manquante est presque toujours deja collectee puis jetee.*
+    # DROP_COLUMNS continue de jeter les champs BRUTS — sinon les collectibles
+    # gagneraient une colonne froide en guerre avec 🟠H-PRIX, qui les possede.
+    "supply_circulation", "supply_withheld", "supply_vu_le", "burn_date",
     # 📕 LE VRAI TITRE DU COMIC (01/08/2026). `name` porte le nom de la SERIE
     # plus le numero — « Retellings #1 (1982) ». Le titre de l'oeuvre,
     # « A Christmas Carol Starring Scrooge McDuck #1 », est `publicComicType.name`.
@@ -104,7 +120,9 @@ COMICS_COLD = [
 # des colonnes froides dediees ; DROP_COLUMNS continue de jeter les champs bruts
 # (`rarity_editions`, `veve_store_price`) qui, eux, appartiennent a 🟠H-PRIX.
 # ---------------------------------------------------------------------------
-NEW_COLD_COLUMNS = ["supply", "supply_rarete", "store_price_gems", "veve_exclusive"]
+NEW_COLD_COLUMNS = ["supply", "supply_rarete", "store_price_gems", "veve_exclusive",
+                    "supply_circulation", "supply_withheld", "supply_vu_le",
+                    "burn_date"]
 # Operational bookkeeping columns appended after the cold columns (needed by the
 # pipeline: new-drop detection, ordering, enrichment tracking).
 BOOKKEEPING = ["veve_enriched_at", "first_seen", "last_seen"]
@@ -363,6 +381,23 @@ def _fill_new_cold(rec: Dict[str, Any]) -> None:
         # melangerait avec le total serie). Colonne dediee -> la carte de drop
         # montre le tirage de chaque rarete, et leur SOMME = le vrai total comic.
         rec["supply_rarete"] = rec.get("releaseAmount") or ""
+    # 🔥 CIRCULATION / RETENUES / DATE DE BURN — comics seulement.
+    # ⛔ PAS DE REPLI SUR `supply` ICI. Une cellule vide se voit et se comble ;
+    # une cellule remplie avec la mauvaise grandeur se publie. ⭐⭐ *Un repli qui
+    # rend un nombre plausible est pire qu'un vide : il supprime la question.*
+    # ⚠️ `supply_vu_le` DATE LA MESURE. La circulation FOND a la date de burn
+    # (VeVe detruit les retenues) : sans sa date, une valeur d'avant le feu se
+    # relit comme une verite d'apres. ⭐⭐ *Une mesure qui perime doit porter sa
+    # date, sinon elle ne perime pas — elle ment.*
+    if is_comic and not rec.get("supply_circulation"):
+        circ = rec.get("editions_in_circulation")
+        if circ not in (None, ""):
+            rec["supply_circulation"] = circ
+            rec["supply_withheld"] = rec.get("withheld_editions") or ""
+            rec["supply_vu_le"] = (rec.get("veve_enriched_at") or "")[:10]
+    # ⛔ `burn_date` NE SE RECOPIE PAS : `_map_comic` l'ecrit deja sous ce nom
+    # et DROP_COLUMNS ne le jette pas. Le recopier ici en ferait une 2e
+    # definition de la meme colonne — la guerre exacte que ce module evite.
     if not rec.get("store_price_gems"):
         prix = rec.get("veve_store_price") or rec.get("storePrice") or ""
         # ⚠️ COMICS : VeVe melange DEUX echelles dans `storePrice`. Les vieux comics

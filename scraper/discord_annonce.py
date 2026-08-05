@@ -328,7 +328,16 @@ def series_du_mois(sh, an: int, mo: int) -> List[Dict[str, Any]]:
             d["lignes"].append({
                 "rarete": str(r.get("rarity") or "").strip().upper(),
                 "edition": str(r.get("edition_type") or "").strip().upper(),
+                # ⚠️ DEUX CHIFFRES, DEUX USAGES — ne plus JAMAIS les faire
+                # transiter par le meme champ. `supply` sert l'AFFICHAGE de la
+                # ligne (ce qu'on veut lire par rarete sur la carte) ;
+                # `supply_serie` sert le TOTAL de la serie. Les avoir confondus
+                # a coute « 9 625 vendus sur 6 000 » a Captain America #1.
                 "supply": dd._n(r.get("supply_rarete") or r.get("supply")),
+                "supply_serie": dd._n(r.get("supply")),
+                "circulation": dd._n(r.get("supply_circulation")),
+                "vu_le": str(r.get("supply_vu_le") or "").strip(),
+                "burn_date": str(r.get("burn_date") or "").strip(),
                 "uuid": str(r.get("veve_uuid") or "").strip(),
                 # ⚠️ PAR RARETE : les 5 couvertures d'un comic different, et
                 # c'est la COMMON qui represente la serie.
@@ -340,9 +349,74 @@ def series_du_mois(sh, an: int, mo: int) -> List[Dict[str, Any]]:
         # de la SERIE, recopie sur chaque rarete. `dr.total_serie` porte cette
         # cicatrice (Captain America #7, SOLD OUT affiche a 20 %) — on l'appelle,
         # on ne la reapprend pas.
-        d["total"] = dr.total_serie(d["genre"],
-                                    [l["supply"] for l in d["lignes"]])
+        # ⛔ ON LUI DONNE LES DEUX COLONNES, NOMMEES : il choisit selon le
+        # genre. Passer une liste anonyme, c'est ce qui a fabrique le bug.
+        d["total"] = dr.total_serie(
+            d["genre"],
+            supply_serie=[l["supply_serie"] for l in d["lignes"]],
+            supplies_element=[l["supply"] for l in d["lignes"]],
+            nom=d.get("nom", ""))
+        # 🔥 LE TIRAGE EMIS N'EST PAS LE TIRAGE EN VENTE. `d["total"]` reste
+        # `totalIssued` — c'est lui qu'on AFFICHE quand on n'a rien de mieux —
+        # mais le SOLD OUT se juge sur ce qui a reellement ete mis en
+        # circulation. Preuve, page VeVe du 05/08/2026 :
+        #   Captain America #1 : emis 10 000 · retenues 375 · circulation 9 625
+        #                        vendues 9 625  -> SOLD OUT
+        #   Black Panther #3   : emis  1 000 · retenues  99 · circulation   901
+        #                        vendues     0  -> 901 restantes
+        # ⛔ Et la chaine ne peut PAS remplacer cette colonne : Black Panther #3
+        # a 901 editions en circulation et **zero jeton on-chain**. CollectChain
+        # ne voit que ce qui est MINTE, donc VENDU — le numerateur, jamais le
+        # denominateur. ⭐⭐⭐ **UNE SOURCE QUI NE VOIT QUE CE QUI EST PARTI NE
+        # PEUT PAS DIRE COMBIEN IL EN RESTAIT.**
+        d["circulation"] = max((l.get("circulation") or 0)
+                               for l in d["lignes"]) if d["lignes"] else 0
+        for cle in ("vu_le", "burn_date"):
+            d[cle] = next((l[cle] for l in d["lignes"] if l.get(cle)), "")
     return list(par_serie.values())
+
+
+def tirage_en_vente(d: Dict[str, Any]) -> int:
+    """LE DENOMINATEUR — ce qui a ete mis en vente, pas ce qui a ete emis.
+
+    ⭐⭐⭐ **CE QUI EST EMIS N'EST PAS CE QUI EST EN VENTE.** VeVe retient une
+    part du tirage (`withheldEditions`) qu'elle ne vend jamais et brule a la date
+    de burn. `editions_in_circulation = totalIssued − retenues − brulees`, et
+    c'est LUI qui decide d'un sold out :
+
+        Captain America #1 · emis 10 000 · retenues 375 · circulation 9 625
+                             vendues 9 625            -> **SOLD OUT**
+
+    Juge sur les 10 000 emises, il sortait a « 96 %, pas epuise » — et la liste
+    du mois perdait sa piece maitresse **sans que rien ne signale l'absence**.
+
+    ⚠️ REPLI ASSUME sur `total` (le tirage emis) quand la colonne est vide : les
+    ~4 000 comics deja au catalogue n'ont jamais ete enrichis sur ce champ
+    (`ENRICH_MODE=new` n'enrichit qu'a la premiere vue). Le repli est COMPTE et
+    NOMME par `retenir()` — il ne se decouvre pas dans un chiffre bizarre.
+    ⭐ *Un repli silencieux transforme une colonne vide en verite.*"""
+    return _n_pos(d.get("circulation")) or _n_pos(d.get("total"))
+
+
+def _n_pos(v) -> int:
+    try:
+        n = int(float(v))
+    except (TypeError, ValueError):
+        return 0
+    return n if n > 0 else 0
+
+
+def circulation_perimee(d: Dict[str, Any]) -> bool:
+    """La circulation a-t-elle ete mesuree AVANT le feu qui la fait fondre ?
+
+    ⭐⭐ **UNE MESURE QUI PERIME DOIT PORTER SA DATE, SINON ELLE NE PERIME PAS —
+    ELLE MENT.** A la date de burn, VeVe detruit les retenues et
+    `editions_in_circulation` tombe. Une valeur lue avant ce jour SUR-ESTIME
+    donc le denominateur, et une serie epuisee peut passer pour disponible.
+    Rend False des qu'on ignore l'une des deux dates : on n'invente pas une
+    peremption, on la constate."""
+    vu, feu = str(d.get("vu_le") or "")[:10], str(d.get("burn_date") or "")[:10]
+    return bool(vu and feu and vu < feu <= aujourdhui().isoformat())
 
 
 def compter_drops(series: List[Dict[str, Any]]) -> int:
@@ -431,6 +505,7 @@ def retenir(classees: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     moyen de savoir, au 1er vrai run, si le `supply` des comics permet ou non
     de detecter un sold out."""
     gardees, art, merc, pas_epuise, comics_vus = [], 0, 0, 0, 0
+    sans_circ, perimees = [], []
     for d in classees:
         if est_artwork(d):
             art += 1
@@ -440,10 +515,28 @@ def retenir(classees: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             if d.get("mercredi"):
                 merc += 1
                 continue
-            if not dr.est_epuise(d.get("ventes", 0), d.get("total", 0)):
+            # ⭐⭐ UN COMPTEUR D'ECHECS SANS IDENTITE NE SE REPARE PAS, IL SE
+            # CONTEMPLE : on garde les NOMS, pas seulement le nombre.
+            if not _n_pos(d.get("circulation")):
+                sans_circ.append(d.get("nom") or "(sans nom)")
+            elif circulation_perimee(d):
+                perimees.append(d.get("nom") or "(sans nom)")
+            if not dr.est_epuise(d.get("ventes", 0), tirage_en_vente(d)):
                 pas_epuise += 1
                 continue
         gardees.append(d)
+    if sans_circ:
+        print(f"⚠️ annonce : {len(sans_circ)} comic(s) SANS circulation connue — "
+              f"juges sur le tirage EMIS, qui sur-estime (un sold out peut "
+              f"passer inapercu) : {', '.join(sans_circ[:8])}"
+              f"{' …' if len(sans_circ) > 8 else ''}. Un run ENRICH_MODE=all "
+              f"remplit la colonne.", file=sys.stderr, flush=True)
+    if perimees:
+        print(f"⚠️ annonce : {len(perimees)} comic(s) dont la circulation a ete "
+              f"mesuree AVANT leur date de burn — elle a fondu depuis, le "
+              f"denominateur sur-estime : {', '.join(perimees[:8])}"
+              f"{' …' if len(perimees) > 8 else ''}.",
+              file=sys.stderr, flush=True)
     # ⭐ ON NE COUPE PLUS ICI. Le MESSAGE cite 7 lignes, l'AFFICHE veut 5
     # COLLECTIBLES : deux besoins, deux decoupes. Couper trop tot dans une
     # fonction commune obligeait l'affiche a se contenter des restes du message.
@@ -553,12 +646,19 @@ def ligne_sortie(i: int, d: Dict[str, Any]) -> str:
     nom = d.get("nom") or "(sans nom)"
     ligne = f"{i}. {_lien_nomme(nom, dd._lien(d))}"
     detail = f"≈ {_fr(d['ventes'])} vendus"
-    if d.get("total"):
-        detail += f" sur {_fr(d['total'])}"
+    # ⛔ LE MEME NOMBRE QUE LE FILTRE, TOUJOURS. Ecrire « sur 10 000 » puis
+    # coller « SOLD OUT » a cote de 9 625 ventes, c'est publier une soustraction
+    # qui ne tombe pas juste sous les yeux du lecteur.
+    # ⭐⭐⭐ **CE QUI DECIDE ET CE QUI S'AFFICHE DOIVENT ETRE LA MEME VARIABLE,
+    # PAS DEUX VARIABLES D'ACCORD** — deux variables d'accord finissent par
+    # diverger, et c'est le visuel qui porte la contradiction.
+    tirage = tirage_en_vente(d)
+    if tirage:
+        detail += f" sur {_fr(tirage)}"
         # ⚠️ « epuise » n'est pas « vendus == tirage » : la chaine compte parfois
         # un mint de plus que le tirage declare. `dr.est_epuise` porte deja
         # cette tolerance — on ne reecrit pas un `==` maison.
-        if dr.est_epuise(d["ventes"], d["total"]):
+        if dr.est_epuise(d["ventes"], tirage):
             detail += " · **SOLD OUT** 🔥"
     return f"{ligne}\n {detail}"
 
@@ -707,9 +807,14 @@ def fabriquer_affiche(sh, cle: str, mois_passe: str,
                   f"comic sortira avec des « -/- ».", file=sys.stderr)
     # ⚠️ La couverture du comic = celle de la rarete COMMUNE (demande de Preda) :
     # les 5 raretes portent des variantes differentes.
+    # ⛔ `tirage=` N'EST PAS UN CONFORT : sans lui la carte relisait `supply`
+    # de 🏆A-CLASSEMENT pendant que le texte citait 🟢C-COMICS, et le run du
+    # 04/08 a publie 10 000 a cote de 6 000 dans la MEME image.
     carte = ac.carte(fiche,
                      nom_repli=(comic or {}).get("nom", ""),
-                     image_repli=ai.visuel_de_tuile(comic)) if comic else {}
+                     image_repli=ai.visuel_de_tuile(comic),
+                     tirage=tirage_en_vente(comic or {}),
+                     tirage_emis=_n_pos((comic or {}).get("total"))) if comic else {}
 
     sortie = os.path.join("data", f"annonce-{cle}.png")
     # 🔴 NE JAMAIS RECALCULER `banniere` ICI. Elle arrive en PARAMETRE, choisie

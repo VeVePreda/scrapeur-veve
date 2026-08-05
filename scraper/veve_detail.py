@@ -20,6 +20,7 @@ Egress:
 from __future__ import annotations
 
 import os
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -81,6 +82,67 @@ DYN_COMIC_QUERY = (
     "publicComicType(id:$id){ id storePrice soldEditions totalAvailable "
     "editionsBurnt editionsInCirculation withheldEditions } }"
 )
+
+# ---------------------------------------------------------------------------
+# 🔥 LA DATE DE BURN — un nom de champ que je n'ai PAS pu sonder hors ligne
+#
+# La fiche publique d'un comic affiche « Burn Date » (Captain America #1 :
+# 23 Aug 26). Le nom GraphQL, lui, est un PARI : `brand.image` avait deja coute
+# un HTTP 400 en juillet pour exactement cette raison.
+#
+# 🔴🔴 UN CHAMP INCONNU NE DEGRADE PAS LA REPONSE, IL LA REFUSE. VeVe rend
+# **HTTP 400 sur la requete ENTIERE** — et `fetch_comic` traduit un 400 en
+# `None`, c'est-a-dire « comic introuvable ». Un seul nom mal deviné aurait donc
+# rendu **zero comic enrichi**, sans une seule exception, sur tout le catalogue.
+# ⭐⭐⭐ **UN CHAMP OPTIONNEL DEMANDE DANS LA REQUETE OBLIGATOIRE REND TOUTE LA
+# REQUETE OPTIONNELLE.**
+#
+# ➡️ On demande donc les noms candidats DANS L'ORDRE, et le premier 400 fait
+# reculer tout le monde d'un cran — jusqu'a la requete PROUVEE, qui ne porte
+# aucun pari. Le pire cas coute 3 requetes et fait perdre un champ agreable ;
+# il ne peut pas faire perdre le catalogue.
+BURN_CANDIDATS = ("burnDate", "burnsAt", "burnAt")
+_burn_essai = 0                     # index dans BURN_CANDIDATS ; == len -> abandon
+_burn_lock = threading.Lock()
+
+
+def champ_burn() -> str:
+    """Le nom de champ encore en lice, ou "" si VeVe les a tous refuses."""
+    return (BURN_CANDIDATS[_burn_essai] if _burn_essai < len(BURN_CANDIDATS)
+            else "")
+
+
+def _burn_recule(comic_id: str, detail: str) -> bool:
+    """VeVe a refuse la requete. On abandonne le candidat courant.
+
+    Rend True s'il reste un candidat (ou la requete prouvee) a essayer — donc
+    toujours True tant qu'on n'avait pas deja abandonne. ⭐ Le refus est ECRIT :
+    un pari qui perd en silence se relit comme un champ qui n'existe pas."""
+    global _burn_essai
+    with _burn_lock:
+        if _burn_essai >= len(BURN_CANDIDATS):
+            return False                       # deja sur la requete prouvee
+        refuse = BURN_CANDIDATS[_burn_essai]
+        _burn_essai += 1
+        suite = (f"on essaie « {BURN_CANDIDATS[_burn_essai]} »"
+                 if _burn_essai < len(BURN_CANDIDATS)
+                 else "plus de candidat : on repasse a la requete PROUVEE, sans "
+                      "date de burn (la circulation ne saura plus dire si elle "
+                      "est perimee)")
+        print(f"VeVe refuse le champ « {refuse} » sur publicComicType "
+              f"({detail}, comic {comic_id}) — {suite}.",
+              file=sys.stderr, flush=True)
+        return True
+
+
+def requete_comic() -> str:
+    """COMIC_QUERY, plus le champ de date de burn encore en lice."""
+    champ = champ_burn()
+    if not champ:
+        return COMIC_QUERY
+    return COMIC_QUERY.replace("firstAvailableEdition ",
+                               f"firstAvailableEdition {champ} ", 1)
+
 
 REQUEST_TIMEOUT = 30
 MAX_RETRIES = 3
@@ -245,13 +307,15 @@ def _map_node(n: Dict[str, Any], uuid: str) -> Dict[str, Any]:
 
 def fetch_comic(comic_id: str) -> Optional[Dict[str, Any]]:
     """Return comic-level enrichment columns for one VeVe comic id, or None."""
-    payload = {
-        "operationName": "publicStoreCollectibleEditionsQuery",
-        "variables": {"id": comic_id},
-        "query": COMIC_QUERY,
-    }
     last_err = None
     for attempt in range(1, MAX_RETRIES + 1):
+        # ⚠️ La requete se RELIT a chaque essai : si un autre fil vient de faire
+        # reculer le candidat, on profite du recul au lieu de rejouer le refus.
+        payload = {
+            "operationName": "publicStoreCollectibleEditionsQuery",
+            "variables": {"id": comic_id},
+            "query": requete_comic(),
+        }
         try:
             r = _session().post(GRAPHQL_URL, json=payload, timeout=REQUEST_TIMEOUT)
             if r.status_code == 200:
@@ -260,6 +324,12 @@ def fetch_comic(comic_id: str) -> Optional[Dict[str, Any]]:
                 if not node:
                     return None
                 return _map_comic(node, comic_id)
+            # 🔴 400/422 = la REQUETE est refusee, pas le comic. Si on portait
+            # encore un pari, c'est lui le suspect : on recule et on REJOUE tout
+            # de suite, sans consommer d'essai ni de temporisation.
+            if r.status_code in (400, 422) and _burn_recule(comic_id,
+                                                            f"HTTP {r.status_code}"):
+                continue
             last_err = f"HTTP {r.status_code}"
         except Exception as e:
             last_err = str(e)
@@ -319,6 +389,9 @@ def _map_comic(n: Dict[str, Any], comic_id: str) -> Dict[str, Any]:
         "withheld_editions": _num(n.get("withheldEditions")),
         "first_available_edition": _num(n.get("firstAvailableEdition")),
         "veve_total_available": _num(n.get("totalAvailable")),
+        # 🔥 Quel que soit le nom qui a fini par passer — ou "" si aucun.
+        "burn_date": next((str(n[c]) for c in BURN_CANDIDATS
+                           if n.get(c) not in (None, "")), ""),
         "veve_comic_name": n.get("name"),
         "veve_enriched_at": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
     }

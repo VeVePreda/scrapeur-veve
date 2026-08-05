@@ -36,6 +36,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scraper import discord_annonce as A          # noqa: E402
 from scraper import discord_api as api            # noqa: E402
 from scraper import discord_drops as dd           # noqa: E402
+from scraper import discord_retour as DR          # noqa: E402
+from scraper import annonce_classement as AC      # noqa: E402
 
 
 # ═══════════════════════════════════════════════════════════ outillage du banc
@@ -687,9 +689,27 @@ def test_avec_une_image_lentete_la_porte(tmp_path, monkeypatch):
 
 # ══════════════════════════════════ 11. LA LECTURE DU SHEET (regles empruntees)
 
-def _ligne(nom, uuid, jour, series_uuid="s1", supply=1000, rarity="RARE"):
+def _ligne(nom, uuid, jour, series_uuid="s1", supply=1000, rarity="RARE",
+           supply_rarete=None, circulation=None, vu_le="", burn_date=""):
+    """Une ligne de 🟢C-COMICS **comme le Sheet en produit vraiment** : DEUX
+    colonnes de tirage, pas une.
+
+    🔴 CE HELPER PORTAIT LE BUG DU 04/08 : il n'ecrivait que `supply_rarete`.
+    Le module lit `supply` pour le tirage de la serie — un banc qui ne pose pas
+    la colonne que le code lit ne teste pas le code, il teste son repli.
+    ⭐⭐ **UN JEU D'ESSAI OU `max`, `sum` ET LA BONNE REPONSE SE CONFONDENT NE
+    DISTINGUE AUCUNE DES TROIS** : par defaut les cinq raretes valaient la meme
+    chose, donc les trois regles rendaient le meme nombre. `supply_rarete=` est
+    la pour pouvoir les DESACCORDER."""
     return {"releaseDate": jour, "series_uuid": series_uuid, "veve_uuid": uuid,
-            "veve_series_name": nom, "rarity": rarity, "supply_rarete": supply,
+            "veve_series_name": nom, "rarity": rarity,
+            "supply": supply,
+            "supply_rarete": supply if supply_rarete is None else supply_rarete,
+            # 🔥 Le tirage MIS EN VENTE. Vide par defaut : c'est l'etat des
+            # ~4 000 comics deja au catalogue, donc le cas qu'il faut que les
+            # bancs voient par defaut, pas le cas confortable.
+            "supply_circulation": "" if circulation is None else circulation,
+            "supply_vu_le": vu_le, "burn_date": burn_date,
             "veve_licensor": "Marvel", "drop_method": "PURCHASE"}
 
 
@@ -751,6 +771,304 @@ def test_le_tirage_dun_comic_nest_pas_une_somme():
         "🔵C-COLLECTIBLE": [],
     })
     assert A.series_du_mois(sh, 2026, 7)[0]["total"] == 1000
+
+
+# ---------------------------------------------------------------------------
+# 🔴 LE TIRAGE DES COMICS — les bancs qui AURAIENT MORDU (05/08/2026, lot 61)
+#
+# Le 1er vrai run a publie « 9 625 vendus sur 6 000 » pour Captain America
+# Comics #1, dont le tirage grave est 10 000. Les 37 bancs du module etaient
+# verts. ⭐⭐ **UN JEU D'ESSAI OU `max`, `sum` ET LA BONNE REPONSE SE CONFONDENT
+# NE TESTE AUCUNE DES TROIS** : toutes les series d'essai avaient des raretes a
+# valeurs EGALES. Ci-dessous, elles sont volontairement DESACCORDEES.
+# ---------------------------------------------------------------------------
+
+# Les cinq raretes de la serie temoin. Choisies pour que les trois regles
+# rendent trois nombres DIFFERENTS :
+#   la bonne reponse (le `supply` comic-level) = 10 000
+#   max(supply_rarete)                          =  6 000   <- l'ancien bug
+#   sum(supply_rarete)                          = 10 900   <- l'autre bug
+RARETES_DESACCORDEES = (6000, 2400, 1500, 800, 200)
+
+# 1 925 mints sur chacune des 5 raretes = 9 625 ventes, le chiffre du vrai run.
+_VENTES_TEMOIN = {f"u{i}": 1925 for i in range(5)}
+
+
+def _serie_temoin(tirage=10000, parts=RARETES_DESACCORDEES):
+    """Captain America Comics #1 : 5 raretes distinctes, un seul tirage."""
+    return [_ligne("Captain America Comics #1", f"u{i}", "2026-07-09",
+                   series_uuid="cap1", supply=tirage, supply_rarete=p,
+                   rarity=r)
+            for i, (p, r) in enumerate(zip(parts, ("COMMON", "UNCOMMON", "RARE",
+                                                   "ULTRA_RARE", "SECRET_RARE")))]
+
+
+def test_le_tirage_dun_comic_nest_ni_le_max_ni_la_somme_de_ses_raretes():
+    """LE BANC QUI MANQUAIT. Avec des raretes DESACCORDEES, les trois regles se
+    separent enfin — et une seule est juste."""
+    sh = FauxSheet({"🟢C-COMICS": _serie_temoin(), "🔵C-COLLECTIBLE": []})
+    d = A.series_du_mois(sh, 2026, 7)[0]
+    assert d["total"] == 10000, "le tirage est le `supply` comic-level"
+    assert d["total"] != max(RARETES_DESACCORDEES), "6 000 = le bug du 04/08"
+    assert d["total"] != sum(RARETES_DESACCORDEES), "10 900 = l'autre bug"
+
+
+def test_les_lignes_gardent_le_supply_PAR_RARETE_pour_laffichage():
+    """⭐ Corriger le total ne doit pas ecraser l'affichage : la carte montre
+    bien la part de chaque rarete. Les deux chiffres coexistent, dans DEUX
+    champs — les faire transiter par le meme est ce qui a cree le bug."""
+    sh = FauxSheet({"🟢C-COMICS": _serie_temoin(), "🔵C-COLLECTIBLE": []})
+    lignes = A.series_du_mois(sh, 2026, 7)[0]["lignes"]
+    assert [l["supply"] for l in lignes] == list(RARETES_DESACCORDEES)
+    assert {l["supply_serie"] for l in lignes} == {10000}
+
+
+def test_le_filtre_sold_out_juge_sur_le_VRAI_tirage():
+    """« 9 625 vendus sur 6 000 » n'etait pas une anomalie de marche, c'etait un
+    DENOMINATEUR FAUX. Sur 10 000, la serie est a 96 % — pas sold out — et elle
+    ne doit donc PAS entrer dans la liste du mois."""
+    sh = FauxSheet({"🟢C-COMICS": _serie_temoin(), "🔵C-COLLECTIBLE": []})
+    classees = A.classer(A.series_du_mois(sh, 2026, 7), _VENTES_TEMOIN)
+    assert not DR.est_epuise(9625, classees[0]["total"]), "9 625 < 10 000"
+    assert DR.est_epuise(9625, max(RARETES_DESACCORDEES)), \
+        "avec l'ancien tirage de 6 000, elle passait sold out A TORT"
+    assert A.retenir(classees) == [], "un comic non sold out n'est pas cite"
+
+
+def test_les_ventes_ne_sont_plus_bornees_par_un_tirage_faux():
+    """Le garde-fou « on ne vend pas plus que le tirage » bornait a 6 000 des
+    ventes reelles de 9 625. ⭐ Un garde-fou pose sur une grandeur fausse ne
+    protege pas : il DETRUIT la mesure juste."""
+    sh = FauxSheet({"🟢C-COMICS": _serie_temoin(), "🔵C-COLLECTIBLE": []})
+    classees = A.classer(A.series_du_mois(sh, 2026, 7), _VENTES_TEMOIN)
+    assert classees[0]["ventes"] == 9625, "9 625 tient dans 10 000 : rien a borner"
+
+
+def test_total_serie_REFUSE_de_deviner_ce_quon_lui_donne():
+    """⭐⭐⭐ LE VRAI LIVRABLE. L'ancienne signature `total_serie(genre,
+    supplies)` acceptait n'importe quelle liste et choisissait sa regle sur le
+    GENRE — sans pouvoir verifier que la liste correspondait. Les deux entrees
+    sont maintenant nommees par leur CONTENU : se tromper leve une erreur au
+    lieu de publier un chiffre faux."""
+    with pytest.raises(ValueError, match="COMIC"):
+        DR.total_serie("comic", supplies_element=[6000, 2400])
+    with pytest.raises(ValueError, match="COLLECTIBLE"):
+        DR.total_serie("collectible", supply_serie=[1000, 1000])
+    with pytest.raises(TypeError):        # plus de liste anonyme en positionnel
+        DR.total_serie("comic", [10000, 10000])
+
+
+def test_un_comic_qui_se_contredit_est_NOMME_pas_tu(capsys):
+    """2 series sur 3 509 portent des tirages divergents (mesure du 05/08 sur
+    l'archive). On ne fait pas echouer l'annonce pour 0,06 % — mais
+    ⭐⭐ *un compteur d'echecs sans identite ne se repare pas, il se contemple* :
+    la serie sort par son NOM."""
+    assert DR.total_serie("comic", supply_serie=[888, 888, 274, 888],
+                          nom="Evermind #4") == 888
+    err = capsys.readouterr().err
+    assert "Evermind #4" in err and "888" in err and "274" in err
+
+
+def test_laffiche_et_le_texte_citent_LE_MEME_tirage(capsys):
+    """🔴 LA CONTRADICTION PUBLIEE : la carte disait SUPPLY 10 000 (colonne de
+    🏆A-CLASSEMENT) pendant que le texte disait « sur 6 000 ». Le tirage calcule
+    fait autorite, et le desaccord s'ECRIT."""
+    fiche = {"uuid": "cap1", "nom": "Captain America Comics #1",
+             "supply": "6 000", "start_year": "1941"}
+    c = AC.carte(fiche, tirage=10000)
+    assert c["supply"] == "10000"
+    err = capsys.readouterr().err
+    assert "Captain America Comics #1" in err and "6000" in err
+
+    # ⚠️ Un ECART DE FORMAT n'est pas un desaccord : « 10 000 » == 10000.
+    c2 = AC.carte({"uuid": "k", "nom": "X", "supply": "10 000"}, tirage=10000)
+    assert c2["supply"] == "10000"
+    assert "discordant" not in capsys.readouterr().err
+
+    # Sans tirage calcule, la colonne du classement reste le repli.
+    assert AC.carte(fiche)["supply"] == "6 000"
+
+
+def test_le_3e_consommateur_du_piege_est_ferme_lui_aussi(monkeypatch):
+    """⚠️ HORS ANNONCE, MAIS MEME PIEGE. `discord_drops.comic_day_a_venir`
+    recevait la MEME expression `supply_rarete or supply` et l'ADDITIONNAIT :
+    3 consommateurs, 3 regles, une seule entree. Le message du Comic Book Day
+    trie par TIRAGE CROISSANT — un tirage faux n'a pas l'air faux, il reordonne
+    juste la liste. On le teste ici parce que c'est la meme cicatrice."""
+    mercredi = "2026-07-08"
+    lignes = [_ligne("Captain America Comics #1", f"u{i}", mercredi,
+                     series_uuid="cap1", supply=10000, supply_rarete=p)
+              for i, p in enumerate(RARETES_DESACCORDEES)]
+    monkeypatch.setattr(dd, "_records", lambda sh, tab: lignes)
+    monkeypatch.setattr(dd, "_fenetre", lambda: ("2026-07-01", "2026-07-31"))
+    _jour, series = dd.comic_day_a_venir(None)
+    assert series[0]["total"] == 10000
+    assert series[0]["total"] != sum(RARETES_DESACCORDEES), "l'ancien `+=`"
+
+
+# ---------------------------------------------------------------------------
+# 🔥 LE DENOMINATEUR — lot 62 (05/08/2026)
+#
+# Preda : « il es sold out ». Il avait raison, et le lot 61 se trompait encore :
+# corriger 6 000 en 10 000 rapprochait du vrai sans l'atteindre. Les chiffres
+# ci-dessous sont RELEVES sur les fiches publiques VeVe le 05/08/2026.
+# ---------------------------------------------------------------------------
+
+def _cap1(circulation=9625, **kw):
+    """Captain America #1 : emis 10 000 · retenues 375 · circulation 9 625
+    · vendues 9 625 -> SOLD OUT. Raretes reelles : 6000/2250/1000/500/250."""
+    parts = (6000, 2250, 1000, 500, 250)
+    return [_ligne("Captain America Comics #1", f"u{i}", "2026-07-09",
+                   series_uuid="cap1", supply=10000, supply_rarete=p,
+                   circulation=circulation, **kw)
+            for i, p in enumerate(parts)]
+
+
+_VENTES_CAP1 = {f"u{i}": v for i, v in enumerate((6000, 2250, 1000, 250, 125))}
+
+
+def test_la_somme_des_raretes_EST_le_tirage_emis():
+    """⚠️ CORRECTION D'UNE ERREUR DE LA FICHE : elle affirmait qu'additionner
+    les cinq `supply_rarete` « ne reconstitue pas le tirage ». C'est FAUX, et
+    releve sur deux fiches VeVe le 05/08 :
+        Captain America #1 : 6000+2250+1000+500+250 = 10 000 = Total Editions
+        Black Panther #3   :  400+ 258+ 200+100+ 42 =  1 000 = Total Editions
+    Seul le `max` etait le bug. On lit quand meme `supply`, qui ne depend pas de
+    la presence des 5 lignes — mais on ne raconte plus que la somme ment."""
+    assert sum((6000, 2250, 1000, 500, 250)) == 10000
+    assert sum((400, 258, 200, 100, 42)) == 1000
+
+
+def test_captain_america_1_EST_sold_out():
+    """LE BANC QUE PREDA A ECRIT A MA PLACE. 9 625 vendues sur 9 625 en
+    circulation : la serie est epuisee et doit etre CITEE."""
+    sh = FauxSheet({"🟢C-COMICS": _cap1(), "🔵C-COLLECTIBLE": []})
+    classees = A.classer(A.series_du_mois(sh, 2026, 7), _VENTES_CAP1)
+    d = classees[0]
+    assert d["ventes"] == 9625 and d["circulation"] == 9625
+    assert A.tirage_en_vente(d) == 9625, "on juge sur ce qui etait EN VENTE"
+    assert A.retenir(classees) == [d], "elle doit entrer dans la liste du mois"
+    assert "**SOLD OUT** 🔥" in A.ligne_sortie(1, d)
+
+
+def test_le_tirage_EMIS_ne_decide_pas_du_sold_out():
+    """⭐⭐⭐ CE QUI EST EMIS N'EST PAS CE QUI EST EN VENTE. Sur les 10 000
+    emises, la meme serie sort a 96 % « pas epuisee » — et la liste du mois
+    perd sa piece maitresse sans que rien ne signale l'absence."""
+    sh = FauxSheet({"🟢C-COMICS": _cap1(), "🔵C-COLLECTIBLE": []})
+    d = A.classer(A.series_du_mois(sh, 2026, 7), _VENTES_CAP1)[0]
+    assert d["total"] == 10000, "le tirage emis reste lisible"
+    assert not DR.est_epuise(d["ventes"], d["total"]), "9 625 < 10 000"
+    assert DR.est_epuise(d["ventes"], A.tirage_en_vente(d)), "9 625 == 9 625"
+
+
+def test_black_panther_3_nest_PAS_sold_out():
+    """Le contre-exemple qui interdit de tout declarer epuise : 901 en
+    circulation, 400 vendues. Raretes reelles 400/258/200/100/42."""
+    lignes = [_ligne("Black Panther #3", f"b{i}", "2026-07-09",
+                     series_uuid="bp3", supply=1000, supply_rarete=p,
+                     circulation=901)
+              for i, p in enumerate((400, 258, 200, 100, 42))]
+    sh = FauxSheet({"🟢C-COMICS": lignes, "🔵C-COLLECTIBLE": []})
+    classees = A.classer(A.series_du_mois(sh, 2026, 7), {"b0": 400})
+    assert A.tirage_en_vente(classees[0]) == 901
+    assert A.retenir(classees) == [], "400 sur 901 : elle n'est pas epuisee"
+
+
+def test_le_nombre_AFFICHE_est_celui_qui_DECIDE():
+    """⭐⭐⭐ Ecrire « sur 10 000 » puis coller « SOLD OUT » a cote de 9 625,
+    c'est publier une soustraction qui ne tombe pas juste sous les yeux du
+    lecteur. Le texte doit citer le denominateur du filtre, pas un autre."""
+    sh = FauxSheet({"🟢C-COMICS": _cap1(), "🔵C-COLLECTIBLE": []})
+    d = A.classer(A.series_du_mois(sh, 2026, 7), _VENTES_CAP1)[0]
+    texte = A.ligne_sortie(1, d)
+    assert "sur 9 625" in texte, texte
+    assert "10 000" not in texte, "le tirage emis n'a rien a faire ici"
+
+    # ⛔ ET LA CARTE DE L'AFFICHE AUSSI. Elle citait `total` : elle aurait dessine
+    # SUPPLY 10 000 a cote d'un texte disant « 9 625 · SOLD OUT ». La meme
+    # contradiction que le 04/08, deplacee d'un cran.
+    from outils.annonce_visuel.rendu import lignes_carte
+    carte = lignes_carte(AC.carte({"uuid": "cap1", "nom": d["nom"]},
+                                  tirage=A.tirage_en_vente(d)))
+    assert "SUPPLY 9 625" in carte
+
+
+def test_sans_circulation_le_repli_est_COMPTE_et_NOMME(capsys):
+    """Les ~4 000 comics deja au catalogue n'ont pas la colonne. Le repli sur le
+    tirage emis est assume — mais il ne se decouvre pas dans un chiffre bizarre.
+    ⭐ Un repli silencieux transforme une colonne vide en verite."""
+    sh = FauxSheet({"🟢C-COMICS": _cap1(circulation=None), "🔵C-COLLECTIBLE": []})
+    classees = A.classer(A.series_du_mois(sh, 2026, 7), _VENTES_CAP1)
+    assert A.tirage_en_vente(classees[0]) == 10000, "repli sur le tirage emis"
+    A.retenir(classees)
+    err = capsys.readouterr().err
+    assert "SANS circulation" in err and "Captain America Comics #1" in err
+    assert "ENRICH_MODE=all" in err, "le log dit COMMENT reparer"
+
+
+def test_une_circulation_mesuree_AVANT_le_feu_est_signalee(capsys, monkeypatch):
+    """⭐⭐ UNE MESURE QUI PERIME DOIT PORTER SA DATE, SINON ELLE NE PERIME PAS —
+    ELLE MENT. A la date de burn, VeVe detruit les retenues et la circulation
+    fond : une valeur lue avant ce jour sur-estime le denominateur."""
+    monkeypatch.setattr(A, "aujourdhui", lambda *a, **k: dt.date(2026, 8, 30))
+    sh = FauxSheet({"🟢C-COMICS": _cap1(vu_le="2026-07-24",
+                                        burn_date="2026-08-23"),
+                    "🔵C-COLLECTIBLE": []})
+    classees = A.classer(A.series_du_mois(sh, 2026, 7), _VENTES_CAP1)
+    assert A.circulation_perimee(classees[0]) is True
+    A.retenir(classees)
+    assert "Captain America Comics #1" in capsys.readouterr().err
+
+    # ⛔ On ne PREJUGE pas : sans l'une des deux dates, aucune peremption.
+    assert A.circulation_perimee({"vu_le": "2026-07-24"}) is False
+    assert A.circulation_perimee({"burn_date": "2026-08-23"}) is False
+    # ⛔ Ni avant le feu : le 20/08, la circulation du 24/07 est encore juste.
+    monkeypatch.setattr(A, "aujourdhui", lambda *a, **k: dt.date(2026, 8, 20))
+    assert A.circulation_perimee(classees[0]) is False
+
+
+def test_lalerte_de_discordance_ne_crie_PAS_sur_le_cas_normal(capsys):
+    """⭐⭐⭐ UN AVERTISSEMENT QUI SE DECLENCHE SUR LE CAS NORMAL N'EST PLUS UN
+    AVERTISSEMENT, C'EST DU BRUIT — et le bruit se lit comme du silence.
+
+    🏆A-CLASSEMENT porte le tirage EMIS (10 000) ; la carte affiche desormais la
+    CIRCULATION (9 625). Les deux different sur tout comic a editions retenues,
+    c'est-a-dire presque tous. Confondre les deux grandeurs faisait crier
+    l'alerte a chaque publication. Attrape au RENDU A BLANC, pas au banc."""
+    fiche = {"uuid": "cap1", "nom": "Captain America Comics #1",
+             "supply": "10 000"}
+    c = AC.carte(fiche, tirage=9625, tirage_emis=10000)
+    assert c["supply"] == "9625", "on AFFICHE la circulation"
+    assert "discordant" not in capsys.readouterr().err, "cas NORMAL : silence"
+
+    # ⛔ Mais une vraie discordance doit toujours sortir, et NOMMEE.
+    AC.carte({"uuid": "k", "nom": "Serie fautive", "supply": "6 000"},
+             tirage=9625, tirage_emis=10000)
+    err = capsys.readouterr().err
+    assert "Serie fautive" in err and "6000" in err
+
+
+def test_le_visuel_et_le_TEXTE_portent_le_meme_nombre():
+    """⭐⭐⭐ LE BANC QUI DECRIT LE SYMPTOME, PAS LA CAUSE — c'est la
+    contradiction VUE dans le visuel du 04/08 qui a leve le lievre, pas une
+    lecture de code. On compare donc les deux chaines FINALES, celle dessinee
+    sur la carte et celle envoyee dans le message. Elles doivent citer le meme
+    tirage, quelles que soient les colonnes qui les alimentent."""
+    from outils.annonce_visuel.rendu import lignes_carte
+
+    sh = FauxSheet({"🟢C-COMICS": _serie_temoin(), "🔵C-COLLECTIBLE": []})
+    d = A.classer(A.series_du_mois(sh, 2026, 7), _VENTES_TEMOIN)[0]
+
+    texte = A.ligne_sortie(1, d)
+    carte = lignes_carte(AC.carte({"uuid": "cap1", "nom": d["nom"],
+                                   "supply": "6 000"}, tirage=d["total"]))
+    dessine = next(l for l in carte if l.startswith("SUPPLY "))
+
+    assert "10 000" in texte, texte
+    assert dessine == "SUPPLY 10 000", dessine
+    assert "6 000" not in texte and "6 000" not in dessine, \
+        "le chiffre de 🏆A-CLASSEMENT ne doit plus apparaitre nulle part"
 
 
 def test_lartwork_est_reconnu_depuis_le_sheet():
