@@ -149,7 +149,24 @@ def main() -> int:
         # change la forme de ses URL) redonnerait exactement le comportement
         # d'avant — silencieusement, et avec des images plausibles. C'est ce
         # chiffre, pas une intuition, qui le dira.
-        print(f"Comic covers matched by veve_uuid: {apparies}/{len(comics)}.", flush=True)
+        #
+        # 🔴🔴 CE TAUX EST BAS PAR NATURE, ET CE N'EST PAS UN DEFAUT A REPARER
+        # (mesure du 06/08/2026, lot 81). `641/16597` = 3,9 % avait ete pris
+        # pour un appariement casse. Il ne l'est pas : `media` ne CONTIENT pas
+        # les couvertures des raretes. Sur 12 series ayant 4 ou 5 couvertures
+        # distinctes ON-CHAIN, l'API en a rendu 0 a 2, et 3 seulement portaient
+        # un uuid de variante ; sur 975 lignes tirees au sort, 3,4 %. Le champ rend surtout des `comic_type_image.
+        # <serie>`, c'est-a-dire l'image de la SERIE.
+        # ⭐⭐⭐ **UN COMPTEUR QUI MESURE UNE SOURCE QUI N'A PAS LA DONNEE
+        # RESSEMBLE A UN BUG ET N'EN EST PAS UN.** Il plafonne, il ne saigne
+        # pas. La donnee, elle, existe : la CHAINE porte 9 065 couvertures de
+        # comics, chacune avec le veve_uuid de sa piece — c'est
+        # `couvertures_chaine` qui les pose, dans `sheets._normalise`.
+        # ⛔ Ne pas relancer de chantier d'appariement sur ce chiffre : le
+        # plancher qui compte est celui du log 🖼️, pas celui-ci.
+        print(f"Comic covers matched by veve_uuid: {apparies}/{len(comics)} "
+              f"(plafond attendu : `media` ne porte pas les couvertures de "
+              f"rarete — la chaine les pose, cf. log 🖼️).", flush=True)
 
     # ---- Seed dynamic history for first-week COLLECTIBLES (comics excluded) ----
     # Dynamic data is COLLECTIBLES-ONLY, tracked as history in 'Données Dynamiques'.

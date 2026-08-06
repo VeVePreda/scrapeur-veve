@@ -8,14 +8,36 @@ CE QUE CE MODULE FAIT, ET RIEN D'AUTRE
 --------------------------------------
 Il lit `data/elements_v3.csv` (colonne `image`, 19e, posee le 03/08/2026) et
 rend, pour un `veve_uuid`, l'adresse du visuel inscrite ON-CHAIN.
-`sheets._normalise` s'en sert pour remplir `image_url` **UNIQUEMENT LA OU IL
-EST VIDE**.
+`sheets._normalise` s'en sert pour remplir `image_url` **LA OU IL EST VIDE, ET
+LA OU IL PORTE PROUVABLEMENT LA COUVERTURE D'UNE AUTRE PIECE** (2e cas ajoute
+le 06/08/2026 — voir juste en dessous).
 
-⛔ IL N'ECRASE JAMAIS RIEN. C'est la difference de nature avec
+⛔ IL N'ECRASE RIEN — SAUF UNE COUVERTURE QUI APPARTIENT PROUVABLEMENT A UNE
+AUTRE PIECE (06/08/2026, lot 81). C'est la difference de nature avec
 `bascule_identite`, qui REMPLACE des valeurs et doit donc etre eteint par
-defaut : ici, une valeur presente reste presente, et le pire cas est « rien ne
-change ». Un interrupteur existe quand meme (`COUVERTURES_CHAINE=0`), mais il
+defaut. Un interrupteur existe quand meme (`COUVERTURES_CHAINE=0`), mais il
 sert a arreter, pas a autoriser.
+
+⭐⭐⭐ POURQUOI CETTE EXCEPTION EXISTE, ET POURQUOI ELLE N'EN EST PAS UNE.
+« Ne remplir que le vide » supposait que ce qui est deja la vient de quelque
+part de mieux. Mesure du 06/08 sur 250 series tirees au sort (975 lignes de rarete) :
+  ·  3,4 % des lignes recoivent, par l'API VeVe, LEUR couverture ;
+  · 32,3 % ont une case vide que la chaine remplit deja (comportement actuel) ;
+  · 23,4 % recoivent une couverture de SERIE (`comic_type_image.<serie>`) ou
+    celle d'une AUTRE rarete ALORS QUE la chaine avait la leur ;
+  ·  4,1 % ont une couverture imprecise et aucun recours — elle reste ;
+  · 36,8 % n'ont rien nulle part — c'est le chantier suivant, pas celui-ci.
+⭐ La bonne couverture passe de 35,7 % a 59,1 % des lignes, soit ~3 881
+fiches corrigees sur les 16 597 comics du catalogue.
+Ces 23,4 % n'etaient pas un vide : `run.py` ecrit `image_url = media[0]` sur
+les 5 lignes de rarete AVANT que ce module ne passe. ⭐⭐ **UN REPLI ECRIT
+AVANT LA SOURCE PRECISE N'EST PAS UN REPLI, C'EST LE GAGNANT.** ~3 881 fiches
+affichent donc la couverture d'une piece voisine — plausible, donc invisible.
+
+⛔ ET LE REMPLACEMENT NE SE FAIT QUE QUAND IL SE PROUVE. On ne compare pas des
+dates ni des qualites : l'URL PORTE le veve_uuid de la piece. On ne remplace
+que si l'adresse en place porte le veve_uuid d'une AUTRE piece et que celle de
+la chaine porte le NOTRE. Une adresse dont on ne sait rien reste en place.
 
 POURQUOI CE MODULE EXISTE (mesure du 03/08/2026)
 ------------------------------------------------
@@ -65,7 +87,8 @@ PREFIXES = ("collectible_type_image.", "comic_cover.", "comic_type_image.")
 
 _MAP: Optional[Dict[str, str]] = None
 _BILAN: Dict[str, int] = {"charge": 0, "vide": 0, "inattendu": 0,
-                          "posees": 0, "deja": 0, "manquantes": 0}
+                          "posees": 0, "deja": 0, "manquantes": 0,
+                          "remplacees": 0}
 
 
 def actif() -> bool:
@@ -135,6 +158,37 @@ def noter(pose: bool) -> None:
     _BILAN["posees" if pose else "deja"] += 1
 
 
+def appartient_a(url: str, uuid) -> bool:
+    """L'adresse porte-t-elle le veve_uuid de CETTE piece ?
+
+    ⭐ La forme est `.../comic_cover.<veve_uuid>.<image>.full.jpeg` : le
+    PREMIER des deux identifiants est celui de la piece, le second est un
+    identifiant d'image imprevisible. On RECONNAIT, on ne fabrique pas."""
+    uid = str(uuid or "").strip().lower()
+    return bool(uid) and uid in str(url or "").lower()
+
+
+def est_une_couverture_de_comic(url: str) -> bool:
+    """⛔ Le remplacement ne concerne QUE les visuels de comics. Un
+    `collectible_type_image` est l'image de la piece elle-meme : il ne porte
+    pas le uuid par convention, et le juger sur cette regle le condamnerait a
+    tort."""
+    u = str(url or "")
+    return u.startswith("http") and (
+        "comic_cover." in u or "comic_type_image." in u)
+
+
+def couverture_d_une_autre_piece(url: str, uuid) -> bool:
+    """L'adresse en place est une couverture de comic, et elle n'est PAS
+    celle de cette piece. ⭐ Les deux conditions comptent : sans la premiere on
+    remplacerait des visuels dont la forme ne nous apprend rien."""
+    return est_une_couverture_de_comic(url) and not appartient_a(url, uuid)
+
+
+def noter_remplacee() -> None:
+    _BILAN["remplacees"] += 1
+
+
 def noter_manquante() -> None:
     _BILAN["manquantes"] += 1
 
@@ -150,6 +204,8 @@ def resume() -> str:
     if not actif():
         return "🖼️ couvertures chaine : ETEINTE (COUVERTURES_CHAINE=0)."
     txt = (f"🖼️ couvertures chaine : {b['posees']} fiche(s) remplie(s), "
+           f"{b['remplacees']} CORRIGEE(S) (elles portaient la couverture "
+           f"d'une autre piece), "
            f"{b['deja']} en avaient deja une, "
            f"{b['manquantes']} SANS COUVERTURE apres passage.")
     if b["manquantes"]:

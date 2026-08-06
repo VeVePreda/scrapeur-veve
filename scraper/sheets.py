@@ -547,13 +547,37 @@ def _normalise(rec: Dict[str, Any]) -> Dict[str, Any]:
     # rattrapage a lancer, aucun script a jouer une fois.
     # ⛔ `or ""` PUIS `.strip()` : une cellule Sheet vide peut revenir en `None`
     # comme en `""`, et une chaine d'espaces n'est pas une adresse.
-    if not str(rec.get("image_url") or "").strip():
-        _img = _cc.image_pour(rec.get("veve_uuid"))
+    # 🔴🔴 ET LA COUVERTURE D'UNE AUTRE PIECE N'EST PAS « UNE COUVERTURE »
+    # (06/08/2026, lot 81). `run.py` pose `image_url = media[0]` sur les CINQ
+    # lignes de rarete d'un comic avant d'arriver ici. La condition « seulement
+    # dans le vide » lisait donc une case pleine et passait son chemin — alors
+    # que la chaine avait, elle, la couverture de CETTE rarete.
+    # ⭐ Mesure du 06/08 sur 250 series tirees au sort (975 lignes) : 3,4 %
+    # des lignes recoivent leur propre couverture par l'API, 23,4 % recoivent
+    # celle d'une voisine EN AYANT la leur sur la chaine — ~3 881 fiches sur
+    # les 16 597 comics. La bonne couverture passe de 35,7 % a 59,1 %. ⛔ On ne remplace que quand les deux moities se prouvent : celle
+    # en place porte le uuid d'une AUTRE piece, celle de la chaine porte le
+    # NOTRE. Sinon on ne touche a rien.
+    _uid = rec.get("veve_uuid")
+    _actuelle = str(rec.get("image_url") or "").strip()
+    if not _actuelle:
+        _img = _cc.image_pour(_uid)
         if _img:
             rec["image_url"] = _img
             _cc.noter(True)
         else:
             _cc.noter_manquante()
+    elif _cc.couverture_d_une_autre_piece(_actuelle, _uid):
+        _img = _cc.image_pour(_uid)
+        if _img and _cc.appartient_a(_img, _uid):
+            rec["image_url"] = _img
+            _cc.noter_remplacee()
+        else:
+            # ⛔ La chaine n'a rien de mieux : on GARDE la couverture de serie.
+            # Une fiche sans image est un trou visible ; une fiche avec la
+            # couverture de la serie est imprecise mais lisible. On degrade,
+            # on ne casse pas.
+            _cc.noter(False)
     else:
         _cc.noter(False)
     # ORDRE IMPORTANT : on recopie les champs bruts AVANT que DROP_COLUMNS ne les

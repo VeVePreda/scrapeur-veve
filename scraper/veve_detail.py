@@ -160,7 +160,9 @@ def _decide_egress() -> None:
         if _egress_checked:
             return
         _egress_checked = True
+        global _egress_promis, _egress_tenu
         px = _proxies()
+        _egress_promis = bool(px)
         if not px:
             _use_proxy = False
             print("Egress: direct connection (no APIFY_PROXY_PASSWORD set).", flush=True)
@@ -175,6 +177,7 @@ def _decide_egress() -> None:
                               proxies=px, timeout=REQUEST_TIMEOUT)
             if r.status_code == 200 and "data" in r.text:
                 _use_proxy = True
+                _egress_tenu = True
                 print("Egress: Apify residential proxy OK.", flush=True)
                 return
             print(f"Egress: proxy returned HTTP {r.status_code}; falling back to DIRECT.", flush=True)
@@ -196,14 +199,120 @@ def _session() -> requests.Session:
         # il rend juste la source invisible a la sentinelle. Un hook de
         # reponse voit TOUTES les requetes de cette session, y compris celles
         # qu'on ajoutera demain sans y penser.
-        s.hooks.setdefault("response", []).append(
-            lambda r, *a, **k: _ss.noter_reponse("veve_graphql", r))
+        s.hooks.setdefault("response", []).append(_noter_reponse_graphql)
         if _use_proxy:
             px = _proxies()
             if px:
                 s.proxies.update(px)
         _thread_local.session = s
     return s
+
+
+# ===========================================================================
+# 🕳️ CE QUE LE CODE HTTP NE DIT PAS (06/08/2026, lot 81)
+# ===========================================================================
+# GraphQL ne se sert PAS du statut HTTP pour dire « je n'ai pas cet objet ».
+# Mesure du 06/08 contre l'API VeVe, les deux cas cote a cote :
+#     identifiant inconnu -> HTTP 200 + errors[] « Entity not found »
+#     champ inexistant    -> HTTP 400 « Invalid request. »
+# Le lot 76 a rendu le SECOND visible. Le premier restait compte comme un
+# succes : `noter_reponse(source, r)` ne regarde que `r.status_code`, et 200
+# vaut « ok ». Un run pouvait donc perdre des items en imprimant
+#     🟢 veve_graphql  7130 requete(s) — RAS
+#
+# ⭐⭐⭐ UN GARDE-FOU QUI LIT LA MAUVAISE COUCHE EST MUET SANS ETRE FAUX. Le
+# compteur disait la verite sur les codes HTTP ; c'est la question qui etait a
+# cote. Le corps, ici, est la seule couche qui porte la reponse.
+#
+# ⛔ LA LECTURE DU CORPS VIT ICI, PAS DANS LA SENTINELLE. Ce module-la ne
+# connait aucun format de reponse et n'importe pas `requests` — c'est ce qui
+# le rend testable hors reseau, et un garde-fou qu'on ne peut pas tester ne
+# protege personne. Lui, il sait deja qu'il parle a du GraphQL.
+def _noter_reponse_graphql(r, *a, **k) -> None:
+    """Hook de reponse : compte le code ET regarde le corps. Ne leve JAMAIS —
+    un hook qui casse ferait tomber la collecte pour un compteur."""
+    absent = False
+    try:
+        if getattr(r, "status_code", None) == 200 and r.content:
+            corps = r.json()
+            # ⭐ `data` a None ET des `errors` : la reponse est arrivee, elle
+            # ne porte pas d'objet. Une reponse PARTIELLE (des donnees et des
+            # erreurs sur un champ) n'est pas une absence : on ne la compte
+            # pas ici, elle a rendu ce qu'on lui demandait.
+            if corps.get("errors"):
+                donnees = corps.get("data") or {}
+                absent = not any(v is not None for v in donnees.values()) \
+                    if isinstance(donnees, dict) else True
+    except Exception:
+        pass                        # corps non-JSON, tronque : on s'en tient au code
+    _ss.noter_reponse("veve_graphql", r, absent=absent)
+    _compter_egress()
+
+
+# ===========================================================================
+# 🛰️ LE CAPTEUR DE SORTIES DIRECTES (06/08/2026, lot 81)
+# ===========================================================================
+# Constat du 05/08 : `Egress: Apify proxy unavailable (ProxyError); falling
+# back to DIRECT connection`, puis 7 130 requetes GraphQL en clair depuis un
+# runner GitHub. Le repli fonctionne — c'est meme sa raison d'etre, un proxy
+# mort ne doit pas faire tomber un run. Ce qui manquait, c'est que PERSONNE
+# n'apprend jamais qu'il s'est declenche : la ligne passe une fois, en tete
+# d'un log de sept mille lignes.
+#
+# ⭐⭐ ON NE SUPPRIME PAS UNE PROTECTION, ON LA REMPLACE PAR UN CAPTEUR. Retirer
+# Apify ne coute aucune ligne (`_decide_egress` gere deja son absence) — mais
+# le retirer AVANT de savoir combien de requetes sortent en clair, c'est
+# echanger une protection contre rien et appeler ca une simplification.
+#
+# ⭐ TROIS ETATS, ET UN SEUL EST GRAVE. « pas de proxy configure » est une
+# DECISION : on sort en direct et on le sait. « proxy configure et vivant »
+# n'appelle rien. « proxy configure, et mort » est le seul cas ou l'on se
+# croit protege sans l'etre — et c'est le seul que ce capteur fait crier.
+_egress_compte = 0
+_egress_promis = False              # un mot de passe Apify etait fourni
+_egress_tenu = False                # ...et le proxy repond
+SEUIL_DIRECT = int(os.environ.get("APIFY_DIRECT_SEUIL", "200"))
+
+
+def _compter_egress() -> None:
+    global _egress_compte
+    if _egress_promis and not _egress_tenu:
+        _egress_compte += 1
+
+
+def bilan_egress() -> str:
+    """La phrase a lire en fin de run. ⭐ Elle s'imprime MEME quand tout va
+    bien : un capteur qui ne parle que dans le drame ne se relit jamais, et on
+    ne sait pas s'il fonctionne le jour ou il se tait."""
+    if not _egress_promis:
+        return ("🛰️ egress : DIRECT assume (aucun APIFY_PROXY_PASSWORD). "
+                "C'est une decision, pas un repli.")
+    if _egress_tenu:
+        return "🛰️ egress : proxy residentiel Apify, comme prevu."
+    return (f"🛰️ egress : ⚠️ PROXY PROMIS, PROXY ABSENT — {_egress_compte} "
+            f"requete(s) sorties EN CLAIR depuis ce runner. "
+            f"APIFY_PROXY_PASSWORD est renseigne mais le proxy ne repond pas.")
+
+
+def _releve_egress() -> None:
+    if not _egress_promis and not _egress_compte:
+        return
+    try:
+        print(bilan_egress(), flush=True)
+        if _egress_promis and not _egress_tenu and _egress_compte >= SEUIL_DIRECT:
+            print(f"::warning title=Sortie en clair::{_egress_compte} requetes "
+                  f"VeVe sont sorties sans proxy alors qu'un proxy est "
+                  f"configure (seuil {SEUIL_DIRECT}). Le secret "
+                  f"APIFY_PROXY_PASSWORD ne protege plus rien : le renouveler, "
+                  f"ou decider de sortir en direct et retirer le secret.",
+                  flush=True)
+    except Exception:
+        pass
+
+
+import atexit as _atexit_egress
+
+_atexit_egress.register(_releve_egress)
 
 
 def _maybe_disable_proxy(exc: Exception) -> None:
@@ -217,6 +326,13 @@ def _maybe_disable_proxy(exc: Exception) -> None:
     name = exc.__class__.__name__
     if _use_proxy and ("Proxy" in name or "Tunnel" in str(exc) or "proxy" in str(exc).lower()):
         _use_proxy = False
+        # ⭐ Le proxy est tombe EN COURS DE ROUTE. Le compteur doit repartir
+        # d'ici : les requetes deja faites etaient bien protegees, celles qui
+        # suivent ne le sont plus. Dire « 7 130 en clair » quand 6 000 sont
+        # passees par le proxy serait une fausse alerte — et une fausse alerte
+        # est le debut d'un garde-fou qu'on desarme.
+        global _egress_tenu
+        _egress_tenu = False
         _thread_local.__dict__.pop("session", None)
         print("Egress: proxy failed mid-run — switching to DIRECT for the rest.", flush=True)
 
