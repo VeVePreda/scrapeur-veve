@@ -18,8 +18,21 @@ on:
 permissions:
   contents: read
 
+# 🔴 LE GROUPE NOMME LA RESSOURCE, PAS LE WORKFLOW (06/08/2026, lot 81).
+# CE QU'IL Y AVAIT ICI : `group: veve-scrape`, et ce groupe n'avait qu'UN seul
+# membre — celui-ci. Un verrou a un seul detenteur ne verrouille rien.
+# Or ce workflow lance `python -m scraper.run`, exactement comme `daily.yml`
+# (`steps=catalogue`, `enrich_mode=all`) : memes onglets froids, meme Sheet,
+# meme quota par minute. Les deux pouvaient donc tourner ensemble.
+# ⭐⭐ UN GROUPE DE CONCURRENCE SE NOMME D'APRES CE QU'IL PROTEGE. `veve-scrape`
+# decrivait l'ACTION de ce fichier ; `veve-daily` decrit la RESSOURCE que se
+# disputent daily, chain-catchup et ce backfill.
+# ❓ QUESTION LAISSEE A PREDA, ET VOLONTAIREMENT PAS TRANCHEE ICI : ce workflow
+#    doit-il encore exister ? `daily.yml` ▸ steps=catalogue, enrich_mode=all
+#    fait la meme chose, avec les memes reglages. Le mettre dans le bon groupe
+#    est sur et reversible ; le supprimer est une decision, pas un correctif.
 concurrency:
-  group: veve-scrape
+  group: veve-daily
   cancel-in-progress: false
 
 jobs:
