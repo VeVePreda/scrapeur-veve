@@ -1,6 +1,5 @@
 {
  "_arbitre_le": "2026-08-05",
- "_par": "Preda — la chaine fait foi (rarity, licensor, edition_type)",
  "_colonnes": [
   "edition_type",
   "kind",
@@ -8,790 +7,807 @@
   "rarity",
   "tirage"
  ],
+ "_gagnant": "Optionnel, par CAS et par COLONNE. Absent => la chaine gagne, comme depuis le 05/08. « sheet » ne s'ecrit qu'avec une mesure a l'appui : le 06/08, VeVe lui-meme a tranche ces cas-la.",
+ "_par": "Preda — la chaine fait foi (rarity, licensor, edition_type)",
  "_pourquoi": "Cas VERIFIES et TRANCHES. Ils ne doivent plus faire de bruit. Toute divergence ABSENTE de cette table est NEUVE (a examiner) ; toute entree qui ne diverge PLUS est un changement chez VeVe (a examiner aussi).",
+ "_verifie_le": "2026-08-06 — 112 cas reposes a l'API VeVe : 26 jugeables, 86 hors de portee (comics, liste blanche).",
  "cas": {
-  "06215653-c578-44d4-a81b-3afff9192652": {
-   "rarity": {
-    "sheet": "COMMON",
-    "chaine": "SECRET_RARE",
-    "nom": "Tiny Jones"
-   }
-  },
-  "342feb0a-481b-428d-b968-6bc82e5e234e": {
-   "rarity": {
-    "sheet": "ULTRA_RARE",
-    "chaine": "SECRET_RARE",
-    "nom": "THEY'RE ALL TERRIBLE Deluxe Edition #1&2 (2025)"
-   }
-  },
-  "4d60205d-7ff5-4628-b27b-6b87aec5dbce": {
-   "rarity": {
-    "sheet": "ULTRA_RARE",
-    "chaine": "SECRET_RARE",
-    "nom": "Florida Man vs Hogzilla #1 (2024)"
-   }
-  },
-  "5ac589d9-ee8c-40a7-84cb-dae681744a3f": {
-   "rarity": {
-    "sheet": "ULTRA_RARE",
-    "chaine": "RARE",
-    "nom": "Warrior Jake"
-   }
-  },
-  "9f3df0f1-0b48-438a-a661-2348b6b08721": {
-   "rarity": {
-    "sheet": "UNCOMMON",
-    "chaine": "SECRET_RARE",
-    "nom": "Swords of Sorrow: Vampirella & Jennifer Blood #4 (2015)"
-   }
-  },
-  "b409ff1e-7859-493d-af23-a66ea2e5a7ef": {
-   "rarity": {
-    "sheet": "SECRET_RARE",
-    "chaine": "ULTRA_RARE",
-    "nom": "Ultimate Warrior Jake"
-   }
-  },
-  "d113b6ab-9645-4942-b74c-d984d016b2b0": {
-   "rarity": {
-    "sheet": "COMMON",
-    "chaine": "SECRET_RARE",
-    "nom": "Tiny Jones Box"
+  "018f1df1-3de8-41ad-9a3a-3ed571a5c9e5": {
+   "edition_type": {
+    "chaine": "CE",
+    "nom": "Sometimes I Think I Don’t Know You Anymore - Special Edition",
+    "sheet": "FE"
    }
   },
   "029e8dd5-1d9f-40fd-ad08-e6afa12c2f18": {
    "licensor": {
-    "sheet": "UNKNOWN",
     "chaine": "Dynamite Entertainment",
-    "nom": "Scar #1 (2024)"
+    "nom": "Scar #1 (2024)",
+    "sheet": "UNKNOWN"
    }
   },
   "04db4ea6-6745-4702-aa24-d16d1ce8fdc4": {
    "licensor": {
-    "sheet": "UNKNOWN",
     "chaine": "Dynamite Entertainment",
-    "nom": "Thundercats Apex #1 (2024)"
+    "nom": "Thundercats Apex #1 (2024)",
+    "sheet": "UNKNOWN"
    }
   },
   "050edbd6-62c2-4925-a105-662d2e60de7e": {
    "licensor": {
-    "sheet": "UNKNOWN",
     "chaine": "American Mythology",
-    "nom": "Captain Action vs Al Capone Vampire #1 (2025)"
+    "nom": "Captain Action vs Al Capone Vampire #1 (2025)",
+    "sheet": "UNKNOWN"
    }
   },
   "05842803-1b24-49f7-a5cc-52a311d35c05": {
    "licensor": {
-    "sheet": "UNKNOWN",
     "chaine": "Dynamite Entertainment",
-    "nom": "Sweetie Candy Vigilante #1 (2022)"
-   }
-  },
-  "0dc4fa46-8976-44de-8bbe-84ecb8ce8f49": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Gargoyles Winter Special #1 (2024)"
-   }
-  },
-  "18414a21-f328-4254-9252-cdd6b4de8016": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Sweetie Candy Vigilante #1 (2022)"
-   }
-  },
-  "21b623e7-8b13-4cb9-8d9e-89a9a4c38501": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Black Terror #1 (2008)"
-   }
-  },
-  "24a7621b-368a-46a9-9f24-1d20cbd4b7ff": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Humanoids",
-    "nom": "Luisa - Now and Then # (2018)"
-   }
-  },
-  "26e88992-ef0f-4669-9dc9-b26cc00f46e1": {
-   "licensor": {
-    "sheet": "Evoke Entertainment",
-    "chaine": "Cartel Entertainment, LLC",
-    "nom": "Creepshow Tombstone - Vol. 2 Issue 3"
-   }
-  },
-  "27ec8aea-eda3-49df-91eb-08378a2be2cc": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Thundercats Apex #1 (2024)"
-   }
-  },
-  "297dcd6c-8c63-4082-86b9-8f5e011bf8dd": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Black Terror #2 (2008)"
-   }
-  },
-  "2ddc8498-fc58-45e2-a546-3c19d66a8987": {
-   "licensor": {
-    "sheet": "Marvel",
-    "chaine": "Star Wars",
-    "nom": "Darth Vader #1 #1 (2015)"
-   }
-  },
-  "2e9d2a29-eec9-461a-ba91-82896a8c0c7d": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Gargoyles Winter Special #1 (2024)"
-   }
-  },
-  "2f78d15b-e185-46e1-ad86-271cbc5c5454": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Sweetie Candy Vigilante Vol 2  #6 (2024)"
-   }
-  },
-  "32f35c11-4cc0-4278-80ab-18d6d32a6199": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Thundercats Apex #1 (2024)"
-   }
-  },
-  "33654768-6fa5-45d9-8619-dbabd5b67976": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Black Terror #1 (2008)"
-   }
-  },
-  "3393361e-3811-4e52-b683-95c3dfd5eba4": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Black Terror #2 (2008)"
-   }
-  },
-  "35583351-b74d-442e-8785-d0db448c5f88": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Sweetie Candy Vigilante Vol 2  #6 (2024)"
-   }
-  },
-  "38bdf296-c5bb-4806-82c8-7c125dd6118b": {
-   "licensor": {
-    "sheet": "Marvel",
-    "chaine": "Star Wars",
-    "nom": "Darth Vader #1 #1 (2015)"
-   }
-  },
-  "3d5f24e6-4db0-4b33-b951-a4f589ce79e7": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "American Mythology",
-    "nom": "The Three Stooges Centennial #1 (2024)"
-   }
-  },
-  "3de223bb-a1f2-4a55-ac99-d64296512107": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Humanoids",
-    "nom": "Barbarella Vol.1: Barbarella #1 (2014)"
-   }
-  },
-  "3e6d30b3-6a2f-41e9-928e-55bb14ceb61d": {
-   "licensor": {
-    "sheet": "Evoke Entertainment",
-    "chaine": "Cartel Entertainment, LLC",
-    "nom": "Creepshow Tombstone - Tales of Suspense and Horror Cover"
-   }
-  },
-  "440e5a0b-f01a-4e77-ad4d-cf03c91c3109": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Humanoids",
-    "nom": "The Metabarons Vol.1 : Othon #1 (2014)"
-   }
-  },
-  "463a8234-ef5a-4e14-856d-70351bc13e88": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Scar #1 (2024)"
-   }
-  },
-  "519a4cd5-2136-44a3-9af1-8b7a14e75236": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Black Terror #1 (2008)"
-   }
-  },
-  "59008093-2aa6-42b5-ae61-732efbd46f83": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Black Terror #1 (2008)"
-   }
-  },
-  "5e220805-fb50-43ef-b219-eeea49b87c46": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Sweetie Candy Vigilante Vol 2  #6 (2024)"
-   }
-  },
-  "604699fe-b184-4374-8502-8447116ccb1d": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Vampirella Helliday 2024 Sp #1 (2024)"
-   }
-  },
-  "627da581-82f1-415e-bd1c-0984ed7529a0": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Vampirella Helliday 2024 Sp #1 (2024)"
-   }
-  },
-  "65365803-e272-4075-a7b5-769965ee8408": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "American Mythology",
-    "nom": "The Three Stooges Centennial #1 (2024)"
-   }
-  },
-  "66908846-7c41-4a49-bf42-1b33195d4cb6": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Gargoyles Winter Special #1 (2024)"
-   }
-  },
-  "6df1e489-c355-49bb-86bd-24b957a1c8ba": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "American Mythology",
-    "nom": "Captain Action vs Al Capone Vampire #1 (2025)"
-   }
-  },
-  "6edbea30-d7a1-485f-9ef1-67ae12e055fc": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Scar #1 (2024)"
-   }
-  },
-  "701ac99b-ebbe-4c19-8094-6ecf0069ec42": {
-   "licensor": {
-    "sheet": "Marvel",
-    "chaine": "Star Wars",
-    "nom": "Darth Vader #1 #1 (2015)"
-   }
-  },
-  "7a286443-c3d7-4baa-b899-40cb97c80cba": {
-   "licensor": {
-    "sheet": "Evoke Entertainment",
-    "chaine": "Cartel Entertainment, LLC",
-    "nom": "Creepshow Tombstone - Vol. 2 Issue 4"
-   }
-  },
-  "7b58b4a4-55ca-4761-8055-d90b4d6cd7de": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "NBM Graphic Novels",
-    "nom": "Michael Jackson in Comics # (2026)"
-   }
-  },
-  "80cbb89b-d0af-4c17-b786-8be7226e8637": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Black Terror #1 (2008)"
-   }
-  },
-  "8153397b-a80b-487b-b42b-9bf5c0751ac7": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Sweetie Candy Vigilante #1 (2022)"
-   }
-  },
-  "8ce1f954-92c3-4f75-b8f7-3f2ed06008d8": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Humanoids",
-    "nom": "Barbarella Vol.2: The Wrath of the Minute-Eater #2 (2015)"
-   }
-  },
-  "8d022ee7-85fc-4944-a564-1f23527a37ad": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Scar #1 (2024)"
-   }
-  },
-  "9461d982-751e-4290-a36c-c8561ffaf28c": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Gargoyles Winter Special #1 (2024)"
-   }
-  },
-  "96a4843e-b70d-4741-834d-e9b2e536b8f6": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Mechanical Cake LLC",
-    "nom": "Modville #1 (2025)"
-   }
-  },
-  "96a9b392-7799-485e-aa53-ce506b353499": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Scar #1 (2024)"
-   }
-  },
-  "a764aa11-6714-4675-bb30-6d69aea3aa17": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Vampirella Helliday 2024 Sp #1 (2024)"
-   }
-  },
-  "a7be5572-bfd6-4777-bfd8-b8ce65ec2421": {
-   "licensor": {
-    "sheet": "Marvel",
-    "chaine": "Star Wars",
-    "nom": "Darth Vader #1 #1 (2015)"
-   }
-  },
-  "a8f71f7b-dbdd-42cd-8e06-991c48287220": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Vampirella Helliday 2024 Sp #1 (2024)"
-   }
-  },
-  "a9207a3a-ce15-4a66-9622-15218cadddc8": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Gargoyles Winter Special #1 (2024)"
-   }
-  },
-  "b00d77fb-055d-4956-8291-6d72dfd2c13f": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Vampirella Helliday 2024 Sp #1 (2024)"
-   }
-  },
-  "b684ddf8-36ff-4a34-be44-7fcba321e9ff": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "American Mythology",
-    "nom": "The Three Stooges Centennial #1 (2024)"
-   }
-  },
-  "b75b3280-4f6d-4d96-abb3-d600f1778ad4": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Humanoids",
-    "nom": "The Incal Vol.2 : The Luminous Incal #2 (2014)"
-   }
-  },
-  "b78505b5-9cdd-414b-b43e-c73a1f6191df": {
-   "licensor": {
-    "sheet": "Evoke Entertainment",
-    "chaine": "Cartel Entertainment, LLC",
-    "nom": "Creepshow Tombstone - Vol. 2 Issue 2"
-   }
-  },
-  "b9641246-c6f3-4b3b-ac7b-ae9d0ee9ed6e": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "American Mythology",
-    "nom": "The Three Stooges Centennial #1 (2024)"
-   }
-  },
-  "b981eda3-27d6-490d-9867-e19af3c08352": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Sweetie Candy Vigilante #1 (2022)"
-   }
-  },
-  "ba082c7c-5cec-48f1-8c62-703c84a7d52d": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Thundercats Apex #1 (2024)"
-   }
-  },
-  "c478cb9e-2ec6-41c5-bce3-dd9caed6764c": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Sweetie Candy Vigilante Vol 2  #6 (2024)"
-   }
-  },
-  "c722104a-015f-49be-a8d6-a0306d5ad17a": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "American Mythology",
-    "nom": "Captain Action vs Al Capone Vampire #1 (2025)"
-   }
-  },
-  "caeaaed6-5710-43f5-941d-6ae174dcd54c": {
-   "licensor": {
-    "sheet": "Marvel",
-    "chaine": "Star Wars",
-    "nom": "Darth Vader #1 #1 (2015)"
-   }
-  },
-  "cd3181ac-f75d-417e-9f45-4b0b02b805f1": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Humanoids",
-    "nom": "Urban Legendz # (2019)"
-   }
-  },
-  "d2c35136-253e-491a-b08f-b8b67c80e6a7": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "American Mythology",
-    "nom": "The Three Stooges Centennial #1 (2024)"
-   }
-  },
-  "d54c78f9-b349-4735-a61b-3f4a7010737d": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Black Terror #2 (2008)"
-   }
-  },
-  "d6dd256b-87fd-4d06-9275-6078a21bde6e": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Powerpuff Girls Winter Snowdown Showdown #1 (2024)"
-   }
-  },
-  "d9c90e56-3022-460f-a6a9-ad3356c5668e": {
-   "licensor": {
-    "sheet": "Evoke Entertainment",
-    "chaine": "Cartel Entertainment, LLC",
-    "nom": "Creepshow Graveyard"
-   }
-  },
-  "dc489466-69f0-4c40-b868-4b7037d172d5": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Powerpuff Girls Winter Snowdown Showdown #1 (2024)"
-   }
-  },
-  "deb53080-40fe-4821-8f1f-d597208ebff5": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Black Terror #2 (2008)"
-   }
-  },
-  "e20b7e70-9e9e-4827-bca4-e593db8a9e76": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Sweetie Candy Vigilante Vol 2  #6 (2024)"
-   }
-  },
-  "e220f96c-3802-406a-818a-190c31461491": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Powerpuff Girls Winter Snowdown Showdown #1 (2024)"
-   }
-  },
-  "e6172dfb-b40f-42a8-8738-146d5af8c199": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Black Terror #2 (2008)"
-   }
-  },
-  "e9edd543-1f59-44ff-a7ea-3467d8541ad8": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Humanoids",
-    "nom": "Urban Legendz # (2019)"
-   }
-  },
-  "ee047d57-731f-46e8-8a0d-98262df19304": {
-   "licensor": {
-    "sheet": "Evoke Entertainment",
-    "chaine": "Cartel Entertainment, LLC",
-    "nom": "Creepshow Tombstone - Vol. 2 Issue 1"
-   }
-  },
-  "f38c1466-b7e3-4631-b27b-7765db04c7ba": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Powerpuff Girls Winter Snowdown Showdown #1 (2024)"
-   }
-  },
-  "f6123786-0fc4-4448-87e4-4771e44f4947": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Sweetie Candy Vigilante #1 (2022)"
-   }
-  },
-  "f80f9704-a622-4158-9f04-50806a550510": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Powerpuff Girls Winter Snowdown Showdown #1 (2024)"
-   }
-  },
-  "f98ced8f-8aa8-4732-adb0-b69ecff4f4ce": {
-   "licensor": {
-    "sheet": "Evoke Entertainment",
-    "chaine": "Cartel Entertainment, LLC",
-    "nom": "Creepshow Tombstone - Vol. 2 Issue 5"
-   }
-  },
-  "fc46c9a7-61e8-44db-9f97-2eaed021a651": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Dynamite Entertainment",
-    "nom": "Thundercats Apex #1 (2024)"
-   }
-  },
-  "ff17998c-9852-4568-8b21-48131996e70f": {
-   "licensor": {
-    "sheet": "UNKNOWN",
-    "chaine": "Humanoids",
-    "nom": "Luisa - Now and Then # (2018)"
-   }
-  },
-  "018f1df1-3de8-41ad-9a3a-3ed571a5c9e5": {
-   "edition_type": {
-    "sheet": "FE",
-    "chaine": "CE",
-    "nom": "Sometimes I Think I Don’t Know You Anymore - Special Edition"
+    "nom": "Sweetie Candy Vigilante #1 (2022)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "06215653-c578-44d4-a81b-3afff9192652": {
+   "rarity": {
+    "chaine": "SECRET_RARE",
+    "nom": "Tiny Jones",
+    "sheet": "COMMON"
    }
   },
   "0bfea192-fed9-4d19-8bb3-07e8b03e2af8": {
    "edition_type": {
-    "sheet": "131",
     "chaine": "12",
-    "nom": "Uncanny X-Men #131 (2013)"
+    "nom": "Uncanny X-Men #131 (2013)",
+    "sheet": "131"
+   }
+  },
+  "0dc4fa46-8976-44de-8bbe-84ecb8ce8f49": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Gargoyles Winter Special #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "18414a21-f328-4254-9252-cdd6b4de8016": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Sweetie Candy Vigilante #1 (2022)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "21b623e7-8b13-4cb9-8d9e-89a9a4c38501": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Black Terror #1 (2008)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "24a7621b-368a-46a9-9f24-1d20cbd4b7ff": {
+   "licensor": {
+    "chaine": "Humanoids",
+    "nom": "Luisa - Now and Then # (2018)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "26e88992-ef0f-4669-9dc9-b26cc00f46e1": {
+   "licensor": {
+    "chaine": "Cartel Entertainment, LLC",
+    "gagnant": "sheet",
+    "nom": "Creepshow Tombstone - Vol. 2 Issue 3",
+    "pourquoi": "VeVe interroge en direct le 06/08/2026 rend « Evoke Entertainment » — la chaine grave le licencie AU MINT, VeVe affiche celui d'aujourd'hui. Les deux sont vraies. On prend l'ETAT parce que le catalogue publiait 7 lignes « Cartel » et 6 « Evoke » pour la MEME franchise Creepshow : un referentiel qui GROUPE a besoin d'UN nom.",
+    "sheet": "Evoke Entertainment"
+   }
+  },
+  "27ec8aea-eda3-49df-91eb-08378a2be2cc": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Thundercats Apex #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "297dcd6c-8c63-4082-86b9-8f5e011bf8dd": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Black Terror #2 (2008)",
+    "sheet": "UNKNOWN"
    }
   },
   "2a576f3c-561a-4a5c-89ea-9863944ee329": {
    "edition_type": {
-    "sheet": "FE",
     "chaine": "CE",
-    "nom": "The Public Image (5 of 7)"
+    "nom": "The Public Image (5 of 7)",
+    "sheet": "FE"
+   }
+  },
+  "2ddc8498-fc58-45e2-a546-3c19d66a8987": {
+   "licensor": {
+    "chaine": "Star Wars",
+    "nom": "Darth Vader #1 #1 (2015)",
+    "sheet": "Marvel"
+   }
+  },
+  "2e9d2a29-eec9-461a-ba91-82896a8c0c7d": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Gargoyles Winter Special #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "2f78d15b-e185-46e1-ad86-271cbc5c5454": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Sweetie Candy Vigilante Vol 2  #6 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "32f35c11-4cc0-4278-80ab-18d6d32a6199": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Thundercats Apex #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "33654768-6fa5-45d9-8619-dbabd5b67976": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Black Terror #1 (2008)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "3393361e-3811-4e52-b683-95c3dfd5eba4": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Black Terror #2 (2008)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "342feb0a-481b-428d-b968-6bc82e5e234e": {
+   "rarity": {
+    "chaine": "SECRET_RARE",
+    "nom": "THEY'RE ALL TERRIBLE Deluxe Edition #1&2 (2025)",
+    "sheet": "ULTRA_RARE"
+   }
+  },
+  "35583351-b74d-442e-8785-d0db448c5f88": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Sweetie Candy Vigilante Vol 2  #6 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "38bdf296-c5bb-4806-82c8-7c125dd6118b": {
+   "licensor": {
+    "chaine": "Star Wars",
+    "nom": "Darth Vader #1 #1 (2015)",
+    "sheet": "Marvel"
    }
   },
   "394f690e-922b-4813-96b1-c532d1ca055e": {
    "edition_type": {
-    "sheet": "#4",
     "chaine": "3",
-    "nom": "Fallen Son The Death of Captain America #3 - Vibranium Varia"
+    "nom": "Fallen Son The Death of Captain America #3 - Vibranium Varia",
+    "sheet": "#4"
+   }
+  },
+  "3d5f24e6-4db0-4b33-b951-a4f589ce79e7": {
+   "licensor": {
+    "chaine": "American Mythology",
+    "nom": "The Three Stooges Centennial #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "3de223bb-a1f2-4a55-ac99-d64296512107": {
+   "licensor": {
+    "chaine": "Humanoids",
+    "nom": "Barbarella Vol.1: Barbarella #1 (2014)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "3e6d30b3-6a2f-41e9-928e-55bb14ceb61d": {
+   "licensor": {
+    "chaine": "Cartel Entertainment, LLC",
+    "gagnant": "sheet",
+    "nom": "Creepshow Tombstone - Tales of Suspense and Horror Cover",
+    "pourquoi": "VeVe interroge en direct le 06/08/2026 rend « Evoke Entertainment » — la chaine grave le licencie AU MINT, VeVe affiche celui d'aujourd'hui. Les deux sont vraies. On prend l'ETAT parce que le catalogue publiait 7 lignes « Cartel » et 6 « Evoke » pour la MEME franchise Creepshow : un referentiel qui GROUPE a besoin d'UN nom.",
+    "sheet": "Evoke Entertainment"
    }
   },
   "4090ddac-2348-47da-ab31-8da31dfa2a61": {
    "edition_type": {
-    "sheet": "131",
     "chaine": "12",
-    "nom": "Uncanny X-Men #131 (2013)"
+    "nom": "Uncanny X-Men #131 (2013)",
+    "sheet": "131"
    }
   },
   "431c6749-4010-45c0-9af3-8bb0caa5f31c": {
    "edition_type": {
-    "sheet": "FE",
     "chaine": "CE",
-    "nom": "Taking it Back (7 of 7)"
+    "nom": "Taking it Back (7 of 7)",
+    "sheet": "FE"
+   }
+  },
+  "440e5a0b-f01a-4e77-ad4d-cf03c91c3109": {
+   "licensor": {
+    "chaine": "Humanoids",
+    "nom": "The Metabarons Vol.1 : Othon #1 (2014)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "463a8234-ef5a-4e14-856d-70351bc13e88": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Scar #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "4d60205d-7ff5-4628-b27b-6b87aec5dbce": {
+   "rarity": {
+    "chaine": "SECRET_RARE",
+    "nom": "Florida Man vs Hogzilla #1 (2024)",
+    "sheet": "ULTRA_RARE"
    }
   },
   "510a7cb7-bb97-4631-a71d-3fe3fe24a049": {
    "edition_type": {
-    "sheet": "FE",
     "chaine": "CE",
-    "nom": "Evermind #1 - Page #1 (Full Art)"
+    "nom": "Evermind #1 - Page #1 (Full Art)",
+    "sheet": "FE"
+   }
+  },
+  "519a4cd5-2136-44a3-9af1-8b7a14e75236": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Black Terror #1 (2008)",
+    "sheet": "UNKNOWN"
    }
   },
   "54041dac-0f3e-4afa-b165-6f3164be9604": {
    "edition_type": {
-    "sheet": "1",
     "chaine": "2",
-    "nom": "Sonja Reborn #1 (2025)"
+    "nom": "Sonja Reborn #1 (2025)",
+    "sheet": "1"
    }
   },
   "54573866-273b-4e71-9434-191bc756e42f": {
    "edition_type": {
-    "sheet": "FE",
     "chaine": "CE",
-    "nom": "The Laboratory - Special Edition"
+    "nom": "The Laboratory - Special Edition",
+    "sheet": "FE"
    }
   },
   "5823f72d-8b7f-4e94-bad6-117fc67760fb": {
    "edition_type": {
-    "sheet": "FE",
     "chaine": "CE",
-    "nom": "Taking it Back - Special Edition"
+    "nom": "Taking it Back - Special Edition",
+    "sheet": "FE"
    }
   },
   "58d2a9af-b491-43ca-8fbc-964ba2c1e282": {
    "edition_type": {
-    "sheet": "FE",
     "chaine": "CE",
-    "nom": "A Dissident Enters (2 of 7)"
+    "nom": "A Dissident Enters (2 of 7)",
+    "sheet": "FE"
+   }
+  },
+  "59008093-2aa6-42b5-ae61-732efbd46f83": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Black Terror #1 (2008)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "5ac589d9-ee8c-40a7-84cb-dae681744a3f": {
+   "rarity": {
+    "chaine": "RARE",
+    "nom": "Warrior Jake",
+    "sheet": "ULTRA_RARE"
+   }
+  },
+  "5e220805-fb50-43ef-b219-eeea49b87c46": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Sweetie Candy Vigilante Vol 2  #6 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "604699fe-b184-4374-8502-8447116ccb1d": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Vampirella Helliday 2024 Sp #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "627da581-82f1-415e-bd1c-0984ed7529a0": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Vampirella Helliday 2024 Sp #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "65365803-e272-4075-a7b5-769965ee8408": {
+   "licensor": {
+    "chaine": "American Mythology",
+    "nom": "The Three Stooges Centennial #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "66908846-7c41-4a49-bf42-1b33195d4cb6": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Gargoyles Winter Special #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "6df1e489-c355-49bb-86bd-24b957a1c8ba": {
+   "licensor": {
+    "chaine": "American Mythology",
+    "nom": "Captain Action vs Al Capone Vampire #1 (2025)",
+    "sheet": "UNKNOWN"
    }
   },
   "6e8b13a5-8644-4b48-8c89-a6e3b96493f3": {
    "edition_type": {
-    "sheet": "FE",
     "chaine": "CE",
-    "nom": "The Public Image - Special Edition"
+    "nom": "The Public Image - Special Edition",
+    "sheet": "FE"
+   }
+  },
+  "6edbea30-d7a1-485f-9ef1-67ae12e055fc": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Scar #1 (2024)",
+    "sheet": "UNKNOWN"
    }
   },
   "6ff2a9b0-7617-43de-b266-4b08e120ee3d": {
    "edition_type": {
-    "sheet": "131",
     "chaine": "12",
-    "nom": "Uncanny X-Men #131 (2013)"
+    "nom": "Uncanny X-Men #131 (2013)",
+    "sheet": "131"
+   }
+  },
+  "701ac99b-ebbe-4c19-8094-6ecf0069ec42": {
+   "licensor": {
+    "chaine": "Star Wars",
+    "nom": "Darth Vader #1 #1 (2015)",
+    "sheet": "Marvel"
+   }
+  },
+  "7a286443-c3d7-4baa-b899-40cb97c80cba": {
+   "licensor": {
+    "chaine": "Cartel Entertainment, LLC",
+    "gagnant": "sheet",
+    "nom": "Creepshow Tombstone - Vol. 2 Issue 4",
+    "pourquoi": "VeVe interroge en direct le 06/08/2026 rend « Evoke Entertainment » — la chaine grave le licencie AU MINT, VeVe affiche celui d'aujourd'hui. Les deux sont vraies. On prend l'ETAT parce que le catalogue publiait 7 lignes « Cartel » et 6 « Evoke » pour la MEME franchise Creepshow : un referentiel qui GROUPE a besoin d'UN nom.",
+    "sheet": "Evoke Entertainment"
+   }
+  },
+  "7b58b4a4-55ca-4761-8055-d90b4d6cd7de": {
+   "licensor": {
+    "chaine": "NBM Graphic Novels",
+    "nom": "Michael Jackson in Comics # (2026)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "80cbb89b-d0af-4c17-b786-8be7226e8637": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Black Terror #1 (2008)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "8153397b-a80b-487b-b42b-9bf5c0751ac7": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Sweetie Candy Vigilante #1 (2022)",
+    "sheet": "UNKNOWN"
    }
   },
   "84875157-0adc-41d2-b565-4b8b689759d0": {
    "edition_type": {
-    "sheet": "1",
     "chaine": "2",
-    "nom": "Sonja Reborn #1 (2025)"
+    "nom": "Sonja Reborn #1 (2025)",
+    "sheet": "1"
    }
   },
   "8c8416ab-c092-4aec-ace1-d90f90fe4de6": {
    "edition_type": {
-    "sheet": "FE",
     "chaine": "CE",
-    "nom": "The Laboratory (1 of 7)"
+    "nom": "The Laboratory (1 of 7)",
+    "sheet": "FE"
+   }
+  },
+  "8ce1f954-92c3-4f75-b8f7-3f2ed06008d8": {
+   "licensor": {
+    "chaine": "Humanoids",
+    "nom": "Barbarella Vol.2: The Wrath of the Minute-Eater #2 (2015)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "8d022ee7-85fc-4944-a564-1f23527a37ad": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Scar #1 (2024)",
+    "sheet": "UNKNOWN"
    }
   },
   "8e829534-7a99-47a2-8791-fb440fb157b2": {
    "edition_type": {
-    "sheet": "131",
     "chaine": "12",
-    "nom": "Uncanny X-Men #131 (2013)"
+    "nom": "Uncanny X-Men #131 (2013)",
+    "sheet": "131"
+   }
+  },
+  "9461d982-751e-4290-a36c-c8561ffaf28c": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Gargoyles Winter Special #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "96a4843e-b70d-4741-834d-e9b2e536b8f6": {
+   "licensor": {
+    "chaine": "Mechanical Cake LLC",
+    "nom": "Modville #1 (2025)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "96a9b392-7799-485e-aa53-ce506b353499": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Scar #1 (2024)",
+    "sheet": "UNKNOWN"
    }
   },
   "98e505b6-1749-430a-b404-60cbff09177a": {
    "edition_type": {
-    "sheet": "1",
     "chaine": "2",
-    "nom": "Sonja Reborn #1 (2025)"
+    "nom": "Sonja Reborn #1 (2025)",
+    "sheet": "1"
    }
   },
   "9b13a2a7-1a35-4fa4-9fdc-79ed218f6e0f": {
    "edition_type": {
-    "sheet": "#4",
     "chaine": "3",
-    "nom": "Fallen Son The Death of Captain America #3 - True Believer V"
+    "nom": "Fallen Son The Death of Captain America #3 - True Believer V",
+    "sheet": "#4"
+   }
+  },
+  "9f3df0f1-0b48-438a-a661-2348b6b08721": {
+   "rarity": {
+    "chaine": "SECRET_RARE",
+    "nom": "Swords of Sorrow: Vampirella & Jennifer Blood #4 (2015)",
+    "sheet": "UNCOMMON"
    }
   },
   "a41b032c-1fa3-4973-b2d7-d2d3a49f1120": {
    "edition_type": {
-    "sheet": "FE",
     "chaine": "CE",
-    "nom": "Don’t You Think That’s a Little Obvious? (4 of 7)"
+    "nom": "Don’t You Think That’s a Little Obvious? (4 of 7)",
+    "sheet": "FE"
+   }
+  },
+  "a764aa11-6714-4675-bb30-6d69aea3aa17": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Vampirella Helliday 2024 Sp #1 (2024)",
+    "sheet": "UNKNOWN"
    }
   },
   "a78ed376-d38b-4579-ac3b-19e7c02e8ef3": {
    "edition_type": {
-    "sheet": "FE",
     "chaine": "CE",
-    "nom": "A Dissident Enters - Special Edition"
+    "nom": "A Dissident Enters - Special Edition",
+    "sheet": "FE"
+   }
+  },
+  "a7be5572-bfd6-4777-bfd8-b8ce65ec2421": {
+   "licensor": {
+    "chaine": "Star Wars",
+    "nom": "Darth Vader #1 #1 (2015)",
+    "sheet": "Marvel"
    }
   },
   "a7d50b35-0de1-4ceb-b051-079a58bbab22": {
    "edition_type": {
-    "sheet": "FE",
     "chaine": "CE",
-    "nom": "Don’t You Think That’s a Little Obvious? - Special Edition"
+    "nom": "Don’t You Think That’s a Little Obvious? - Special Edition",
+    "sheet": "FE"
+   }
+  },
+  "a8f71f7b-dbdd-42cd-8e06-991c48287220": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Vampirella Helliday 2024 Sp #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "a9207a3a-ce15-4a66-9622-15218cadddc8": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Gargoyles Winter Special #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "b00d77fb-055d-4956-8291-6d72dfd2c13f": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Vampirella Helliday 2024 Sp #1 (2024)",
+    "sheet": "UNKNOWN"
    }
   },
   "b1fa8615-9731-48ba-a76e-c5dffbd723ba": {
    "edition_type": {
-    "sheet": "131",
     "chaine": "12",
-    "nom": "Uncanny X-Men #131 (2013)"
+    "nom": "Uncanny X-Men #131 (2013)",
+    "sheet": "131"
+   }
+  },
+  "b409ff1e-7859-493d-af23-a66ea2e5a7ef": {
+   "rarity": {
+    "chaine": "ULTRA_RARE",
+    "nom": "Ultimate Warrior Jake",
+    "sheet": "SECRET_RARE"
+   }
+  },
+  "b684ddf8-36ff-4a34-be44-7fcba321e9ff": {
+   "licensor": {
+    "chaine": "American Mythology",
+    "nom": "The Three Stooges Centennial #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "b75b3280-4f6d-4d96-abb3-d600f1778ad4": {
+   "licensor": {
+    "chaine": "Humanoids",
+    "nom": "The Incal Vol.2 : The Luminous Incal #2 (2014)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "b78505b5-9cdd-414b-b43e-c73a1f6191df": {
+   "licensor": {
+    "chaine": "Cartel Entertainment, LLC",
+    "gagnant": "sheet",
+    "nom": "Creepshow Tombstone - Vol. 2 Issue 2",
+    "pourquoi": "VeVe interroge en direct le 06/08/2026 rend « Evoke Entertainment » — la chaine grave le licencie AU MINT, VeVe affiche celui d'aujourd'hui. Les deux sont vraies. On prend l'ETAT parce que le catalogue publiait 7 lignes « Cartel » et 6 « Evoke » pour la MEME franchise Creepshow : un referentiel qui GROUPE a besoin d'UN nom.",
+    "sheet": "Evoke Entertainment"
+   }
+  },
+  "b9641246-c6f3-4b3b-ac7b-ae9d0ee9ed6e": {
+   "licensor": {
+    "chaine": "American Mythology",
+    "nom": "The Three Stooges Centennial #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "b981eda3-27d6-490d-9867-e19af3c08352": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Sweetie Candy Vigilante #1 (2022)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "ba082c7c-5cec-48f1-8c62-703c84a7d52d": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Thundercats Apex #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "c478cb9e-2ec6-41c5-bce3-dd9caed6764c": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Sweetie Candy Vigilante Vol 2  #6 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "c722104a-015f-49be-a8d6-a0306d5ad17a": {
+   "licensor": {
+    "chaine": "American Mythology",
+    "nom": "Captain Action vs Al Capone Vampire #1 (2025)",
+    "sheet": "UNKNOWN"
    }
   },
   "c870a186-3178-42eb-8154-306249a0537e": {
    "edition_type": {
-    "sheet": "1",
     "chaine": "2",
-    "nom": "Sonja Reborn #1 (2025)"
+    "nom": "Sonja Reborn #1 (2025)",
+    "sheet": "1"
+   }
+  },
+  "caeaaed6-5710-43f5-941d-6ae174dcd54c": {
+   "licensor": {
+    "chaine": "Star Wars",
+    "nom": "Darth Vader #1 #1 (2015)",
+    "sheet": "Marvel"
    }
   },
   "ccb90fa8-21ba-4e74-8d6e-4d99c15d0086": {
    "edition_type": {
-    "sheet": "#4",
     "chaine": "3",
-    "nom": "Fallen Son The Death of Captain America #3 - Vintage Variant"
+    "nom": "Fallen Son The Death of Captain America #3 - Vintage Variant",
+    "sheet": "#4"
+   }
+  },
+  "cd3181ac-f75d-417e-9f45-4b0b02b805f1": {
+   "licensor": {
+    "chaine": "Humanoids",
+    "nom": "Urban Legendz # (2019)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "d113b6ab-9645-4942-b74c-d984d016b2b0": {
+   "rarity": {
+    "chaine": "SECRET_RARE",
+    "nom": "Tiny Jones Box",
+    "sheet": "COMMON"
+   }
+  },
+  "d2c35136-253e-491a-b08f-b8b67c80e6a7": {
+   "licensor": {
+    "chaine": "American Mythology",
+    "nom": "The Three Stooges Centennial #1 (2024)",
+    "sheet": "UNKNOWN"
    }
   },
   "d53c566f-9420-4e83-ae25-ffd0de738c96": {
    "edition_type": {
-    "sheet": "1",
     "chaine": "2",
-    "nom": "Sonja Reborn #1 (2025)"
+    "nom": "Sonja Reborn #1 (2025)",
+    "sheet": "1"
+   }
+  },
+  "d54c78f9-b349-4735-a61b-3f4a7010737d": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Black Terror #2 (2008)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "d6dd256b-87fd-4d06-9275-6078a21bde6e": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Powerpuff Girls Winter Snowdown Showdown #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "d9c90e56-3022-460f-a6a9-ad3356c5668e": {
+   "licensor": {
+    "chaine": "Cartel Entertainment, LLC",
+    "gagnant": "sheet",
+    "nom": "Creepshow Graveyard",
+    "pourquoi": "VeVe interroge en direct le 06/08/2026 rend « Evoke Entertainment » — la chaine grave le licencie AU MINT, VeVe affiche celui d'aujourd'hui. Les deux sont vraies. On prend l'ETAT parce que le catalogue publiait 7 lignes « Cartel » et 6 « Evoke » pour la MEME franchise Creepshow : un referentiel qui GROUPE a besoin d'UN nom.",
+    "sheet": "Evoke Entertainment"
+   }
+  },
+  "dc489466-69f0-4c40-b868-4b7037d172d5": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Powerpuff Girls Winter Snowdown Showdown #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "deb53080-40fe-4821-8f1f-d597208ebff5": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Black Terror #2 (2008)",
+    "sheet": "UNKNOWN"
    }
   },
   "dfe57b87-b523-412b-89db-1edd7861f2a7": {
    "edition_type": {
-    "sheet": "FE",
     "chaine": "CE",
-    "nom": "Don’t Use Me as a Prop! - Special Edition"
+    "nom": "Don’t Use Me as a Prop! - Special Edition",
+    "sheet": "FE"
+   }
+  },
+  "e20b7e70-9e9e-4827-bca4-e593db8a9e76": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Sweetie Candy Vigilante Vol 2  #6 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "e220f96c-3802-406a-818a-190c31461491": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Powerpuff Girls Winter Snowdown Showdown #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "e6172dfb-b40f-42a8-8738-146d5af8c199": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Black Terror #2 (2008)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "e9edd543-1f59-44ff-a7ea-3467d8541ad8": {
+   "licensor": {
+    "chaine": "Humanoids",
+    "nom": "Urban Legendz # (2019)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "ee047d57-731f-46e8-8a0d-98262df19304": {
+   "licensor": {
+    "chaine": "Cartel Entertainment, LLC",
+    "gagnant": "sheet",
+    "nom": "Creepshow Tombstone - Vol. 2 Issue 1",
+    "pourquoi": "VeVe interroge en direct le 06/08/2026 rend « Evoke Entertainment » — la chaine grave le licencie AU MINT, VeVe affiche celui d'aujourd'hui. Les deux sont vraies. On prend l'ETAT parce que le catalogue publiait 7 lignes « Cartel » et 6 « Evoke » pour la MEME franchise Creepshow : un referentiel qui GROUPE a besoin d'UN nom.",
+    "sheet": "Evoke Entertainment"
    }
   },
   "ee2cc7c4-19c2-4b7f-818c-ed5e3c2d8713": {
    "edition_type": {
-    "sheet": "FE",
     "chaine": "CE",
-    "nom": "Don’t Use Me as a Prop! (6 of 7)"
+    "nom": "Don’t Use Me as a Prop! (6 of 7)",
+    "sheet": "FE"
    }
   },
   "f176461f-ca3b-4e02-8a94-e13f2cb9d893": {
    "edition_type": {
-    "sheet": "#4",
     "chaine": "3",
-    "nom": "Fallen Son The Death of Captain America #3 - Classic Cover"
+    "nom": "Fallen Son The Death of Captain America #3 - Classic Cover",
+    "sheet": "#4"
    }
   },
   "f17e70d7-d051-402f-93f4-f8a18390ff73": {
    "edition_type": {
-    "sheet": "#4",
     "chaine": "3",
-    "nom": "Fallen Son The Death of Captain America #3 - Hero Variant"
+    "nom": "Fallen Son The Death of Captain America #3 - Hero Variant",
+    "sheet": "#4"
+   }
+  },
+  "f38c1466-b7e3-4631-b27b-7765db04c7ba": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Powerpuff Girls Winter Snowdown Showdown #1 (2024)",
+    "sheet": "UNKNOWN"
    }
   },
   "f55262b2-53a9-4ee9-b55c-c8635a3ae308": {
    "edition_type": {
-    "sheet": "FE",
     "chaine": "CE",
-    "nom": "Sometimes I Think I Don’t Know You Anymore (3 of 7)"
+    "nom": "Sometimes I Think I Don’t Know You Anymore (3 of 7)",
+    "sheet": "FE"
+   }
+  },
+  "f6123786-0fc4-4448-87e4-4771e44f4947": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Sweetie Candy Vigilante #1 (2022)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "f80f9704-a622-4158-9f04-50806a550510": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Powerpuff Girls Winter Snowdown Showdown #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "f98ced8f-8aa8-4732-adb0-b69ecff4f4ce": {
+   "licensor": {
+    "chaine": "Cartel Entertainment, LLC",
+    "gagnant": "sheet",
+    "nom": "Creepshow Tombstone - Vol. 2 Issue 5",
+    "pourquoi": "VeVe interroge en direct le 06/08/2026 rend « Evoke Entertainment » — la chaine grave le licencie AU MINT, VeVe affiche celui d'aujourd'hui. Les deux sont vraies. On prend l'ETAT parce que le catalogue publiait 7 lignes « Cartel » et 6 « Evoke » pour la MEME franchise Creepshow : un referentiel qui GROUPE a besoin d'UN nom.",
+    "sheet": "Evoke Entertainment"
+   }
+  },
+  "fc46c9a7-61e8-44db-9f97-2eaed021a651": {
+   "licensor": {
+    "chaine": "Dynamite Entertainment",
+    "nom": "Thundercats Apex #1 (2024)",
+    "sheet": "UNKNOWN"
+   }
+  },
+  "ff17998c-9852-4568-8b21-48131996e70f": {
+   "licensor": {
+    "chaine": "Humanoids",
+    "nom": "Luisa - Now and Then # (2018)",
+    "sheet": "UNKNOWN"
    }
   }
  }

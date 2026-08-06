@@ -364,8 +364,17 @@ def appliquer_identite(items: list, chaine: dict, *, autorise: bool = False,
     except Exception as exc:                          # noqa: BLE001
         print(f"divergences : rapport indisponible ({exc}) — export poursuivi.")
 
+    # ⭐ UNE SEULE LECTURE, AU-DESSUS DE LA BOUCLE. La charger dans la boucle
+    # relirait le fichier 19 327 fois — et un cout invisible finit par etre
+    # paye par quelqu'un.
+    _arbitrage = ID.charger_arbitrees()
+
     for i in items:
-        i.update(ID.fusionner(i, chaine.get(i["uuid"])))
+        # ⭐ L'arbitrage est NOMINATIF (uuid + colonne). `charger_arbitrees`
+        # rend {} si le fichier manque : la chaine gagne alors partout, comme
+        # avant ce lot. Un arbitrage absent ne doit rien changer.
+        i.update(ID.fusionner(i, chaine.get(i["uuid"]),
+                              arbitrage=_arbitrage.get(i["uuid"])))
     apres = {i["uuid"]: i for i in items}
     print(ID.rapport(avant, apres))
     ID.verifier_churn(avant, apres,

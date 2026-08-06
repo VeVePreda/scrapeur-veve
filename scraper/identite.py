@@ -186,13 +186,16 @@ def libelle_affichage(nom_canonique: str, nom_sheet: str) -> str:
 
 def fusionner(sheet: Dict[str, object],
               chaine: Optional[Dict[str, object]] = None,
-              *, adopter_serie: bool = True) -> Dict[str, str]:
+              *, adopter_serie: bool = True,
+              arbitrage: Optional[Dict[str, dict]] = None) -> Dict[str, str]:
     """Une ligne Sheet (+ sa ligne chaine si connue) -> l'identite canonique.
 
     REGLES, dans l'ordre :
       * la chaine gagne sur les 7 colonnes d'identite, MAIS une valeur chaine
         VIDE ne remplace jamais une valeur Sheet existante (un trou on-chain ne
         doit pas effacer ce qu'on sait deja) ;
+      * ⭐ SAUF pour un cas NOMMEMENT arbitre en sens inverse (`arbitrage`) —
+        voir « LA CHAINE DIT L'HISTOIRE, VEVE DIT L'ETAT » plus bas ;
       * `series` suit la meme regle mais derriere son propre interrupteur :
         c'est la colonne qui deplace les ADRESSES des sites ;
       * `name_display` conserve la variante de couverture du Sheet ;
@@ -203,6 +206,15 @@ def fusionner(sheet: Dict[str, object],
     out: Dict[str, str] = {}
 
     def choisir(col: str, src_chaine: str) -> str:
+        # ⭐ L'EXCEPTION SE LIT AVANT LA REGLE, et elle est NOMINATIVE : elle ne
+        # vaut que pour un uuid et une colonne precis, jamais pour une famille.
+        # ⛔ Tout ce qui n'est pas nomme retombe sur « la chaine gagne » — un
+        # arbitrage absent, illisible ou muet ne change RIEN.
+        cas = (arbitrage or {}).get(col) or {}
+        if cas.get("gagnant") == "sheet":
+            v_sh = nettoyer(sheet.get(col))
+            if v_sh:
+                return v_sh
         v_ch = nettoyer(chaine.get(src_chaine))
         return v_ch if v_ch else nettoyer(sheet.get(col))
 
@@ -363,6 +375,51 @@ def verifier_churn(avant: Dict[str, Dict[str, str]],
 # — c'est le PLAFOND DE CHURN qui les surveille, pas une liste.
 # ⭐⭐ UN GARDE-FOU DE CAS CONNUS NE FONCTIONNE QUE LA OU LES CAS SONT RARES :
 # ailleurs, la liste devient la donnee.
+#
+# ===========================================================================
+# ⭐⭐⭐ LA CHAINE DIT L'HISTOIRE, VEVE DIT L'ETAT (mesure du 06/08/2026)
+# ===========================================================================
+# L'intuition ecrite plus haut — « droppe en SECRET_RARE, VeVe a corrige en
+# COMMON » — etait une HYPOTHESE. Elle est desormais MESUREE : les 112 cas
+# arbitres ont ete reposes a VeVe lui-meme, en direct.
+#
+#   ⛔ 86 sur 112 sont HORS DE PORTEE : ce sont des comics, et la liste
+#      blanche refuse `rarity`, `licensor` et `editionType` sur
+#      `publicComicType` (HTTP 400 sur les trois formulations essayees).
+#      Pour eux il n'existe AUCUN tiers : le tracker EST le cote Sheet.
+#   Sur les 26 restants :
+#      edition_type  15/15  la chaine dit comme VeVe        -> arbitrage juste
+#      rarity         2/4   ... et 2 fois VeVe dit comme le Sheet
+#      licensor       0/7   VeVe dit comme le SHEET, jamais comme la chaine
+#
+# ⭐⭐ CE N'EST PAS « L'ARBITRAGE ETAIT FAUX ». Les deux valeurs sont vraies a
+# des moments differents : la chaine grave le licencie AU MINT, VeVe affiche
+# celui d'AUJOURD'HUI. Choisir la chaine, c'est choisir l'histoire — un choix
+# legitime, et c'est celui du 05/08.
+#
+# 🔴 MAIS IL A UNE CONSEQUENCE QUE PERSONNE N'AVAIT MESUREE, ET ELLE SE VOIT
+# SUR LE SITE : le catalogue publie du 05/08 porte **7 lignes
+# « Cartel Entertainment, LLC » ET 6 lignes « Evoke Entertainment » pour la
+# MEME franchise Creepshow**. La licence a change de mains en cours de serie,
+# la chaine a donc raison LIGNE PAR LIGNE — et le catalogue se contredit.
+# ⭐⭐⭐ **UNE REGLE VRAIE APPLIQUEE LIGNE PAR LIGNE PEUT PRODUIRE UN ENSEMBLE
+# FAUX.** Un referentiel qui GROUPE (page licencie, filtre, classement) a
+# besoin d'UN nom par franchise, pas du nom exact de chaque mint.
+#
+# D'ou `gagnant` dans la table : l'arbitrage cesse d'etre une regle de COLONNE
+# pour devenir une decision de CAS. Il n'y a rien a inventer par defaut —
+# absent, la chaine gagne comme avant.
+#
+# ⛔ CE QU'ON NE TOUCHE PAS, ET POURQUOI :
+#   · les 62 cas ou le Sheet dit `UNKNOWN` — ce n'est pas une divergence,
+#     c'est un TROU. N'importe quelle valeur bat `UNKNOWN`.
+#   · les 5 « Marvel » (Sheet) vs « Star Wars » (chaine) — la chaine est ici
+#     COHERENTE avec 316 autres lignes du catalogue, et « editeur » contre
+#     « franchise » est une difference de DEFINITION.
+#     ⭐⭐ UN ARBITRAGE DE VERACITE NE TRANCHE PAS UNE DIFFERENCE DE DEFINITION
+#     (deja ecrit pour `veve_series_name`, vrai ici aussi).
+#   · les 7 cas de `rarity` — la chronologie y est la BONNE lecture, et
+#     l'ecart ne casse aucun regroupement.
 
 DIVERGENCES_ARBITREES = os.environ.get("DIVERGENCES_ARBITREES",
                                        "data/divergences_arbitrees.json")
