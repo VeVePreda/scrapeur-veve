@@ -100,10 +100,10 @@ jobs:
       - name: "Alerte Discord si echec"
         if: ${{ failure() }}
         env:
-          HOOK: ${{ secrets.DISCORD_RETOUR_WEBHOOK }}
+          HOOK: ${{ secrets.DISCORD_ALERTE_TECH_WEBHOOK }}
         run: |
           if [ -z "$HOOK" ]; then
-            echo "⚠️ DISCORD_RETOUR_WEBHOOK absent — pas d'alerte envoyee."
+            echo "⚠️ DISCORD_ALERTE_TECH_WEBHOOK absent — pas d'alerte envoyee."
             exit 0
           fi
           URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
