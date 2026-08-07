@@ -1,0 +1,871 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# MANIFESTE DES SENTINELLES — v2 (07/08/2026) · lot SENTINELLE-01
+#
+# 🔴🔴 CE FICHIER EST UNE **DECLARATION**, PAS UN SCAN. Une sentinelle qui
+# balaierait les workflows existants ne verrait jamais celui qui a disparu, ni
+# celui qui n'a jamais tourne.
+#   ⭐⭐⭐ « zero parce que c'est casse » et « zero parce qu'il n'y a rien »
+#   se ressemblent sur le disque et sont l'inverse.
+#
+# ✅ PERIMETRE CLOS LE 07/08 — 53 EST DESORMAIS UN TOTAL, PLUS UN PLANCHER.
+#    Preda a ouvert l'onglet Actions de `Predabot`, `veveid`,
+#    `VeVePreda/VeVeWiki` et `VeVePreda/arena` : les quatre sont VIDES.
+#    ⭐ Ce n'est pas mon miroir `github/` qui l'a dit — ses copies avaient
+#    3 semaines a 3 mois et n'auraient prouve que leur propre age.
+#
+# ⭐⭐⭐ CE QUI EST VALIDE ET CE QUI NE L'EST PAS NE SE MELANGE PAS :
+#    `valide_critique: true`  = Preda a dit oui (les 8 du 07/08).
+#    `valide_fenetre: false`  = PERSONNE n'a valide les heures. Un « ok » sur
+#    la criticite ne vaut pas approbation des fenetres, et laisser les deux
+#    sous un seul drapeau ferait passer l'un pour l'autre.
+#
+# 🔴🔴 CHAMP `preuve` — MESURE DU 07/08 : **12 des 25 workflows a cron ne
+#    committent QUE s'il y a un diff** (`git diff --cached --quiet && exit 0`).
+#    Sans changement ils ne laissent AUCUNE trace d'ecriture. Une sentinelle
+#    branchee sur les dates d'ecriture les declarerait morts alors qu'ils vont
+#    bien — et CINQ d'entre eux sont critiques. ⭐⭐⭐ DE FAUSSES ALERTES SUR LES
+#    LIGNES CRITIQUES SONT PIRES QUE PAS D'ALERTE : elles apprennent a ignorer
+#    exactement ce qu'il fallait lire.
+#      preuve: ecriture  -> on regarde la date d'ecriture de `ecrit`
+#      preuve: run       -> on regarde le dernier run REUSSI (API Actions)
+#    ⚠️ `preuve: run` est le maillon FAIBLE : `success()` dit « le run a-t-il
+#       fini », pas « le travail a-t-il avance ». A remplacer a terme par un
+#       battement de coeur ecrit a chaque tour, diff ou pas.
+#
+# ⭐⭐⭐ `depend_de` — L'AGE NE SUFFIT PAS, L'ORDRE COMPTE. `ledger-writer`
+#    (jeu 22:00, scrapeur-veve) consomme `analytics` (mer 06:00, **jetonveve**).
+#    `workflow_run` ne franchit pas la frontiere d'un depot : le jeudi il part
+#    quand meme et ecrit du perime, avec un run VERT. Regle appliquee :
+#    date(consommateur) > date(producteur).
+#    ⏳ Correctif NON OBSERVABLE avant le 12/08 (cron mercredi) : « depose »
+#       n'est pas « prouve ».
+#
+# ➡️ LA SENTINELLE ANNONCE CHAQUE JOUR COMBIEN D'ENTREES NE SONT PAS VALIDEES.
+#    Un manifeste a moitie rempli qui ne le dit pas est pire qu'un vide.
+# ⭐⭐ ET ELLE POSTE AUSSI QUAND TOUT VA BIEN : morte, elle est silencieuse,
+#    ce qui est indistinguable de « tout va bien ».
+#
+# ⚠️ `ecrit: []` ne veut pas dire « n'ecrit rien » mais « le YAML ne le dit
+#    pas » (l'ecriture se fait dans le code Python) — 4 entrees.
+# ═══════════════════════════════════════════════════════════════════════════
+
+workflows:
+- depot: astronema
+  fichier: catalogue-chain-sweep.yml
+  nom: Catalogue chaine — balayage profond (auto-relance jusqu'a la genese)
+  cadence: manuel
+  ecrit:
+  - release:catalogue-chain
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: astronema
+  fichier: medium-archive.yml
+  nom: Archive Medium (veve-collectibles)
+  cadence: manuel
+  ecrit:
+  - git:data/medium_index.csv
+  - git:data/medium_pieces.csv
+  - git:data/medium_corpus.jsonl
+  - git:2>/dev/null
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: astronema
+  fichier: wallet-scan.yml
+  nom: Wallet registry deep scan
+  cadence: manuel
+  ecrit:
+  - release:--clobber
+  - release:chain-archive
+  - git:data/wallet_registry_deep.csv
+  - git:data/wallet_scan_state.json
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: jetonveve
+  fichier: aggregator-probe.yml
+  nom: Probe agrégateur (webhooks source)
+  cadence: manuel
+  ecrit: []
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: jetonveve
+  fichier: alertes-audit.yml
+  nom: Audit des alertes
+  cadence: manuel
+  ecrit: []
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: jetonveve
+  fichier: analytics.yml
+  nom: analytics-derived
+  cadence: 0 6 * * 3
+  ecrit:
+  - release:analytics-derived-prev
+  - release:analytics-derived
+  - release:transfers-full
+  - discord
+  alerte_echec: oui
+  fenetre_h: 216
+  critique: true
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  pourquoi_critique: les derives de l'entrepot — la panne du 24/07 est partie de la
+  valide_critique: true
+  valide_fenetre: false
+  preuve: ecriture
+- depot: jetonveve
+  fichier: archive-medias.yml
+  nom: Archive — médias de la veille
+  cadence: manuel
+  ecrit:
+  - git:data/archive_medias_faits.txt
+  - git:2>/dev/null
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: jetonveve
+  fichier: archive-salons.yml
+  nom: Archive des salons (messages + médias)
+  cadence: manuel
+  ecrit: []
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: jetonveve
+  fichier: base.yml
+  nom: Base locale (veve.duckdb)
+  cadence: manuel
+  ecrit:
+  - release:base-locale
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: jetonveve
+  fichier: burns.yml
+  nom: Burns OMI - StackR (quotidien)
+  cadence: 31 0 * * *
+  ecrit:
+  - git:data/burns_daily.csv
+  - git:data/burns_split_daily.csv
+  - git:data/burns_state.json
+  - sheet
+  alerte_echec: non
+  fenetre_h: 36
+  critique: false
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  valide_critique: true
+  valide_fenetre: false
+  preuve: run
+  pourquoi_preuve: 'ne committe QUE s''il y a un diff : sans changement il ne laisse AUCUNE trace d''ecriture, et un sain passerait pour mort'
+- depot: jetonveve
+  fichier: classement.yml
+  nom: Page Classement des series comics
+  cadence: 21 5 * * *
+  ecrit:
+  - sheet
+  alerte_echec: non
+  fenetre_h: 36
+  critique: false
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  valide_critique: true
+  valide_fenetre: false
+  preuve: ecriture
+- depot: jetonveve
+  fichier: floor-watch.yml
+  nom: Alertes sous-floor
+  cadence: 3 * * * *
+  ecrit:
+  - release:etat-floor-watch
+  - git:data/hprix_feed.csv
+  alerte_echec: non
+  fenetre_h: 6
+  critique: true
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  pourquoi_critique: les alertes floor — LE produit depuis que le floor a quitte le public
+  depend_de:
+  - scrapeur-veve/floors.yml
+  valide_critique: true
+  valide_fenetre: false
+  preuve: run
+  pourquoi_preuve: 'ne committe QUE s''il y a un diff : sans changement il ne laisse AUCUNE trace d''ecriture, et un sain passerait pour mort'
+- depot: jetonveve
+  fichier: gochain-probe.yml
+  nom: Sonde GoChain (ere d'avant IMX)
+  cadence: manuel
+  ecrit: []
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: jetonveve
+  fichier: gochain.yml
+  nom: GoChain - ere d'avant IMX (2020 -> migration)
+  cadence: manuel
+  ecrit:
+  - git:data/gochain_wallets.csv
+  - git:data/gochain_daily.csv
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: jetonveve
+  fichier: ledger-writer.yml
+  nom: Analytics - ledger writer (entrepot)
+  cadence: manuel
+  ecrit:
+  - release:ledger-data
+  - sheet
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: jetonveve
+  fichier: merge-transfers.yml
+  nom: Fusion transferts (IMX + CollectChain, un fichier)
+  cadence: manuel
+  ecrit:
+  - release:transfers-full-prev
+  - release:transfers-full
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: jetonveve
+  fichier: merge-wallets.yml
+  nom: Fusion wallets (first_seen definitif, 3 eres)
+  cadence: manuel
+  ecrit:
+  - release:wallets-full-prev
+  - release:wallets-full
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: jetonveve
+  fichier: price-history.yml
+  nom: price-history
+  cadence: 11 7 * * *
+  ecrit:
+  - release:prices-full-prev
+  - release:prices-full
+  - git:data/prices/ph_done.txt
+  - git:data/prices/id_map.json
+  - git:2>/dev/null
+  alerte_echec: non
+  fenetre_h: 36
+  critique: true
+  source_fenetre: propose-2026-08-07
+  source_critique: 'juge-2026-08-07 (Preda: « a toi de juger »)'
+  depend_de:
+  - scrapeur-veve/catalogue-export.yml
+  pourquoi_critique: 'le lot 104 VEND l''historique (3J/7J/30J/90J/Max) : un trou = une promesse payante rompue ; et son cron n''est qu''un FILET (declencheur normal = `catalogue-pret`, inter-depot) — seule
+    une sentinelle d''absence voit les DEUX chemins tomber'
+  valide_critique: false
+  valide_fenetre: false
+  preuve: run
+  pourquoi_preuve: 'ne committe QUE s''il y a un diff : sans changement il ne laisse AUCUNE trace d''ecriture, et un sain passerait pour mort'
+- depot: jetonveve
+  fichier: raccord.yml
+  nom: Raccord classement -> series_uuid
+  cadence: manuel
+  ecrit:
+  - sheet
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: jetonveve
+  fichier: supply-backfill.yml
+  nom: Backfill supply / gems / MCP / cover exclusive
+  cadence: manuel
+  ecrit:
+  - sheet
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: paolo
+  fichier: holders-scan.yml
+  nom: Holders snapshot (etat actuel via /instances)
+  cadence: manuel
+  ecrit:
+  - release:holders-snapshot
+  - git:data/holders_scan_state.json
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: paolo
+  fichier: imx-scan.yml
+  nom: IMX registry deep scan
+  cadence: manuel
+  ecrit:
+  - release:imx-archive
+  - git:data/wallet_registry_imx.csv
+  - git:data/imx_scan_state.json
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: paolo
+  fichier: veve-tx-backfill.yml
+  nom: VeVe transactions — BACKFILL
+  cadence: manuel
+  ecrit:
+  - git:data/veve_tx_daily.csv
+  - git:data/veve_tx_state.json
+  - git:2>/dev/null
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: scrapeur-veve
+  fichier: archive.yml
+  nom: Archive des salons
+  cadence: manuel
+  ecrit:
+  - git:data/archive_*.jsonl
+  - git:data/archive_*_state.json
+  - git:2>/dev/null
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: scrapeur-veve
+  fichier: blog.yml
+  nom: VeVe blog sync
+  cadence: 0 2 * * *
+  ecrit:
+  - sheet
+  alerte_echec: non
+  fenetre_h: 36
+  critique: false
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  valide_critique: true
+  valide_fenetre: false
+  preuve: ecriture
+- depot: scrapeur-veve
+  fichier: catalogue-export.yml
+  nom: catalogue-export
+  cadence: 41 6 * * *
+  ecrit:
+  - release:catalogue-prev
+  - release:catalogue
+  - sheet
+  alerte_echec: non
+  fenetre_h: 36
+  critique: true
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  pourquoi_critique: le catalogue, ET le declencheur `catalogue-pret` de price-history
+  valide_critique: true
+  valide_fenetre: false
+  preuve: ecriture
+- depot: scrapeur-veve
+  fichier: chain-backfill.yml
+  nom: CollectChain backfill (manual)
+  cadence: manuel
+  ecrit:
+  - release:chain-archive-daily
+  - sheet
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: scrapeur-veve
+  fichier: chain-catchup.yml
+  nom: Rattrapage chain (journee PT complete)
+  cadence: 30 7 * * *
+  ecrit:
+  - release:chain-archive-daily
+  - git:data/wallet_registry_daily.csv
+  - sheet
+  alerte_echec: non
+  fenetre_h: 36
+  critique: false
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  valide_critique: true
+  valide_fenetre: false
+  preuve: run
+  pourquoi_preuve: 'ne committe QUE s''il y a un diff : sans changement il ne laisse AUCUNE trace d''ecriture, et un sain passerait pour mort'
+- depot: scrapeur-veve
+  fichier: comic-prices.yml
+  nom: Comic store prices (daily)
+  cadence: 40 0 * * *
+  ecrit:
+  - sheet
+  alerte_echec: non
+  fenetre_h: 36
+  critique: false
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  valide_critique: true
+  valide_fenetre: false
+  preuve: ecriture
+- depot: scrapeur-veve
+  fichier: daily.yml
+  nom: VeVe daily sync (catalogue + chain + pseudos)
+  cadence: 15 2 * * *
+  ecrit:
+  - release:chain-archive-daily
+  - git:data/enrichissement.csv
+  - git:data/wallet_registry_daily.csv
+  - git:data/stackr_sales.csv
+  - git:data/elements.csv
+  alerte_echec: non
+  fenetre_h: 36
+  critique: true
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  pourquoi_critique: le Sheet = l'interface ; son silence gele ce que Preda voit
+  valide_critique: true
+  valide_fenetre: false
+  preuve: run
+  pourquoi_preuve: 'ne committe QUE s''il y a un diff : sans changement il ne laisse AUCUNE trace d''ecriture, et un sain passerait pour mort'
+- depot: scrapeur-veve
+  fichier: discord.yml
+  nom: Hub Discord
+  cadence: 45 7 * * *
+  ecrit:
+  - sheet
+  - discord
+  alerte_echec: non
+  fenetre_h: 36
+  critique: false
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  valide_critique: true
+  valide_fenetre: false
+  preuve: run
+  pourquoi_preuve: 'ne committe QUE s''il y a un diff : sans changement il ne laisse AUCUNE trace d''ecriture, et un sain passerait pour mort'
+- depot: scrapeur-veve
+  fichier: editions-weekly.yml
+  nom: Compteurs d'editions VeVe (HEBDO)
+  cadence: 0 4 * * 0
+  ecrit:
+  - sheet
+  alerte_echec: non
+  fenetre_h: 216
+  critique: false
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  valide_critique: true
+  valide_fenetre: false
+  preuve: ecriture
+- depot: scrapeur-veve
+  fichier: elements-v2-silence.yml
+  nom: Pont elements v2 (double en silence)
+  cadence: manuel
+  ecrit:
+  - sheet
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: scrapeur-veve
+  fichier: elements-v3-moisson.yml
+  nom: Pont elements v3 (catalogue depuis la chaine — moisson silence)
+  cadence: 30 3 * * *
+  ecrit:
+  - release:elements-v3
+  alerte_echec: non
+  fenetre_h: 36
+  critique: false
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  valide_critique: true
+  valide_fenetre: false
+  preuve: ecriture
+- depot: scrapeur-veve
+  fichier: enrich-backfill.yml
+  nom: VeVe enrichment backfill (manual)
+  cadence: manuel
+  ecrit:
+  - sheet
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: scrapeur-veve
+  fichier: enrich-seed.yml
+  nom: Seed cache enrichissement (une fois)
+  cadence: manuel
+  ecrit:
+  - git:data/enrichissement.csv
+  - sheet
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: scrapeur-veve
+  fichier: floors.yml
+  nom: VeVe floors sync (collectibles)
+  cadence: 10 1 * * *
+  ecrit:
+  - sheet
+  alerte_echec: non
+  fenetre_h: 36
+  critique: true
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  pourquoi_critique: 'la source des floors : muette, floor-watch tourne sur du vieux SANS crier'
+  valide_critique: true
+  valide_fenetre: false
+  preuve: ecriture
+- depot: scrapeur-veve
+  fichier: hprix-bridge.yml
+  nom: Pont veille -> H-PRIX (ingest)
+  cadence: 50 3,6,9,12,15,18,21 * * *
+  ecrit:
+  - git:data/hprix_watermark.txt
+  - sheet
+  alerte_echec: non
+  fenetre_h: 8
+  critique: true
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  pourquoi_critique: le pont prix, 7x/jour — alimente l'historique et les extremes
+  valide_critique: true
+  valide_fenetre: false
+  preuve: run
+  pourquoi_preuve: 'ne committe QUE s''il y a un diff : sans changement il ne laisse AUCUNE trace d''ecriture, et un sain passerait pour mort'
+- depot: scrapeur-veve
+  fichier: ledger-writer.yml
+  nom: Analytics - ledger writer (entrepot)
+  cadence: 0 22 * * 4
+  ecrit:
+  - release:ledger-data
+  - sheet
+  - discord
+  alerte_echec: oui
+  fenetre_h: 216
+  critique: true
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  pourquoi_critique: 'le grand livre : gele 15 jours sans un seul run rouge'
+  depend_de:
+  - jetonveve/analytics.yml
+  valide_critique: true
+  valide_fenetre: false
+  preuve: ecriture
+- depot: scrapeur-veve
+  fichier: ledger.yml
+  nom: Analytics - grand livre (holdings)
+  cadence: manuel
+  ecrit:
+  - release:ledger-data
+  - sheet
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: scrapeur-veve
+  fichier: logos.yml
+  nom: VeVe brand logos sync
+  cadence: 30 1 * * *
+  ecrit:
+  - sheet
+  alerte_echec: non
+  fenetre_h: 36
+  critique: false
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  valide_critique: true
+  valide_fenetre: false
+  preuve: ecriture
+- depot: scrapeur-veve
+  fichier: market-universe.yml
+  nom: Univers de marche (elements ayant un marche)
+  cadence: 40 1 * * *
+  ecrit:
+  - sheet
+  alerte_echec: non
+  fenetre_h: 36
+  critique: false
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  valide_critique: true
+  valide_fenetre: false
+  preuve: ecriture
+- depot: scrapeur-veve
+  fichier: medium-vers-blog.yml
+  nom: Medium -> 📝C-BLOG (verser l'archive)
+  cadence: manuel
+  ecrit:
+  - sheet
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: scrapeur-veve
+  fichier: merge-transfers.yml
+  nom: Fusion transferts (IMX + CollectChain, un fichier)
+  cadence: manuel
+  ecrit:
+  - release:transfers-full
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: scrapeur-veve
+  fichier: pseudos-stackr.yml
+  nom: Pseudos StackR (pseudo <-> wallet)
+  cadence: 40 5 * * 1
+  ecrit:
+  - sheet
+  alerte_echec: non
+  fenetre_h: 216
+  critique: false
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  valide_critique: true
+  valide_fenetre: false
+  preuve: ecriture
+- depot: scrapeur-veve
+  fichier: repare-atl-ath.yml
+  nom: Reparation des colonnes chiffrees (a la main)
+  cadence: manuel
+  ecrit:
+  - sheet
+  alerte_echec: non
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: scrapeur-veve
+  fichier: tracked-export.yml
+  nom: Export comptes suivis (pont whale/team)
+  cadence: 35 * * * *
+  ecrit:
+  - git:data/tracked_accounts.csv
+  - sheet
+  alerte_echec: non
+  fenetre_h: 6
+  critique: false
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  valide_critique: true
+  valide_fenetre: false
+  preuve: run
+  pourquoi_preuve: 'ne committe QUE s''il y a un diff : sans changement il ne laisse AUCUNE trace d''ecriture, et un sain passerait pour mort'
+- depot: scrapeur-veve
+  fichier: veve-tx.yml
+  nom: VeVe transactions (flux public)
+  cadence: 50 1 * * *
+  ecrit:
+  - git:data/veve_tx_daily.csv
+  - sheet
+  alerte_echec: non
+  fenetre_h: 36
+  critique: false
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  valide_critique: true
+  valide_fenetre: false
+  preuve: run
+  pourquoi_preuve: 'ne committe QUE s''il y a un diff : sans changement il ne laisse AUCUNE trace d''ecriture, et un sain passerait pour mort'
+- depot: veve-sites
+  fichier: audit-seo.yml
+  nom: Audit SEO (nocturne)
+  cadence: 40 2 * * *
+  ecrit:
+  - discord
+  alerte_echec: oui
+  fenetre_h: 36
+  critique: false
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  valide_critique: true
+  valide_fenetre: false
+  preuve: ecriture
+- depot: veve-sites
+  fichier: freeze-slugs.yml
+  nom: Geler les adresses des fiches
+  cadence: 23 6 * * 0
+  ecrit:
+  - git:sites/
+  - discord
+  alerte_echec: oui
+  fenetre_h: 216
+  critique: false
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  valide_critique: true
+  valide_fenetre: false
+  preuve: run
+  pourquoi_preuve: 'ne committe QUE s''il y a un diff : sans changement il ne laisse AUCUNE trace d''ecriture, et un sain passerait pour mort'
+- depot: veve-sites
+  fichier: rebuild-daily.yml
+  nom: Reconstruction quotidienne
+  cadence: 41 7 * * *
+  ecrit:
+  - git:engine/data/lastmod.veveprice.json
+  - git:engine/data/indexnow_veveprice.json
+  - discord
+  alerte_echec: oui
+  fenetre_h: 36
+  critique: true
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  pourquoi_critique: 'le site public : muet, veveprice sert indefiniment la veille'
+  depend_de:
+  - scrapeur-veve/catalogue-export.yml
+  valide_critique: true
+  valide_fenetre: false
+  preuve: run
+  pourquoi_preuve: 'ne committe QUE s''il y a un diff : sans changement il ne laisse AUCUNE trace d''ecriture, et un sain passerait pour mort'
+- depot: veve-sites
+  fichier: tests.yml
+  nom: Bancs (npm test)
+  cadence: manuel
+  ecrit:
+  - discord
+  alerte_echec: oui
+  fenetre_h: null
+  critique: false
+  source_fenetre: sans objet
+  source_critique: sans objet — manuel, alerte d'echec seulement
+  preuve: sans objet
+  valide_fenetre: sans objet
+  valide_critique: sans objet
+- depot: veve-sites
+  fichier: vevewiki-editorial.yml
+  nom: Récolte éditoriale + déploiement (tous les sites)
+  cadence: 37 9 * * *
+  ecrit:
+  - git:matrix.site
+  - git:}}.json'
+  - discord
+  alerte_echec: oui
+  fenetre_h: 36
+  critique: false
+  source_fenetre: propose-2026-08-07
+  source_critique: preda-2026-08-07
+  valide_critique: true
+  valide_fenetre: false
+  preuve: run
+  pourquoi_preuve: 'ne committe QUE s''il y a un diff : sans changement il ne laisse AUCUNE trace d''ecriture, et un sain passerait pour mort'
