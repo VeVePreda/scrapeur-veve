@@ -185,15 +185,32 @@ def _date(s: str | None) -> datetime | None:
 
 
 class Source:
-    """Lit GitHub. Remplacee par un double dans les tests."""
+    """Lit GitHub. Remplacee par un double dans les tests.
 
-    def __init__(self, jeton: str):
-        self.jeton = jeton
+    ⭐⭐⭐ UN JETON PAR PROPRIETAIRE, ET C'EST UNE CONTRAINTE DE GITHUB, PAS UN
+    caprice : un PAT « fine-grained » ne porte QUE sur les depots d'UN SEUL
+    proprietaire. Les 25 workflows surveilles vivent sous DEUX comptes
+    (`VeVePreda` et `fanablefrance`) — un seul jeton fin ne peut donc pas les
+    couvrir. Le classique le pourrait, mais son unique portee `repo` donne
+    l'ECRITURE sur tout : un jeton qui dort dans Actions pour LIRE des dates
+    n'a aucune raison de pouvoir pousser du code.
+    ⛔ Un proprietaire sans jeton n'est pas saute en silence : il rend une
+    erreur explicite, qui devient une ligne « aveugle » dans le rapport."""
+
+    def __init__(self, jetons: dict[str, str] | str):
+        # Un str simple reste accepte : c'est le cas du PAT classique unique.
+        self.jetons = {"*": jetons} if isinstance(jetons, str) else dict(jetons)
+
+    def _jeton(self, owner: str) -> str:
+        return self.jetons.get(owner) or self.jetons.get("*", "")
 
     def dernier_run_reussi(self, owner, depot, fichier) -> tuple[datetime | None, str]:
+        j = self._jeton(owner)
+        if not j:
+            return None, f"aucun jeton pour le compte {owner}"
         u = (f"{API}/repos/{owner}/{depot}/actions/workflows/{fichier}"
              f"/runs?status=success&per_page=1")
-        d, err = _http_json(u, self.jeton)
+        d, err = _http_json(u, j)
         if err:
             return None, err
         runs = (d or {}).get("workflow_runs") or []
@@ -203,7 +220,7 @@ class Source:
 
     def dernier_commit(self, owner, depot, chemin) -> tuple[datetime | None, str]:
         u = f"{API}/repos/{owner}/{depot}/commits?path={chemin}&per_page=1"
-        d, err = _http_json(u, self.jeton)
+        d, err = _http_json(u, self._jeton(owner))
         if err:
             return None, err
         if not d:
@@ -211,7 +228,8 @@ class Source:
         return _date(d[0]["commit"]["committer"]["date"]), ""
 
     def derniere_release(self, owner, depot, tag) -> tuple[datetime | None, str]:
-        d, err = _http_json(f"{API}/repos/{owner}/{depot}/releases/tags/{tag}", self.jeton)
+        d, err = _http_json(f"{API}/repos/{owner}/{depot}/releases/tags/{tag}",
+                            self._jeton(owner))
         if err:
             return None, err
         dates = [_date(d.get("published_at")), _date(d.get("created_at"))]
@@ -381,18 +399,25 @@ def main(argv=None) -> int:
                   if e.get("cadence") != "manuel" and e.get("fenetre_h")]
     non_validees = sum(1 for e in surveilles if e.get("valide_fenetre") is False)
 
-    jeton = os.environ.get("SENTINELLE_TOKEN") or os.environ.get("GITHUB_TOKEN", "")
-    if not jeton:
+    # Un jeton par compte GitHub (PAT fine-grained, lecture seule), avec repli
+    # sur un jeton unique (PAT classique) si l'on prefere n'en gerer qu'un.
+    jetons = {
+        "VeVePreda": os.environ.get("SENTINELLE_TOKEN_VEVEPREDA", ""),
+        "fanablefrance": os.environ.get("SENTINELLE_TOKEN_FANABLEFRANCE", ""),
+        "*": os.environ.get("SENTINELLE_TOKEN", ""),
+    }
+    if not any(jetons.values()):
         # ⛔ Pas de sortie silencieuse : sans jeton elle est aveugle sur TOUT,
         #    et c'est exactement ce qu'il faut crier.
-        msg = ("⚫ **Sentinelle aveugle** : aucun `SENTINELLE_TOKEN`. "
+        msg = ("⚫ **Sentinelle aveugle** : aucun jeton (`SENTINELLE_TOKEN_VEVEPREDA` / "
+               "`SENTINELLE_TOKEN_FANABLEFRANCE` / `SENTINELLE_TOKEN`). "
                "Elle n'a rien pu lire — ⛔ ne pas confondre avec « tout va bien ».")
         print(msg)
         if not a.a_blanc:
             poster(msg, os.environ.get("DISCORD_ALERTE_TECH_WEBHOOK", ""))
         return 1
 
-    src = Source(jeton)
+    src = Source(jetons)
     constats = {}
     for e in surveilles:
         c = ausculter(e, src)

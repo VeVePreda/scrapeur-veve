@@ -244,6 +244,31 @@ def test_le_Sheet_est_HORS_DE_PORTEE_pas_illisible():
     assert "l'API GitHub ne voit pas" in msg
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# 6. UN JETON PAR COMPTE — contrainte GitHub, pas confort
+# ═══════════════════════════════════════════════════════════════════════════
+def test_un_jeton_par_compte_et_un_compte_sans_jeton_est_AVEUGLE_pas_muet():
+    """Un PAT fine-grained ne porte que sur UN proprietaire, et les workflows
+    surveilles vivent sous deux comptes. Un compte sans jeton doit rendre une
+    ligne noire explicite — pas disparaitre du rapport, pas passer pour sain."""
+    src = S.Source({"VeVePreda": "jeton-A"})          # rien pour fanablefrance
+    d, err = src.dernier_run_reussi("fanablefrance", "jetonveve", "floor-watch.yml")
+    assert d is None and "aucun jeton pour le compte fanablefrance" in err
+
+    e = entree(depot="jetonveve", fichier="floor-watch.yml", fenetre_h=6)
+    c = S.ausculter(e, src)
+    assert c.aveugle and not c.en_retard
+    msg, alarme = S.rapport({c.cle: c}, [e], 0)
+    assert alarme and "je n'ai rien pu lire" in msg
+
+
+def test_un_jeton_unique_couvre_tous_les_comptes():
+    """Le PAT classique reste accepte : un seul jeton, portee `*`."""
+    src = S.Source("jeton-unique")
+    assert src._jeton("fanablefrance") == "jeton-unique"
+    assert src._jeton("VeVePreda") == "jeton-unique"
+
+
 @pytest.mark.parametrize("cible,attendu", [
     ("git:data/floors.csv", "git"),
     ("release:catalogue", "release"),
