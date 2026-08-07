@@ -58,8 +58,15 @@ jobs:
       #    Avec le jeton par defaut, les deux autres depots rendraient 404 —
       #    ce qui ressemble trait pour trait a « n'a jamais tourne ».
       #    Portee minimale du PAT : lecture Actions + contenu sur ces trois.
+      #    ⭐⭐⭐ ET IL EN FAUT **DEUX**, pas un : un PAT « fine-grained » ne
+      #    porte que sur les depots d'UN SEUL proprietaire, et il y a deux
+      #    comptes. Un PAT classique unique marcherait, mais sa seule portee
+      #    `repo` donne l'ECRITURE sur tout — pour lire des dates, non.
+      #    (Le repli `SENTINELLE_TOKEN` reste lu si tu preferes le classique.)
       - name: Sentinelle
         env:
+          SENTINELLE_TOKEN_VEVEPREDA: ${{ secrets.SENTINELLE_TOKEN_VEVEPREDA }}
+          SENTINELLE_TOKEN_FANABLEFRANCE: ${{ secrets.SENTINELLE_TOKEN_FANABLEFRANCE }}
           SENTINELLE_TOKEN: ${{ secrets.SENTINELLE_TOKEN }}
           DISCORD_ALERTE_TECH_WEBHOOK: ${{ secrets.DISCORD_ALERTE_TECH_WEBHOOK }}
         run: |
