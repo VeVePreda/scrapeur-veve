@@ -1,0 +1,85 @@
+# ⚠️ DEPOT : VeVePreda/scrapeur-veve   ·   CHEMIN : .github/workflows/sentinelle.yml
+#
+# 🔴🔴🔴 CE FICHIER SE COLLE A LA MAIN DANS L'EDITEUR WEB DE GITHUB.
+# Un zip depose par « Add files via upload » N'INSTALLE PAS `.github/workflows/*` :
+# GitHub les ignore EN SILENCE. Mesure du 07/08 : le lot 102 est passe a 12/13 et
+# la CI est restee aveugle sans un seul message d'erreur. Apres l'avoir colle,
+# VERIFIER qu'il apparait dans l'onglet Actions.
+#
+name: Sentinelle d'absence
+
+# LE SECOND ETAGE. Le premier (`if: failure()`) demande « ce run est-il tombe ? ».
+# Celui-ci demande « QUI AURAIT DU TOURNER ET N'A RIEN FAIT ? ». Le grand livre
+# est reste gele quinze jours parce que son producteur ne tournait pas : il
+# n'echouait donc pas, et aucun `if: failure()` ne pouvait le voir.
+#
+# ⏰ 12:20 UTC = apres la chaine quotidienne (elle finit vers 07:41 UTC, plus
+#    jusqu'a 3 h 15 de retard GitHub). Elle juge donc la journee d'avant, pas
+#    une journee en cours.
+# ⭐⭐ ELLE POSTE TOUS LES JOURS, MEME QUAND TOUT VA BIEN : une sentinelle morte
+#    ne produit aucune alerte, ce qui est indistinguable de « tout va bien ».
+#    Le battement quotidien est ce qui rend SON PROPRE silence visible.
+
+on:
+  schedule:
+    - cron: "20 12 * * *"
+  workflow_dispatch:
+    inputs:
+      a_blanc:
+        description: "Calculer et afficher SANS rien poster (oui/non)"
+        required: false
+        default: "non"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sentinelle
+  cancel-in-progress: false
+
+jobs:
+  veiller:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install pyyaml
+
+      # ⛔ SENTINELLE_TOKEN, PAS `GITHUB_TOKEN` : le jeton d'un run ne voit QUE
+      #    son propre depot. Les 25 workflows a cron vivent dans TROIS depots,
+      #    sur DEUX comptes — VeVePreda/scrapeur-veve, VeVePreda/veve-sites et
+      #    fanablefrance/jetonveve. (`astronema` et `paolo` n'ont que des
+      #    workflows manuels : rien a surveiller, ils relevent de l'etage 1.)
+      #    Avec le jeton par defaut, les deux autres depots rendraient 404 —
+      #    ce qui ressemble trait pour trait a « n'a jamais tourne ».
+      #    Portee minimale du PAT : lecture Actions + contenu sur ces trois.
+      - name: Sentinelle
+        env:
+          SENTINELLE_TOKEN: ${{ secrets.SENTINELLE_TOKEN }}
+          DISCORD_ALERTE_TECH_WEBHOOK: ${{ secrets.DISCORD_ALERTE_TECH_WEBHOOK }}
+        run: |
+          ARGS=""
+          [ "${{ github.event.inputs.a_blanc }}" = "oui" ] && ARGS="--a-blanc"
+          python -m scraper.sentinelle_absence $ARGS
+
+      # 🔴 LA SENTINELLE SE SURVEILLE ELLE-MEME. Si ELLE tombe, personne ne
+      # posera plus la question — et son silence ressemblerait a « RAS ».
+      - name: "Alerte Discord si la sentinelle elle-meme echoue"
+        if: ${{ failure() }}
+        env:
+          HOOK: ${{ secrets.DISCORD_ALERTE_TECH_WEBHOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "⚠️ DISCORD_ALERTE_TECH_WEBHOOK absent — pas d'alerte envoyee."
+            exit 0
+          fi
+          URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          MSG="⚫ **LA SENTINELLE ELLE-MEME A ECHOUE** — a partir de maintenant, l'absence d'alerte NE VEUT PLUS DIRE que tout va bien.\\nCause la plus frequente : \`SENTINELLE_TOKEN\` absent ou expire.\\n${URL}"
+          curl -s -H "Content-Type: application/json" \
+               -d "{\"content\": \"${MSG}\"}" "$HOOK" >/dev/null \
+            && echo "✅ Alerte envoyee." || echo "⚠️ Envoi de l'alerte en echec."
