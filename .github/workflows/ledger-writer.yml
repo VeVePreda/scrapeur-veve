@@ -83,3 +83,31 @@ jobs:
           [ -f data/ledger.csv.gz ] && FILES="$FILES data/ledger.csv.gz"
           gh release upload ledger-data $FILES --clobber
           echo "Publie :" && ls -lh data/
+
+      # 🔊 AJOUTÉ LE 07/08/2026 — LE WRITER TOMBAIT DEPUIS LE 31/07 SANS BRUIT.
+      #
+      # Son garde-fou d'âge (MAX_AGE_DAYS 7) a parfaitement fonctionné : il a
+      # REFUSÉ d'écrire des holders de 14 jours dans le Sheet. Mais son refus
+      # n'allait nulle part — un run rouge de plus dans la liste.
+      # ⭐⭐⭐ UN GARDE-FOU QUI N'A PAS DE DESTINATAIRE PROTÈGE LA DONNÉE ET
+      # LAISSE POURRIR LA PANNE. Ici la panne n'est même pas dans ce dépôt :
+      # elle est en amont, sur `analytics.yml` (jetonveve). Le message doit donc
+      # DIRE OÙ ALLER, sinon il ne fait que répéter qu'il y a un problème.
+      #
+      # ⛔ NE PAS "réparer" ce workflow en assouplissant MAX_AGE_DAYS : c'est le
+      # seul capteur de la panne amont. Un capteur qu'on desserre parce qu'il
+      # sonne n'est plus un capteur.
+      - name: "Alerte Discord si echec"
+        if: ${{ failure() }}
+        env:
+          HOOK: ${{ secrets.DISCORD_RETOUR_WEBHOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "⚠️ DISCORD_RETOUR_WEBHOOK absent — pas d'alerte envoyee."
+            exit 0
+          fi
+          URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          MSG="🔴 **ledger-writer a echoue** — les onglets 🐋 whales / 🎯 cornerisation / pulse du Sheet NE SONT PAS a jour.\\nCause la plus frequente : les derives \`analytics-derived\` de jetonveve ont plus de 7 jours -> relancer **analytics.yml** sur fanablefrance/jetonveve, puis rejouer ce workflow.\\n${URL}"
+          curl -s -H "Content-Type: application/json" \
+               -d "{\"content\": \"${MSG}\"}" "$HOOK" >/dev/null \
+            && echo "✅ Alerte envoyee." || echo "⚠️ Envoi de l'alerte en echec."
