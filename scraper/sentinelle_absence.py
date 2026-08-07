@@ -97,8 +97,9 @@ PROPRIETAIRE = {
     "scrapeur-veve": "VeVePreda",
     "veve-sites": "VeVePreda",
     "jetonveve": "fanablefrance",
-    "astronema": "?",   # 🔴 A RENSEIGNER — tant que c'est "?", la sentinelle le dit
-    "paolo": "?",       # 🔴 A RENSEIGNER
+    # ⭐ Releves le 07/08 dans les `-R` de merge-transfers.yml, pas devines.
+    "astronema": "astronemagame-maker",
+    "paolo": "lepaolo",
 }
 
 # ⭐⭐⭐ TROIS SORTES DE CIBLES, ET LES CONFONDRE SERAIT LE PIRE DES DEUX MONDES.
@@ -120,11 +121,29 @@ def genre_cible(c: str) -> str:
     if ":" not in c:
         return "illisible"
     genre, ref = c.split(":", 1)
+    ref = ref.split("@", 1)[0]          # la destination eventuelle, voir ci-dessous
     if genre not in ("git", "release") or not ref:
         return "illisible"
     if ref.startswith("-") or any(x in ref for x in (">", "<", "|", "$", "*", " ")):
         return "illisible"
     return genre
+
+
+def destination(ref: str, owner: str, depot: str) -> tuple[str, str, str]:
+    """⭐⭐⭐ UNE ECRITURE N'ATTERRIT PAS FORCEMENT DANS LE DEPOT QUI L'EMET.
+    Mesure du 07/08 : `catalogue-export` vit dans VeVePreda/scrapeur-veve mais
+    publie sa release dans **fanablefrance/jetonveve** (`gh release -R`). Chercher
+    la release chez l'emetteur rend 404 — et un 404 ressemble a « rien publie »,
+    donc a une panne, alors que tout va bien.
+    Syntaxe : `release:catalogue@fanablefrance/jetonveve`. Sans `@`, on reste
+    chez l'emetteur."""
+    if "@" not in ref:
+        return ref, owner, depot
+    ref, dest = ref.rsplit("@", 1)
+    if "/" in dest:
+        o, d = dest.split("/", 1)
+        return ref, o, d
+    return ref, PROPRIETAIRE.get(dest, owner), dest
 
 
 @dataclass
@@ -137,8 +156,9 @@ class Constat:
     preuve: str
     vu_le: datetime | None = None      # date retenue comme preuve de vie
     aveugle: str = ""                  # motif si on n'a rien pu lire
-    illisibles: list = field(default_factory=list)
-    hors_portee: list = field(default_factory=list)
+    illisibles: list = field(default_factory=list)    # mal ecrites dans le manifeste
+    introuvables: list = field(default_factory=list)  # bien ecrites, pas trouvees LA
+    hors_portee: list = field(default_factory=list)   # Sheet / Discord
 
     @property
     def age_h(self) -> float | None:
@@ -273,11 +293,15 @@ def ausculter(entree: dict, source: Source) -> Constat:
             if genre == "illisible":
                 c.illisibles.append(cible)
                 continue
-            ref = cible.split(":", 1)[1]
-            d, err = (source.dernier_commit(owner, depot, ref) if genre == "git"
-                      else source.derniere_release(owner, depot, ref))
+            ref, ow, dep = destination(cible.split(":", 1)[1], owner, depot)
+            d, err = (source.dernier_commit(ow, dep, ref) if genre == "git"
+                      else source.derniere_release(ow, dep, ref))
             if err:
-                c.illisibles.append(f"{cible} ({err})")
+                # ⛔ UNE ERREUR D'API N'EST PAS UNE CIBLE MAL ECRITE. Les ranger
+                # ensemble enverrait corriger un manifeste juste (07/08 : deux
+                # 404 qui disaient en realite « la release est dans un AUTRE
+                # depot »). Categorie a part, avec le lieu ou l'on a cherche.
+                c.introuvables.append(f"{cible} — cherche dans {ow}/{dep} : {err}")
                 continue
             if d:
                 dates.append(d)
@@ -311,6 +335,7 @@ def rapport(constats: dict, manifeste: list, non_validees: int) -> tuple[str, bo
     jamais    = [c for c in constats.values() if c.vu_le is None and not c.aveugle]
     aveugles  = [c for c in constats.values() if c.aveugle]
     illisibles = [(c.cle, x) for c in constats.values() for x in c.illisibles]
+    introuvables = [(c.cle, x) for c in constats.values() for x in c.introuvables]
     hors = {c.cle for c in constats.values() if c.hors_portee}
     ordre = desordres(constats, manifeste)
     faibles = sum(1 for c in constats.values() if c.preuve == "run")
@@ -363,9 +388,13 @@ def rapport(constats: dict, manifeste: list, non_validees: int) -> tuple[str, bo
         coda.append(f"{len(hors)} workflow(s) ecrivent dans le Sheet ou Discord, "
                     f"**que l'API GitHub ne voit pas** — leur ecriture n'est pas verifiee")
     if illisibles:
-        coda.append(f"{len(illisibles)} cible(s) d'ecriture illisible(s) A CORRIGER "
-                    "dans le manifeste : "
+        coda.append(f"{len(illisibles)} cible(s) MAL ECRITE(S) dans le manifeste : "
                     + ", ".join(f"`{k}` -> `{v}`" for k, v in illisibles[:3]))
+    if introuvables:
+        # ⛔ Ni une panne ni une faute de frappe : on a cherche au mauvais endroit,
+        #    ou la cible n'existe pas encore. A regarder, pas a corriger d'office.
+        coda.append(f"{len(introuvables)} cible(s) NON TROUVEE(S) la ou on la cherche : "
+                    + ", ".join(f"`{k}` -> `{v}`" for k, v in introuvables[:3]))
     if coda:
         L.append("_Angles morts connus : " + " · ".join(coda) + "._")
 

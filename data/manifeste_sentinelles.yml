@@ -441,8 +441,8 @@ workflows:
   nom: catalogue-export
   cadence: 41 6 * * *
   ecrit:
-  - release:catalogue-prev
-  - release:catalogue
+  - release:catalogue-prev@fanablefrance/jetonveve
+  - release:catalogue@fanablefrance/jetonveve
   - sheet
   alerte_echec: non
   fenetre_h: 36

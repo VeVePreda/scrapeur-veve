@@ -158,8 +158,11 @@ def test_deux_aveugles_isoles_restent_nommes_un_par_un():
     assert msg.count("⚫") == 2 and "a.yml" in msg and "b.yml" in msg
 
 
-def test_un_proprietaire_non_declare_rend_aveugle_et_le_dit():
-    e = entree(depot="paolo", fichier="holders-scan.yml")
+def test_un_proprietaire_non_declare_rend_aveugle_et_le_dit(monkeypatch):
+    """Le jour ou un depot entre au manifeste sans que son compte soit renseigne,
+    il doit dire « je ne sais pas », pas disparaitre ni passer pour sain."""
+    monkeypatch.setitem(S.PROPRIETAIRE, "depot-neuf", "?")
+    e = entree(depot="depot-neuf", fichier="quelquechose.yml")
     c = S.ausculter(e, SourceFactice())
     assert "proprietaire" in c.aveugle
 
@@ -227,7 +230,7 @@ def test_une_cible_illisible_est_nommee_pas_ignoree():
     c = S.ausculter(e, src)
     assert c.illisibles == ["release:--clobber"]
     msg, _ = S.rapport({c.cle: c}, [e], 0)
-    assert "illisible" in msg and "A CORRIGER" in msg
+    assert "MAL ECRITE" in msg
 
 
 def test_le_Sheet_est_HORS_DE_PORTEE_pas_illisible():
@@ -242,6 +245,38 @@ def test_le_Sheet_est_HORS_DE_PORTEE_pas_illisible():
     assert c.hors_portee == ["sheet"] and c.illisibles == []
     msg, _ = S.rapport({c.cle: c}, [e], 0)
     assert "l'API GitHub ne voit pas" in msg
+
+
+def test_une_ecriture_peut_atterrir_DANS_UN_AUTRE_DEPOT():
+    """⭐⭐⭐ Trouve au premier vrai run (07/08) : `catalogue-export` vit dans
+    VeVePreda/scrapeur-veve mais publie sa release dans fanablefrance/jetonveve.
+    La chercher chez l'emetteur rend 404 — et un 404 ressemble a « rien publie »,
+    donc a une panne, alors que tout va bien."""
+    ref, ow, dep = S.destination("catalogue@fanablefrance/jetonveve",
+                                 "VeVePreda", "scrapeur-veve")
+    assert (ref, ow, dep) == ("catalogue", "fanablefrance", "jetonveve")
+    # sans `@`, on reste chez l'emetteur
+    assert S.destination("catalogue", "VeVePreda", "scrapeur-veve") \
+        == ("catalogue", "VeVePreda", "scrapeur-veve")
+    # et la cible reste bien formee aux yeux du classement
+    assert S.genre_cible("release:catalogue@fanablefrance/jetonveve") == "release"
+
+
+def test_un_404_sur_une_cible_BIEN_ECRITE_n_est_pas_une_faute_de_frappe():
+    """⛔ Le premier run rangeait les deux 404 de `catalogue-export` parmi les
+    cibles « A CORRIGER dans le manifeste ». Le manifeste etait juste : on
+    cherchait au mauvais endroit. Confondre les deux envoie reparer ce qui
+    marche — et laisse le vrai defaut en place."""
+    class SrcKO(SourceFactice):
+        def derniere_release(self, owner, depot, tag):
+            return None, "HTTP 404"
+    e = entree(fichier="catalogue-export.yml", preuve="ecriture",
+               ecrit=["release:catalogue", "release:--clobber"])
+    c = S.ausculter(e, SrcKO(runs={"catalogue-export.yml": il_y_a(2)}))
+    assert c.illisibles == ["release:--clobber"], "la miette de shell, elle, est mal ecrite"
+    assert len(c.introuvables) == 1 and "cherche dans" in c.introuvables[0]
+    msg, _ = S.rapport({c.cle: c}, [e], 0)
+    assert "MAL ECRITE" in msg and "NON TROUVEE" in msg
 
 
 # ═══════════════════════════════════════════════════════════════════════════
