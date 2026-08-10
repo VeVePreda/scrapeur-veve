@@ -17,8 +17,10 @@
    "nom": "Ron English - Record Collector Reward",
    "famille": "crafts",
    "a_bruler_annonce": 334,
-   "empreinte": "🔥 BURN À VENIR — Ron English - Record Collector Reward|15105570|⏳ Burn imminent — date non communiquée par VeVe\n\n```\nEn circulation  585\nVendues         251\nÀ brûler        334\n```\n🔥 **57,1 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **251 éditions**\n\n💠 Secret Rare\n📉 ATL 20 $ · 📈 ATH 38 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/crafts/24624bd2-2ea0-4754-9b6e-1497803316ad>)",
-   "mid": "1534169199600206004"
+   "empreinte": "✅ BURN EFFECTUÉ — Ron English - Record Collector Reward|3066993|🔥 **332 éditions brûlées** — c'est définitif\n\n```\nEn circulation  585\nVendues         253\nBrûlées         332\n```\n🎯 Supply final : **253 éditions** (−56,8 %)\nℹ️ Annoncé : 334 · réel : 332\n\n💠 Secret Rare\n📉 ATL 20 $ · 📈 ATH 38 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/collectibles/24624bd2-2ea0-4754-9b6e-1497803316ad>)",
+   "mid": "1534169199600206004",
+   "disparu_le": "2026-08-10",
+   "clos": true
   },
   "f2efc6e3-ada5-43a0-8e7d-6fae8b230450": {
    "brulees_depart": 0,
@@ -57,10 +59,9 @@
    "circulation_depart": 901,
    "nom": "The X-Men",
    "famille": "comics",
-   "a_bruler_annonce": 26,
+   "a_bruler_annonce": 23,
    "mid": "1534868697427083406",
-   "empreinte": "🔥 BURN À VENIR — The X-Men|15105570|⏳ Burn **<t:1786795200:D>** *(au plus tôt — calculé)*\n📐 *Date **calculée** (sortie + 30 j) — VeVe ne l'a pas encore mis en « Leaving Soon ». Le feu peut tomber plus tard, jamais plus tôt.*\n\n```\nEn circulation  901\nVendues         875\nÀ brûler         26\n```\n🔥 **2,9 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **875 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📊 Note de classement : **BBB**\n📉 ATL 2 $ · 📈 ATH 765 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/d01ddc04-41b2-4e26-8bbc-0409784524fe>)",
-   "disparu_le": "2026-08-07"
+   "empreinte": "🔥 BURN À VENIR — The X-Men|15105570|⏳ Burn **<t:1786881600:D>**\n\n```\nEn circulation  901\nVendues         878\nÀ brûler         23\n```\n🔥 **2,6 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **878 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📊 Note de classement : **BBB**\n📉 ATL 2 $ · 📈 ATH 765 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/d01ddc04-41b2-4e26-8bbc-0409784524fe>)"
   },
   "b479b6a5-4ea3-43e9-b40e-8f141a721846": {
    "brulees_depart": 0,
@@ -117,11 +118,11 @@
    "circulation_depart": 901,
    "nom": "Secret Wars II",
    "famille": "comics",
-   "a_bruler_annonce": 187,
+   "a_bruler_annonce": 177,
    "mid": "1535927077428269097",
-   "empreinte": "🔥 BURN À VENIR — Secret Wars II|15105570|⏳ Burn **<t:1786795200:D>**\n\n```\nEn circulation  901\nVendues         714\nÀ brûler        187\n```\n🔥 **20,8 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **714 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📉 ATL 155 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/b88dfabe-80af-4632-9248-c53ef3bc0960>)"
+   "empreinte": "🔥 BURN À VENIR — Secret Wars II|15105570|⏳ Burn **<t:1786795200:D>**\n\n```\nEn circulation  901\nVendues         724\nÀ brûler        177\n```\n🔥 **19,6 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **724 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📉 ATL 155 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/b88dfabe-80af-4632-9248-c53ef3bc0960>)"
   }
  },
  "empreinte": "0cde2154acab",
- "maj": "2026-08-09T08:25:55+00:00"
+ "maj": "2026-08-10T09:03:30+00:00"
 }
