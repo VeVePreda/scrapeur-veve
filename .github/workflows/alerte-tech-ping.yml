@@ -1,0 +1,122 @@
+# ⚠️ VeVePreda/scrapeur-veve — .github/workflows/alerte-tech-ping.yml   (NEUF)
+# ═══════════════════════════════════════════════════════════════════════════
+# LA SEULE PREUVE QU'UNE ALERTE PART, C'EST UN MESSAGE DANS LE SALON
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# 🔴🔴 CE FICHIER EXISTE À CAUSE D'UN DÉFAUT MESURÉ, PAS D'UNE CRAINTE.
+# Les deux endroits qui alertent aujourd'hui (`sentinelle.yml` L.84,
+# `ledger-writer.yml`) font tous les deux la même chose quand le secret manque :
+#
+#     if [ -z "$HOOK" ]; then
+#       echo "⚠️ DISCORD_ALERTE_TECH_WEBHOOK absent — pas d'alerte envoyee."
+#       exit 0            # ⬅️ ZÉRO. Le run est VERT.
+#     fi
+#
+# ⭐⭐⭐ UN GARDE-FOU QUI SORT EN 0 QUAND SA CONDITION N'EST PAS REMPLIE REND
+# « je n'ai pas pu alerter » RIGOUREUSEMENT IDENTIQUE À « tout va bien ».
+# C'est le profil du banc muet : vert, et pour la pire des raisons.
+# ⛔ Et ce n'est PAS une faute de ces deux fichiers-là : un `exit 1` y ferait
+# échouer le job POUR l'alerte, donc rendrait rouge un run dont le travail a
+# réussi. Ils ont raison de sortir en 0. C'est la VÉRIFICATION qui manquait.
+#
+# ⭐ CELUI-CI, LUI, N'A QUE ÇA À FAIRE. Il ne collecte rien, ne pousse rien,
+# ne touche à aucune donnée. Son unique travail est de répondre à la question
+# « est-ce que l'alerte partirait ? » — donc il a le droit d'échouer pour ça,
+# et c'est même sa seule raison d'être.
+#
+# ⛔⛔ IL NE SE DÉCLENCHE QUE À LA MAIN. Aucun `schedule`, aucun `push` : un
+# ping automatique quotidien deviendrait du bruit dans le salon, et un salon
+# d'alertes où tombe du bruit finit par ne plus être lu — ce qui coûte
+# exactement ce que l'alerte prétendait faire gagner.
+#
+# 🔊 CE QU'IL FAUT EN FAIRE, UNE FOIS :
+#   Actions → « Ping de l'alerte technique » → Run workflow → Run.
+#   Puis REGARDER LE SALON DISCORD. C'est le message dans le salon qui prouve,
+#   pas la pastille verte du run.
+#   ⭐ Le run imprime aussi le `channel_id` du salon touché : si un jour deux
+#     webhooks se ressemblent, c'est ce nombre-là qui les distingue.
+
+name: Ping de l'alerte technique
+
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: "Texte à ajouter au message (facultatif)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: "Le secret existe-t-il ?"
+        env:
+          HOOK: ${{ secrets.DISCORD_ALERTE_TECH_WEBHOOK }}
+        run: |
+          set -u
+          if [ -z "${HOOK:-}" ]; then
+            echo "::error::DISCORD_ALERTE_TECH_WEBHOOK est ABSENT ou VIDE sur ce dépôt."
+            echo "Settings → Secrets and variables → Actions → New repository secret"
+            echo "Nom EXACT attendu : DISCORD_ALERTE_TECH_WEBHOOK"
+            exit 1
+          fi
+          echo "✅ le secret est présent (sa valeur n'est jamais imprimée)."
+
+      # ⭐⭐ `?wait=true` CHANGE LA RÉPONSE DE DISCORD, ET C'EST TOUT L'INTÉRÊT.
+      # Sans lui, l'API rend `204 No Content` : on sait que le POST est passé,
+      # on ne sait pas OÙ. Avec lui, elle rend `200` et le message créé, qui
+      # porte son `channel_id`. ⇒ le run ne dit plus « j'ai posté quelque part »
+      # mais « j'ai posté DANS CE SALON-LÀ ».
+      # ⛔ Le corps de la réponse n'est PAS imprimé tel quel : il contient
+      # l'avatar et le nom du webhook, pas son URL — mais on n'imprime que les
+      # deux champs qui servent, par principe.
+      - name: "Poster le ping, et dire dans quel salon"
+        env:
+          HOOK: ${{ secrets.DISCORD_ALERTE_TECH_WEBHOOK }}
+          NOTE: ${{ github.event.inputs.note }}
+        run: |
+          set -u
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          msg="🧪 **ping — scrapeur-veve** : si tu lis ceci, \`DISCORD_ALERTE_TECH_WEBHOOK\` est bon sur ce dépôt, et les alertes techniques arriveront **ici**."
+          [ -n "${NOTE:-}" ] && msg="${msg}\\n${NOTE}"
+          msg="${msg}\\n${run_url}"
+          payload=$(printf '{"content":"%s","username":"Sentinelle technique"}' "$msg")
+
+          code=$(curl -sS -o /tmp/rep.json -w '%{http_code}' \
+                   -X POST -H 'Content-Type: application/json' \
+                   -d "$payload" "${HOOK}?wait=true")
+
+          echo "réponse HTTP de Discord : $code"
+          if [ "$code" != "200" ] && [ "$code" != "204" ]; then
+            echo "::error::Discord a refusé le POST (HTTP $code). L'URL du webhook est invalide, révoquée, ou le salon a été supprimé."
+            # ⚠️ On imprime le corps : à ce stade il ne contient qu'un message
+            #    d'erreur de Discord, jamais l'URL.
+            head -c 400 /tmp/rep.json || true
+            exit 1
+          fi
+
+          # ⭐ `python3` plutôt que `jq` : présent d'office sur le runner, et on
+          #   ne veut pas qu'un `apt-get` puisse faire échouer une VÉRIFICATION.
+          python3 - <<'PY' || true
+          import json
+          try:
+              d = json.load(open('/tmp/rep.json'))
+              print(f"salon touché  : channel_id = {d.get('channel_id')}")
+              print(f"message posté : id = {d.get('id')}")
+          except Exception:
+              print("(204 sans corps : le POST est passé, le salon n'est pas identifiable)")
+          PY
+
+          echo ""
+          echo "════════════════════════════════════════════════════════════"
+          echo "⭐ CE RUN VERT NE PROUVE PAS ENCORE GRAND-CHOSE."
+          echo "   Il prouve que le secret existe et que Discord a accepté."
+          echo "   LA PREUVE, C'EST LE MESSAGE DANS LE SALON. Va le regarder."
+          echo "   Il doit tomber au même endroit que"
+          echo "   « veve-sites / … : les bancs sont tombés sur main »."
+          echo "════════════════════════════════════════════════════════════"
