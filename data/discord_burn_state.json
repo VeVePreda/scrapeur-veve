@@ -113,17 +113,18 @@
    "famille": "comics",
    "a_bruler_annonce": 740,
    "mid": "1535206205772013621",
-   "empreinte": "🔥 BURN À VENIR — Black Panther|15105570|⏳ Burn **<t:1788436800:D>** *(au plus tôt — calculé)*\n📐 *Date **calculée** (sortie + 30 j) — VeVe ne l'a pas encore mis en « Leaving Soon ». Le feu peut tomber plus tard, jamais plus tôt.*\n\n```\nEn circulation  901\nVendues         161\nÀ brûler        740\n```\n🔥 **82,1 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **161 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📊 Note de classement : **CC**\n📉 ATL 35 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/a914a8cc-0274-49f6-a9db-a9dd45d1cad6>)",
-   "disparu_le": "2026-08-08"
+   "empreinte": "⏸️ RETIRÉ DE LA LISTE — Black Panther|9807270|⏸️ L'item a quitté la liste **sans burn constaté** côté VeVe.\nFenêtre prolongée, retirée, ou compteurs pas encore publiés — on ne conclut pas à sa place.\n\n📦 En circulation : **901** · 💰 vendues : **182**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📊 Note de classement : **CC**\n📉 ATL 3 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/a914a8cc-0274-49f6-a9db-a9dd45d1cad6>)",
+   "disparu_le": "2026-08-08",
+   "clos": true
   },
   "b88dfabe-80af-4632-9248-c53ef3bc0960": {
    "brulees_depart": 0,
    "circulation_depart": 901,
    "nom": "Secret Wars II",
    "famille": "comics",
-   "a_bruler_annonce": 113,
+   "a_bruler_annonce": 108,
    "mid": "1535927077428269097",
-   "empreinte": "🔥 BURN À VENIR — Secret Wars II|15105570|⏳ Burn **<t:1786795200:D>**\n\n```\nEn circulation  901\nVendues         788\nÀ brûler        113\n```\n🔥 **12,5 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **788 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📉 ATL 155 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/b88dfabe-80af-4632-9248-c53ef3bc0960>)"
+   "empreinte": "🔥 BURN À VENIR — Secret Wars II|15105570|⏳ Burn imminent — date non communiquée par VeVe\n\n```\nEn circulation  901\nVendues         793\nÀ brûler        108\n```\n🔥 **12,0 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **793 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📉 ATL 155 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/b88dfabe-80af-4632-9248-c53ef3bc0960>)"
   },
   "58d127b6-5f38-4cb8-adb3-89c39ee12196": {
    "brulees_depart": 0,
@@ -144,8 +145,17 @@
    "mid": "1537384567898640406",
    "empreinte": "🔥 BURN À VENIR — King In Black: Black Panther|15105570|⏳ Burn **<t:1789214400:D>** *(au plus tôt — calculé)*\n📐 *Date **calculée** (sortie + 30 j) — VeVe ne l'a pas encore mis en « Leaving Soon ». Le feu peut tomber plus tard, jamais plus tôt.*\n\n```\nEn circulation  901\nVendues           0\nÀ brûler        901\n```\n🔥 **100,0 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **0 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📊 Note de classement : **CC**\n📉 ATL 699 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/98856404-0d4c-42e6-b8bb-8ae3e2595826>)",
    "disparu_le": "2026-08-14"
+  },
+  "ab11b5e2-d3ee-4d48-a6d1-2a0bff13594b": {
+   "brulees_depart": 0,
+   "circulation_depart": 901,
+   "nom": "The Amazing Spider-Man",
+   "famille": "comics",
+   "a_bruler_annonce": 637,
+   "mid": "1538095683364724770",
+   "empreinte": "🔥 BURN À VENIR — The Amazing Spider-Man|15105570|⏳ Burn **<t:1787313600:D>**\n\n```\nEn circulation  901\nVendues         264\nÀ brûler        637\n```\n🔥 **70,7 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **264 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📊 Note de classement : **CCC**\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/ab11b5e2-d3ee-4d48-a6d1-2a0bff13594b>)"
   }
  },
  "empreinte": "0cde2154acab",
- "maj": "2026-08-14T08:51:14+00:00"
+ "maj": "2026-08-15T08:03:15+00:00"
 }
