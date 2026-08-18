@@ -157,8 +157,9 @@ jobs:
           #   ne veut pas qu'un `apt-get` puisse faire echouer une ALERTE.
           # ⭐ Le JSON est construit par `json.dumps`, jamais par `printf` : un
           #   nom de workflow contenant un guillemet ne casse donc pas l'envoi.
-          python3 - <<'PY'
-          import json, os, sys, urllib.request, urllib.error
+          # ⛔ Mais il ne fait QUE le construire — l'envoi est plus bas, en curl.
+          python3 - > /tmp/charge.json <<'PY'
+          import json, os
 
           nom  = os.environ["NOM"]
           quoi = os.environ["CONCLUSION"]
@@ -222,32 +223,45 @@ jobs:
           msg = (f"{tete} **{nom}** {etat}  ·  `{depot}`\n"
                  f"{cout}\n{lien}")
 
-          corps = json.dumps({"content": msg,
-                              "username": "Sentinelle technique"}).encode()
-          req = urllib.request.Request(
-              os.environ["HOOK"] + "?wait=true", data=corps,
-              headers={"Content-Type": "application/json"})
-          try:
-              with urllib.request.urlopen(req, timeout=20) as r:
-                  code = r.status
-                  try:
-                      d = json.load(r)
-                      print(f"salon touche : channel_id = {d.get('channel_id')}")
-                  except Exception:
-                      pass
-          except urllib.error.HTTPError as e:
-              # ⛔ On n'imprime QUE le code et le corps d'erreur de Discord :
-              #    jamais l'URL du webhook, qui est un secret.
-              print(f"::error::Discord a refuse le POST (HTTP {e.code}). "
-                    f"Webhook invalide, revoque, ou salon supprime.")
-              print(e.read()[:400].decode("utf-8", "replace"))
-              sys.exit(1)
-          except Exception as e:
-              print(f"::error::Envoi impossible : {type(e).__name__}")
-              sys.exit(1)
-
-          print(f"✅ alerte envoyee (HTTP {code}) pour : {nom}")
+          print(json.dumps({"content": msg, "username": "Sentinelle technique"}))
           PY
+
+          # 🔴🔴🔴 L'ENVOI PASSE PAR `curl`, ET C'EST UNE MESURE DU 18/08.
+          # Premier jet : `urllib.request`. Le ping jumeau de jetonveve, joue en
+          # vrai, a recu **403, corps « error code: 1010 »**. Ce n'est PAS un
+          # code Discord — c'est **Cloudflare**, devant Discord, qui refuse la
+          # requete sur la signature du client. `Python-urllib/3.x` y est banni.
+          # ⭐⭐⭐ Le meme piege est deja ecrit dans ce projet pour GoChain
+          #   (« 403 sur UA Python ») : ce n'est pas une propriete d'UNE source,
+          #   c'est une propriete de CLOUDFLARE — et Discord est derriere.
+          # ⇒ `curl` est le transport DEJA PROUVE ici : les 6 workflows de
+          #   veve-sites et les 4 alertes maison postent comme ca, et leurs
+          #   messages arrivent. On ne parie pas, on reprend ce qui marche.
+          # ⭐ Et c'est le PING qui a attrape ca, avant que la moindre panne
+          #   reelle ne tombe dans le vide. C'est exactement pour ca qu'il existe.
+          code=$(curl -sS -o /tmp/rep.json -w '%{http_code}' \
+                   -X POST -H 'Content-Type: application/json' \
+                   --data-binary @/tmp/charge.json "${HOOK}?wait=true")
+
+          if [ "$code" != "200" ] && [ "$code" != "204" ]; then
+            # ⭐⭐ DEUX CAUSES, DEUX GESTES. Le premier jet les confondait : il
+            # annoncait « webhook invalide » sur un blocage Cloudflare, ce qui
+            # envoyait chercher au mauvais endroit.
+            if grep -q "error code: 1010" /tmp/rep.json 2>/dev/null; then
+              echo "::error::CLOUDFLARE a refuse la requete (1010), pas Discord."
+              echo "  ⇒ le webhook n'y est pour rien : c'est le client HTTP qui est banni."
+              echo "  ⇒ poster avec curl, jamais avec urllib/requests."
+            else
+              echo "::error::Discord a refuse le POST (HTTP $code)."
+              echo "  ⇒ URL du webhook invalide, revoquee, ou salon supprime."
+            fi
+            # ⛔ On n'imprime QUE le corps d'erreur, jamais l'URL du webhook.
+            head -c 400 /tmp/rep.json || true
+            exit 1
+          fi
+
+          python3 -c "import json;d=json.load(open('/tmp/rep.json'));print('salon touche : channel_id =',d.get('channel_id'))" || true
+          echo "✅ alerte envoyee (HTTP $code) pour : $NOM"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ⛔ LES TROIS ABSENTS DE LA LISTE — chacun pour une raison mesuree
