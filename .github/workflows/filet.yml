@@ -18,18 +18,27 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Trois raisons, dans l'ordre de leur poids :
 #
-# 1. 🔴🔴 **UN ZIP DEPOSE PAR « Add files via upload » N'INSTALLE PAS
-#    `.github/workflows/*` — GitHub les ignore EN SILENCE.** (Mesure du 07/08,
-#    ecrite en tete de `sentinelle.yml` : le lot 102 est passe a 12/13.) Le
-#    canal de livraison habituel de ce projet ne peut donc PAS livrer 24
-#    fichiers de workflow. Il faut les coller a la main dans l'editeur web.
-#    ⇒ 24 collages a la main = un lot qui ne sera jamais pose en entier.
-#    ⇒ 1 collage = un lot qui tient dans une minute.
-#
-# 2. **Ce fichier ne touche AUCUN des 24 workflows existants.** Ils collectent
+# 1. **Ce fichier ne touche AUCUN des 24 workflows existants.** Ils collectent
 #    tous les jours, certains toutes les heures. Les modifier pour y ajouter le
 #    filet, c'est risquer de casser un collecteur qui marche POUR pouvoir etre
 #    prevenu qu'il est casse. Le remede aurait pu creer la maladie.
+#
+# 2. **24 fichiers a re-deposer et a relire, contre 1 fichier neuf.** Chaque
+#    fichier touche est une occasion de se tromper, et une revue de plus.
+#
+#    🔴🔴 ⚠️ ICI, UNE NOTE DE CE PROJET S'EST REVELEE FAUSSE — ET C'ETAIT MON
+#    ARGUMENT PRINCIPAL. J'ai concu ce lot en tenant pour acquis qu'« un zip
+#    depose par *Add files via upload* n'installe PAS `.github/workflows/*`,
+#    GitHub les ignore en silence » (note du 07/08 en tete de `sentinelle.yml`,
+#    lot 102 passe a 12/13). ⇒ j'en avais deduit qu'il fallait coller 24
+#    fichiers a la main, donc que la conception « une etape dans chacun » etait
+#    impossible.
+#    **MESURE DU 18/08 : c'est FAUX dans les conditions d'aujourd'hui.** Les 4
+#    workflows de ce lot sont arrives par « Add files via upload » — commits
+#    `f2d2665` et `7dc391f` — presents et identiques a l'octet pres.
+#    ⇒ **L'argument du canal de livraison tombe.** Les points 1 et 3 tiennent
+#    seuls, et suffisent. ⭐ Ce qui reste vrai de la note du 07/08 : quelque
+#    chose a bien echoue ce jour-la (12/13). La cause n'est PAS « le zip ».
 #
 # 3. **Il couvre les workflows FUTURS sans qu'on y pense** — a une condition,
 #    la seule faiblesse du procede : leur NOM doit etre ajoute a la liste
