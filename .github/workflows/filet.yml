@@ -1,0 +1,271 @@
+# ⚠️ DEPOT : VeVePreda/scrapeur-veve   ·   CHEMIN : .github/workflows/filet.yml   (NEUF)
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🔊 LE FILET — UNE PANNE NE COMPTE QUE SI ELLE ARRIVE QUELQUE PART
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# 🔴🔴 CE FICHIER EXISTE A CAUSE D'UNE MESURE, PAS D'UNE CRAINTE (18/08/2026).
+# Sur les 51 workflows des 4 depots, **41 ne disaient RIEN quand ils tombaient**.
+# Repartition mesuree ce jour-la :
+#     veve-sites     6/6  alertent   ✅ (rien a faire)
+#     scrapeur-veve  2/27 alertent   ⬅️ ce depot
+#     jetonveve      2/17 alertent
+#     veveid         0/1  alerte
+# Et sur 30 jours, ce depot a compte **24 echecs** repartis sur 15 workflows.
+# Aucun n'a produit le moindre message. Deux semaines de ledger gele etaient
+# deja passees inapercues exactement comme ca (07/08).
+#
+# ⭐⭐⭐ POURQUOI **UN SEUL** FICHIER, ET NON UNE ETAPE DANS CHACUN DES 24
+# ─────────────────────────────────────────────────────────────────────────────
+# Trois raisons, dans l'ordre de leur poids :
+#
+# 1. 🔴🔴 **UN ZIP DEPOSE PAR « Add files via upload » N'INSTALLE PAS
+#    `.github/workflows/*` — GitHub les ignore EN SILENCE.** (Mesure du 07/08,
+#    ecrite en tete de `sentinelle.yml` : le lot 102 est passe a 12/13.) Le
+#    canal de livraison habituel de ce projet ne peut donc PAS livrer 24
+#    fichiers de workflow. Il faut les coller a la main dans l'editeur web.
+#    ⇒ 24 collages a la main = un lot qui ne sera jamais pose en entier.
+#    ⇒ 1 collage = un lot qui tient dans une minute.
+#
+# 2. **Ce fichier ne touche AUCUN des 24 workflows existants.** Ils collectent
+#    tous les jours, certains toutes les heures. Les modifier pour y ajouter le
+#    filet, c'est risquer de casser un collecteur qui marche POUR pouvoir etre
+#    prevenu qu'il est casse. Le remede aurait pu creer la maladie.
+#
+# 3. **Il couvre les workflows FUTURS sans qu'on y pense** — a une condition,
+#    la seule faiblesse du procede : leur NOM doit etre ajoute a la liste
+#    `workflows:` ci-dessous. C'est exactement ce que verifie
+#    `tests/test_filet_alerte.py`, qui rougit si un workflow du depot n'est ni
+#    dans cette liste, ni porteur de sa propre alerte, ni exempte par ecrit.
+#    ⛔ Sans ce banc, ce fichier serait un filet troue qui a l'air plein.
+#
+# ⚠️ CE QUE CE FICHIER NE PEUT PAS FAIRE, ET IL FAUT LE SAVOIR
+# ─────────────────────────────────────────────────────────────────────────────
+# GitHub ne declenche jamais `workflow_run` pour un workflow lui-meme declenche
+# par `workflow_run` (protection anti-boucle). ⇒ **LE FILET NE SE SURVEILLE PAS
+# LUI-MEME.** S'il tombe, son silence ressemblera a « tout va bien ».
+# ⭐ La verification, c'est « Ping de l'alerte technique », a lancer a la main.
+#
+# 🔑 CE QU'IL FAUT AVOIR POSE POUR QU'IL SERVE
+# ─────────────────────────────────────────────────────────────────────────────
+# Le secret `DISCORD_ALERTE_TECH_WEBHOOK`, Settings ▸ Secrets and variables ▸
+# Actions. ✅ Mesure du 18/08 : il EST pose sur ce depot (le run vert du
+# « Ping de l'alerte technique » du 14/08 le prouve — sa premiere etape sort en
+# `exit 1` quand le secret manque).
+#
+# ⭐⭐⭐ ET SI LE SECRET DISPARAIT, CE JOB ECHOUE — EXPRES.
+# Les alertes ecrites a la main dans ce projet font `exit 0` quand le secret
+# manque, et elles ont raison : un `exit 1` y rendrait rouge un collecteur dont
+# le travail a reussi. Ici, ce job N'A QUE CA A FAIRE. Sortir en 0 rendrait
+# « je n'ai pas pu prevenir » identique a « tout va bien » — le profil exact du
+# banc muet. Et le run est DEJA rouge (le workflow surveille vient d'echouer) :
+# echouer ici ne perd rien et se voit.
+#
+# 📉 LE VOLUME, MESURE AVANT D'ECRIRE (30 jours glissants, ce depot)
+# ─────────────────────────────────────────────────────────────────────────────
+#   953 runs · 24 echecs · 6 annules  ⇒  **~0,8 message par jour.**
+#   Les echecs viennent surtout par SERIES (hprix-bridge 4 d'affilee, Hub
+#   Discord 2 puis 3) : ce sont de vraies pannes, pas du bruit transitoire.
+#   Les echecs isoles se comptent sur une main.
+#
+# ⛔⛔ ON N'ALERTE PAS SUR `cancelled`, ET C'EST MESURE.
+# Les 6 annulations du mois viennent toutes de `elements-v3-moisson`, qui
+# partage un groupe de concurrence (`chain-tracker`) : quand deux runs
+# s'empilent, GitHub annule celui qui attend. Ce n'est pas une panne, c'est la
+# file. Alerter dessus aurait rempli le salon pour rien — et un salon d'alertes
+# ou tombe du bruit finit par ne plus etre lu, ce qui coute exactement ce que
+# l'alerte pretendait faire gagner.
+# ✅ En revanche `timed_out` est bien une panne : il est couvert.
+#
+# ⚠️ AUCUNE VALEUR VENUE DE L'EVENEMENT N'EST INTERPOLEE DANS LE SHELL.
+# Tout passe par `env:`. Un nom de workflow ou un titre de commit contenant un
+# guillemet ou un `$(...)` ne peut donc rien executer ici.
+
+name: Filet — alerte technique
+
+on:
+  workflow_run:
+    # ⛔⛔ CE SONT LES `name:` DES WORKFLOWS, PAS LEURS NOMS DE FICHIER.
+    # ⛔ Un nom mal recopie = un workflow NON surveille, sans le moindre signe.
+    #    C'est `tests/test_filet_alerte.py` qui garde cette liste honnete.
+    # ⛔ Trois workflows sont volontairement absents — voir la fin du fichier.
+    workflows:
+      - "Archive des salons"                                        # archive.yml
+      - "Bancs (filet d'alerte)"                                    # bancs.yml
+      - "VeVe blog sync"                                            # blog.yml
+      - "catalogue-export"                                          # catalogue-export.yml
+      - "CollectChain backfill (manual)"                            # chain-backfill.yml
+      - "Rattrapage chain (journee PT complete)"                    # chain-catchup.yml
+      - "Comic store prices (daily)"                                # comic-prices.yml
+      - "VeVe daily sync (catalogue + chain + pseudos)"             # daily.yml
+      - "Hub Discord"                                               # discord.yml
+      - "Compteurs d'editions VeVe (HEBDO)"                         # editions-weekly.yml
+      - "Pont elements v2 (double en silence)"                      # elements-v2-silence.yml
+      - "Pont elements v3 (catalogue depuis la chaine — moisson silence)"  # elements-v3-moisson.yml
+      - "VeVe enrichment backfill (manual)"                         # enrich-backfill.yml
+      - "Seed cache enrichissement (une fois)"                      # enrich-seed.yml
+      - "VeVe floors sync (collectibles)"                           # floors.yml
+      - "Pont veille -> H-PRIX (ingest)"                            # hprix-bridge.yml
+      - "Analytics - grand livre (holdings)"                        # ledger.yml
+      - "VeVe brand logos sync"                                     # logos.yml
+      - "Univers de marche (elements ayant un marche)"              # market-universe.yml
+      - "Medium -> 📝C-BLOG (verser l'archive)"                     # medium-vers-blog.yml
+      - "Fusion transferts (IMX + CollectChain, un fichier)"        # merge-transfers.yml
+      - "Pseudos StackR (pseudo <-> wallet)"                        # pseudos-stackr.yml
+      - "Reparation des colonnes chiffrees (a la main)"             # repare-atl-ath.yml
+      - "Export comptes suivis (pont whale/team)"                   # tracked-export.yml
+      - "VeVe transactions (flux public)"                           # veve-tx.yml
+    types: [completed]
+
+# Ce workflow ne lit ni n'ecrit rien du depot : il n'a besoin d'aucun droit.
+permissions: {}
+
+jobs:
+  dire:
+    # ⭐⭐ LA CONDITION EST AU NIVEAU DU **JOB**, PAS DE L'ETAPE.
+    # Un job saute ne reserve aucune machine : les ~900 fins de workflow
+    # reussies du mois coutent donc zero minute. Seuls les echecs en depensent.
+    # (Et les 4 depots sont PUBLICS : les minutes Actions y sont de toute facon
+    # gratuites — mesure du 18/08. C'est une propriete a REVERIFIER si un depot
+    # passait prive un jour.)
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' ||
+      github.event.workflow_run.conclusion == 'timed_out'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: "Poster l'alerte dans le salon technique"
+        env:
+          HOOK: ${{ secrets.DISCORD_ALERTE_TECH_WEBHOOK }}
+          NOM: ${{ github.event.workflow_run.name }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          LIEN: ${{ github.event.workflow_run.html_url }}
+          DEPOT: ${{ github.repository }}
+          DECLENCHEUR: ${{ github.event.workflow_run.event }}
+        run: |
+          # 🔴 `set -e` : sans lui, un python3 qui echoue laisse l'etape verte
+          #    des qu'une commande suit. Mesure du 18/08, sur le ping jumeau.
+          set -eu
+          if [ -z "${HOOK:-}" ]; then
+            echo "::error::DISCORD_ALERTE_TECH_WEBHOOK est ABSENT ou VIDE sur ce depot."
+            echo "  Settings -> Secrets and variables -> Actions -> New repository secret"
+            echo "  Nom EXACT attendu : DISCORD_ALERTE_TECH_WEBHOOK"
+            echo "  ⛔ Tant qu'il manque, AUCUNE panne de ce depot n'arrive nulle part."
+            exit 1
+          fi
+
+          # ⭐ `python3` plutot que `jq` : present d'office sur le runner, et on
+          #   ne veut pas qu'un `apt-get` puisse faire echouer une ALERTE.
+          # ⭐ Le JSON est construit par `json.dumps`, jamais par `printf` : un
+          #   nom de workflow contenant un guillemet ne casse donc pas l'envoi.
+          python3 - <<'PY'
+          import json, os, sys, urllib.request, urllib.error
+
+          nom  = os.environ["NOM"]
+          quoi = os.environ["CONCLUSION"]
+          lien = os.environ["LIEN"]
+          depot = os.environ["DEPOT"]
+          decl = os.environ["DECLENCHEUR"]
+
+          # ⭐⭐ CE QUE COUTE LA PANNE — la seule partie qui rend l'alerte utile.
+          # Un message qui dit « X a echoue » oblige a rouvrir le dossier. Un
+          # message qui dit ce qui se degrade permet de decider en le lisant.
+          # ⛔ Clef = le `name:` du workflow, exactement comme dans `workflows:`.
+          COUT = {
+            "VeVe daily sync (catalogue + chain + pseudos)":
+              "C'est la colonne vertebrale : catalogue, chaine et pseudos ne sont pas a jour, et tout ce qui tourne apres lit ce qu'il aurait du ecrire.",
+            "catalogue-export":
+              "L'export vers veve-sites n'a pas eu lieu : le site republiera l'ancien catalogue.",
+            "VeVe floors sync (collectibles)":
+              "Le floor du jour manque dans H-PRIX : les cotes publiees vieillissent d'un jour.",
+            "Pont veille -> H-PRIX (ingest)":
+              "Le pont horaire depuis jetonveve n'a rien verse. Isole, c'est sans gravite ; deux fois de suite, le floor decroche.",
+            "Hub Discord":
+              "Un module Discord n'est pas passe (stats, blog, calendrier, burn...). Le post concerne garde sa version d'avant.",
+            "Export comptes suivis (pont whale/team)":
+              "jetonveve/whale_watch lira une liste de comptes perimee.",
+            "Analytics - grand livre (holdings)":
+              "Le grand livre n'a pas ete recalcule : holders, whales et cornerisation restent sur l'etat precedent.",
+            "Comic store prices (daily)":
+              "Les prix store des comics n'ont pas ete releves : le revenue des drops comics sera faux pour aujourd'hui.",
+            "VeVe transactions (flux public)":
+              "Le revenue reel de la veille manquera dans la page STATS, que le daily ecrit 20 min plus tard.",
+            "Univers de marche (elements ayant un marche)":
+              "Le bloc marche de la page STATS gardera le compte de la veille.",
+            "Rattrapage chain (journee PT complete)":
+              "La journee PT complete n'a pas ete rattrapee : le tableau quotidien de STATS sera decale d'un jour.",
+            "Compteurs d'editions VeVe (HEBDO)":
+              "Les compteurs officiels VeVe (circulation / burned) gardent la valeur de la semaine derniere.",
+            "VeVe blog sync":
+              "Les nouveaux articles du blog VeVe ne sont pas entres dans le Sheet.",
+            "VeVe brand logos sync":
+              "Des logos de marque manquants n'ont pas ete recuperes. Sans gravite immediate.",
+            "Pseudos StackR (pseudo <-> wallet)":
+              "La table pseudo <-> wallet n'a pas ete completee.",
+            "Pont elements v3 (catalogue depuis la chaine — moisson silence)":
+              "La moisson catalogue depuis la chaine n'a pas avance.",
+            "Pont elements v2 (double en silence)":
+              "Le double en silence n'a pas tourne : aucun effet visible, mais la comparaison v2/v3 perd un point.",
+            "Fusion transferts (IMX + CollectChain, un fichier)":
+              "La source unifiee des transferts n'a pas ete refaite.",
+            "Archive des salons":
+              "Des messages Discord n'ont pas ete sauves. ⚠️ Ceux-la s'effacent : relancer sans attendre.",
+            "Bancs (filet d'alerte)":
+              "⚠️ C'est le banc QUI GARDE CE FILET qui vient de tomber : un workflow a sans doute ete ajoute ou renomme sans etre inscrit dans `filet.yml`. Tant que c'est rouge, un workflow au moins tombe en silence.",
+          }
+          MANUEL = ("Lance a la main : rien ne se degrade tout seul, "
+                    "c'est a relancer quand tu veux.")
+          cout = COUT.get(nom) or (MANUEL if decl == "workflow_dispatch"
+                                   else "⚠️ Aucune consequence n'est ecrite pour ce workflow dans `filet.yml` — a completer.")
+
+          tete = "🔴" if quoi == "failure" else "⏱️"
+          etat = "a echoue" if quoi == "failure" else "a depasse son temps"
+          msg = (f"{tete} **{nom}** {etat}  ·  `{depot}`\n"
+                 f"{cout}\n{lien}")
+
+          corps = json.dumps({"content": msg,
+                              "username": "Sentinelle technique"}).encode()
+          req = urllib.request.Request(
+              os.environ["HOOK"] + "?wait=true", data=corps,
+              headers={"Content-Type": "application/json"})
+          try:
+              with urllib.request.urlopen(req, timeout=20) as r:
+                  code = r.status
+                  try:
+                      d = json.load(r)
+                      print(f"salon touche : channel_id = {d.get('channel_id')}")
+                  except Exception:
+                      pass
+          except urllib.error.HTTPError as e:
+              # ⛔ On n'imprime QUE le code et le corps d'erreur de Discord :
+              #    jamais l'URL du webhook, qui est un secret.
+              print(f"::error::Discord a refuse le POST (HTTP {e.code}). "
+                    f"Webhook invalide, revoque, ou salon supprime.")
+              print(e.read()[:400].decode("utf-8", "replace"))
+              sys.exit(1)
+          except Exception as e:
+              print(f"::error::Envoi impossible : {type(e).__name__}")
+              sys.exit(1)
+
+          print(f"✅ alerte envoyee (HTTP {code}) pour : {nom}")
+          PY
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ⛔ LES TROIS ABSENTS DE LA LISTE — chacun pour une raison mesuree
+# ═══════════════════════════════════════════════════════════════════════════════
+# `tests/test_filet_alerte.py` connait cette liste et VERIFIE la raison : pour
+# les deux premiers, il exige de trouver une alerte Discord dans leur propre
+# fichier. Une exception qui cesse d'etre vraie rougit.
+#
+#   · « Sentinelle d'absence »            (sentinelle.yml)
+#     Alerte deja elle-meme, avec un texte que le filet ne saurait pas ecrire :
+#     « si LA SENTINELLE tombe, l'absence d'alerte ne veut plus rien dire ».
+#
+#   · « Analytics - ledger writer (entrepot) »  (ledger-writer.yml)
+#     Alerte deja elle-meme.
+#
+#   · « Ping de l'alerte technique »      (alerte-tech-ping.yml)
+#     C'est le TESTEUR du webhook : il echoue expres quand le secret manque.
+#     L'inscrire ici ferait tomber le filet sur la meme cause, sans rien
+#     apprendre de plus. ⭐ Il reste la seule preuve qu'une alerte PART :
+#     Actions -> « Ping de l'alerte technique » -> Run workflow, puis REGARDER
+#     LE SALON. C'est le message dans le salon qui prouve, pas la pastille verte.

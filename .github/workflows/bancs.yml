@@ -1,0 +1,66 @@
+# ⚠️ DEPOT : VeVePreda/scrapeur-veve   ·   CHEMIN : .github/workflows/bancs.yml   (NEUF)
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🔬 CE DEPOT A 38 BANCS ET AUCUN NE TOURNAIT
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# 🔴🔴 MESURE DU 18/08/2026 : sur les 27 workflows de ce depot, **aucun ne
+# lance pytest**. Les 38 fichiers de `tests/` ne sont donc joues que si
+# quelqu'un y pense, a la main, sur sa machine. Un banc que rien n'execute est
+# exactement aussi utile qu'un banc absent — et il coute davantage, parce qu'il
+# donne l'impression d'une garde.
+#
+# ⛔⛔ CE FICHIER NE LANCE QU'UN SEUL BANC, ET C'EST DELIBERE.
+# Les 37 autres importent `gspread`, `pandas`, tout le `requirements.txt`, et
+# n'ont jamais ete joues en CI : les allumer d'un coup, c'est livrer un rouge
+# permanent le jour meme ou on installe le filet. Le vert d'aujourd'hui doit
+# vouloir dire quelque chose.
+# ⭐ Les allumer est un chantier a part, qui commence par les faire passer en
+#   local. Ce fichier est ecrit pour qu'il suffise alors d'elargir `pytest` a
+#   `tests/` et d'installer `requirements.txt`.
+#
+# ⭐⭐ POURQUOI `paths:` FILTRE, ET DANS CE SENS-LA.
+# `test_filet_alerte.py` ne regarde qu'une chose : les fichiers de
+# `.github/workflows/`. Un push qui n'y touche pas ne peut pas le faire changer
+# d'avis. ⇒ le filtre evite ~900 runs inutiles par mois, sans jamais laisser
+# passer le seul changement qui compte : ajouter ou renommer un workflow.
+# 🔴 Le revers, connu : un commit qui ne touche NI les workflows NI ce banc n'a
+#   aucun run — c'est voulu, ce n'est pas une panne (piege deja rencontre sur
+#   `tests.yml` de veve-sites, ou le silence du non-execute a ete pris pour un
+#   vert).
+
+name: Bancs (filet d'alerte)
+
+on:
+  push:
+    paths:
+      - ".github/workflows/**"
+      - "tests/test_filet_alerte.py"
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - "tests/test_filet_alerte.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  filet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ⭐ Deux paquets, pas `requirements.txt` : ce banc ne lit que du YAML.
+      #   Installer tout le reste ferait dependre la garde du filet de la sante
+      #   de gspread — et un banc qui tombe pour une raison etrangere a son
+      #   sujet finit par etre ignore.
+      - name: "Installer de quoi lire du YAML"
+        run: pip install --disable-pip-version-check pytest pyyaml
+
+      - name: "Aucun workflow ne doit tomber en silence"
+        run: python -m pytest tests/test_filet_alerte.py -v
