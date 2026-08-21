@@ -144,7 +144,28 @@ jobs:
       # l'echec n'arrive qu'a l'IMPORT, donc en plein run, et seulement le jour
       # ou le module calendrier tourne (le samedi). On installe la lib systeme
       # ici, une fois pour toutes — 2 s, et un mode de panne en moins.
+      #
+      # 🔴🔴🔴 CE QUI S'EST PASSE LE 19/08/2026, ET POURQUOI CES DEUX LIGNES
+      # ─────────────────────────────────────────────────────────────────────
+      # Cette etape a demarre a 08:15:41 et **n'a jamais rendu la main** (un
+      # miroir Ubuntu lent). A 08:30:47, le `timeout-minutes: 15` du JOB a tout
+      # tue. `pip install` et `Hub Discord` : **skipped**.
+      # ⇒ **AUCUN des 9 modules n'a tourne ce jour-la.** Ni stats, ni blog, ni
+      #   drops, ni burns. Le forum entier est reste muet.
+      #
+      # ⭐⭐⭐ UNE DEPENDANCE SYSTEME D'UN SEUL MODULE A TUE LES NEUF.
+      # `libcairo2` ne sert qu'au module `calendrier`, **le samedi**. Elle etait
+      # installee en tete, sans timeout ni repli : un mardi matin lent emportait
+      # tout le reste.
+      # ➡️ **Une dependance OPTIONNELLE s'installe avec un timeout ET un repli.**
+      #
+      # ⚠️ CE QUE ÇA CHANGE LE JOUR OU L'INSTALLATION RATE : le module
+      #   `calendrier` echouera a l'IMPORT de cairosvg, le samedi, et lui seul.
+      #   Les huit autres modules tourneront. C'est exactement l'echange
+      #   voulu : une panne d'un module au lieu d'une panne de neuf.
       - name: Bibliotheques cairo (module calendrier)
+        timeout-minutes: 4
+        continue-on-error: true
         run: sudo apt-get update -qq && sudo apt-get install -y -qq libcairo2
 
       - run: pip install -r requirements.txt
@@ -362,6 +383,12 @@ jobs:
           # la page ne porte pas de compte a rebours lisible. ⛔ Elle ne decide
           # RIEN : ce n'est jamais elle qui declare un burn effectue.
           DISCORD_BURN_DELAI: ${{ vars.DISCORD_BURN_DELAI || '30' }}
+          # 🔥 48 H AVANT LE BURN — demande de Preda, lot 172 (21/08/2026).
+          # Combien de jours a l'avance on publie une carte de burn CALCULE
+          # (ceux que VeVe n'a pas encore mis sur sa page). 2 = 48 h.
+          # ⛔ Ne touche PAS aux burns lus sur la page `burning-soon` : ceux-la,
+          #   c'est VeVe qui les annonce.
+          DISCORD_BURN_HORIZON: ${{ vars.DISCORD_BURN_HORIZON || '2' }}
           # Un item sorti de la liste sans burn constate reste surveille N jours
           # avant d'etre clos sur ce qu'on SAIT (et pas sur ce qu'on suppose).
           DISCORD_BURN_GRACE: ${{ vars.DISCORD_BURN_GRACE || '7' }}
