@@ -309,6 +309,81 @@ def lire_message(channel: str, message_id: str) -> Optional[Dict]:
     return None
 
 
+def retrouver_identique(channel: str, contenu: str,
+                        limite: int = 25) -> Optional[str]:
+    """L'id d'un message DEJA PUBLIE dont le contenu est EXACTEMENT `contenu`.
+
+    ═══════════════════════════════════════════════════════════════════════════
+    🔴🔴🔴 POURQUOI CETTE FONCTION EXISTE — LE 20/08/2026, MESURE
+    ═══════════════════════════════════════════════════════════════════════════
+    `poster()` fait un POST. Si Discord CREE le message puis met trop longtemps
+    a repondre, `requests` leve `Read timed out` et l'appelant conclut « ca n'a
+    pas marche ». **C'est faux.**
+
+    ⭐⭐⭐ UN DELAI SUR LA REPONSE N'EST JAMAIS UNE PREUVE DE NON-CREATION.
+
+    Ce qui s'ensuit, mesure sur `data/discord_drops_state.json` :
+      · le message existe dans le salon, mais son id n'est dans AUCUN etat ;
+      · `reagir()` n'est donc jamais appelee -> **la carte n'a pas d'emojis de
+        vote**, et rien ne s'imprime, puisque rien n'a « echoue » ;
+      · le rattrapage du lendemain poste un **SECOND exemplaire** ;
+      · l'orphelin, inconnu de l'etat, ne recevra JAMAIS son « ✅ DROP SORTI » :
+        le salon garde une carte perimee, indefiniment.
+    Taux mesure sur les 13 miroirs de l'etat (03/08 -> 20/08) : **3 en retard,
+    soit 23 %**. Un message sur quatre, pas sur deux — mais le mecanisme est
+    reel, et il est muet des deux cotes.
+
+    ⭐⭐⭐ UN RETRY SUR UNE ECRITURE NON IDEMPOTENTE FABRIQUE UN DOUBLON *ET* UN
+    ORPHELIN, ET LES DEUX SONT SILENCIEUX.
+
+    ⇒ LE REMEDE : apres un envoi reste sans reponse, **relire le salon et
+      ADOPTER l'exemplaire deja cree** au lieu de reposter a l'aveugle. Un seul
+      geste supprime le doublon ET l'orphelin.
+
+    ═══════════════════════════════════════════════════════════════════════════
+    ⛔ POURQUOI LA COMPARAISON EST **EXACTE**, ET SUR LE CONTENU ENTIER
+    ═══════════════════════════════════════════════════════════════════════════
+    Adopter le MAUVAIS message serait bien pire que le probleme qu'on repare :
+    l'etat pointerait sur une carte etrangere, qu'on editerait ensuite. Une
+    ressemblance (« le titre est dedans ») suffirait a confondre deux drops de
+    la meme serie. ⇒ On n'adopte que si le contenu est **identique caractere
+    pour caractere** a ce qu'on venait d'envoyer.
+    ⭐ C'est aussi ce qui rend la fonction sure a rejouer : deux appels de suite
+      rendent le meme id.
+
+    ⚠️ CE QU'ELLE NE PEUT PAS FAIRE
+      · Sans `DISCORD_BOT_TOKEN`, elle rend None sans rien dire de plus : un
+        webhook ne sait pas relire un salon.
+      · Elle ne regarde que les `limite` derniers messages. Un orphelin noye
+        sous 25 messages posterieurs ne sera pas retrouve — c'est assume : le
+        rattrapage existant reste le repli.
+      · Elle ne compare QUE `content`. Une carte dont tout le texte serait dans
+        un embed lui echapperait. Les cartes de drop ont leur texte dans
+        `content` (mesure : `discord_drops.message()`).
+    """
+    if not BOT or not contenu:
+        return None
+    url = _q(f"{API}/channels/{channel}/messages", limit=str(int(limite)))
+    for _ in range(ESSAIS):
+        try:
+            r = requests.get(url, headers={"Authorization": f"Bot {BOT}"},
+                             timeout=TIMEOUT)
+        except Exception as e:                              # noqa: BLE001
+            print(f"relecture du salon KO ({e})", file=sys.stderr)
+            return None
+        if _429(r):
+            continue
+        if r.status_code >= 400:
+            print(f"relecture du salon {r.status_code} : {r.text[:200]}",
+                  file=sys.stderr)
+            return None
+        for m in (r.json() or []):
+            if (m.get("content") or "") == contenu and m.get("id"):
+                return str(m["id"])
+        return None
+    return None
+
+
 def lire_reactions(channel: str, message_id: str) -> Dict[str, int]:
     """Les compteurs de reactions d'un message : {emoji: nombre}.
 

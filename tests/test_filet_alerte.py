@@ -25,9 +25,9 @@ CE QU'IL VERIFIE, ET POURQUOI CHAQUE POINT
    le vide. ⭐ Ce controle-la est celui qui attrape les fautes de frappe.
  ③ Les workflows exemptes « parce qu'ils alertent deja » alertent VRAIMENT.
    ⛔ Une exception ne se declare pas, elle se mesure.
- ④ Le filet declenche sur `failure` et `timed_out`, et PAS sur `cancelled`
-   (mesure du 18/08 : les 45 annulations du mois viennent de la file de
-   concurrence, pas d'une panne).
+ ④ Le filet declenche sur `failure`, `timed_out` **et `cancelled`** — ET il
+   filtre les annulations de moins de 2 minutes. Les deux moities, jamais
+   l'une sans l'autre (voir le renversement d'arbitrage plus bas).
  ⑤ La condition est au niveau du JOB, pas de l'etape — un job saute ne
    reserve aucune machine.
  ⑥ Secret absent ⇒ `exit 1`. Sortir en 0 rendrait « je n'ai pas pu prevenir »
@@ -201,17 +201,83 @@ def test_les_exemptions_sont_vraies(corpus):
         "⇒ soit l'etape a ete retiree, soit il faut les remettre dans le filet.")
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🔴🔴🔴 LE RENVERSEMENT DU 21/08/2026 — `cancelled` DEVIENT OBLIGATOIRE
+# ═══════════════════════════════════════════════════════════════════════════════
+# CE BANC EXIGEAIT L'INVERSE. Il exigeait que le filet **n'alerte PAS** sur
+# `cancelled`, au nom d'une mesure du 18/08 : « les annulations viennent de la
+# file de concurrence, pas d'une panne ».
+#
+# ⛔ CE QUE CETTE REGLE A LAISSE PASSER, LE 19/08 : le « Hub Discord » a ete tue
+#   par le `timeout-minutes: 15` de son job. Les 9 modules Discord n'ont pas
+#   tourne. Le forum est reste muet toute la journee. Aucune alerte.
+#
+# 🔑🔑 LE PIEGE : **UN JOB TUE PAR SON `timeout-minutes` CONCLUT `cancelled`,
+#   PAS `timed_out`.** La garde `timed_out` visait un etat que ce depot
+#   n'atteint pas. ⭐⭐⭐ *Un invariant peut etre parfaitement respecte et
+#   repondre a la mauvaise question.*
+#
+# 📉 LA MESURE QUI TRANCHE (21/08, **1 000 runs**, 28/07 -> 21/08) :
+#     success 874 · skipped 118 · failure 6 · **cancelled 1**
+#   L'unique annulation est le Hub Discord du 19/08, **15,4 min** = son timeout.
+#   **ZERO annulation de file en 25 jours.** L'argument de 18/08 supposait une
+#   population qui n'existe plus.
+#   ⭐⭐⭐ *Un argument juste ne survit pas a l'usage qu'il n'avait pas prevu.*
+#
+# ⛔ ET ON NE ROUVRE PAS LA PORTE AU BRUIT : le controle ④bis exige le filtre de
+#   duree. Sans lui, le jour ou la file recommencera a annuler, le salon se
+#   remplira — et le raisonnement de 18/08 redeviendra vrai.
+#   ⇒ **Les deux controles vont ensemble. Retirer l'un rend l'autre nuisible.**
+
 def test_le_filet_alerte_sur_les_bonnes_conclusions(corpus):
-    """④ failure et timed_out, jamais cancelled."""
+    """④ failure, timed_out ET cancelled."""
     cond, _job = condition_du_filet(corpus)
     assert "failure" in cond, "le filet n'alerte pas sur `failure`"
     assert "timed_out" in cond, (
         "le filet n'alerte pas sur `timed_out` — un workflow qui depasse son "
         "temps est une panne")
-    assert "cancelled" not in cond, (
-        "le filet alerterait sur `cancelled`. ⛔ Mesure du 18/08 : les "
-        "annulations viennent de la file de concurrence, pas d'une panne. "
-        "45 messages pour zero panne.")
+    assert "cancelled" in cond, (
+        "le filet n'alerte pas sur `cancelled`. ⛔ C'est le trou du 19/08 : un "
+        "job tue par son `timeout-minutes` conclut `cancelled`, PAS "
+        "`timed_out`. Le Hub Discord est mort ainsi, 9 modules muets, zero "
+        "alerte. Mesure du 21/08 sur 1 000 runs : 1 seule annulation en 25 "
+        "jours, et c'etait celle-la.")
+
+
+def test_les_annulations_courtes_sont_filtrees(corpus):
+    """④bis Le prix a payer pour couvrir `cancelled` : filtrer la FILE.
+
+    ⭐ Ce controle lit le TEXTE du script, pas l'arbre YAML : GitHub Actions ne
+    sait pas soustraire deux dates, le filtre ne PEUT donc pas etre dans le
+    `if:` du job. Il vit dans le shell, et c'est la qu'on va le chercher.
+    """
+    txt = corpus[FILET]
+    _cond, job = condition_du_filet(corpus)
+    brut = "\n".join(st.get("run", "") for st in job.get("steps", []))
+    # 🔴🔴 LES COMMENTAIRES DU SHELL SONT RETIRES AVANT TOUTE RECHERCHE.
+    # Premier jet de ce controle : il cherchait « exit 0 » dans le script
+    # entier. Or le script EXPLIQUE le filtre en commentaire — la phrase
+    # « ⭐ `exit 0` : ce n'est pas une panne du filet » suffisait a le
+    # satisfaire. J'ai supprime le VRAI `exit 0` et le banc est reste VERT.
+    # ⭐⭐⭐ *Un banc qui lit la documentation du sujet au lieu du sujet est
+    # vert par construction.* Mesure faite en injectant la faute, le 21/08.
+    script = "\n".join(l for l in brut.splitlines()
+                       if not l.lstrip().startswith("#"))
+
+    assert "run_started_at" in txt, (
+        "le filet ne recoit pas `run_started_at` : il ne peut pas mesurer la "
+        "duree du run, donc pas distinguer une annulation de FILE d'un job "
+        "tue par son timeout.")
+    assert "updated_at" in txt, "le filet ne recoit pas `updated_at`"
+    assert '"cancelled"' in script or "'cancelled'" in script, (
+        "le script du filet ne traite pas le cas `cancelled` a part — il "
+        "posterait un message pour chaque annulation de file.")
+    assert "total_seconds" in script, (
+        "le filet ne SOUSTRAIT pas les deux dates : il recoit les bornes du "
+        "run mais n'en fait rien. Un filtre qui ne mesure pas ne filtre pas.")
+    assert "exit 0" in script, (
+        "le filet n'a aucune sortie SILENCIEUSE : une annulation courte ferait "
+        "soit un message, soit un rouge. Il faut qu'elle ne fasse RIEN.")
 
 
 def test_la_condition_est_au_niveau_du_job(corpus):
@@ -254,10 +320,18 @@ def _corpus_jouet(noms_surveilles, autres):
                                 "types": ["completed"]}},
         "jobs": {"dire": {
             "if": ("github.event.workflow_run.conclusion == 'failure' || "
-                   "github.event.workflow_run.conclusion == 'timed_out'"),
+                   "github.event.workflow_run.conclusion == 'timed_out' || "
+                   "github.event.workflow_run.conclusion == 'cancelled'"),
             "runs-on": "ubuntu-latest",
             "steps": [{"run": 'set -eu\nif [ -z "${HOOK:-}" ]; then\n'
-                              '  exit 1\nfi\n'}]}}}
+                              '  exit 1\nfi\n'
+                              'if [ "$CONCLUSION" = "cancelled" ]; then\n'
+                              '  exit 0\nfi\n'}]}}}
+    # ⭐ Le jouet doit porter les DEUX moities, sinon la contre-epreuve du
+    #   filtre de duree rougirait pour la mauvaise raison.
+    filet["jobs"]["dire"]["steps"][0]["env"] = {
+        "DEBUT": "${{ github.event.workflow_run.run_started_at }}",
+        "FIN": "${{ github.event.workflow_run.updated_at }}"}
     c = {FILET: yaml.safe_dump(filet, allow_unicode=True)}
     for f, nom in autres.items():
         c[f] = yaml.safe_dump(
@@ -306,13 +380,33 @@ def test_faux_une_exemption_qui_ment_est_vue():
     assert exemptions_mensongeres(c) == []
 
 
-def test_faux_un_filet_qui_alerte_sur_cancelled_est_vu():
+def test_faux_un_filet_qui_ignore_cancelled_est_vu():
+    """⭐ La contre-epreuve du renversement : on RETIRE `cancelled`, ca rougit.
+
+    C'est exactement l'etat du filet avant le 21/08 — celui qui a laisse passer
+    la journee muette du 19/08.
+    """
     c = _corpus_jouet([], {})
     y = yaml.safe_load(c[FILET])
-    y["jobs"]["dire"]["if"] += " || github.event.workflow_run.conclusion == 'cancelled'"
+    y["jobs"]["dire"]["if"] = y["jobs"]["dire"]["if"].replace(
+        " || github.event.workflow_run.conclusion == 'cancelled'", "")
     c[FILET] = yaml.safe_dump(y, allow_unicode=True)
     with pytest.raises(AssertionError, match="cancelled"):
         test_le_filet_alerte_sur_les_bonnes_conclusions(c)
+
+
+def test_faux_un_filet_sans_filtre_de_duree_est_vu():
+    """⭐⭐ Couvrir `cancelled` SANS filtrer la file rouvrirait le bruit.
+
+    Un filet qui alerte sur toutes les annulations est aussi nuisible qu'un
+    filet qui n'alerte sur aucune : il se fait ignorer. Ce faux-la l'attrape.
+    """
+    c = _corpus_jouet([], {})
+    y = yaml.safe_load(c[FILET])
+    y["jobs"]["dire"]["steps"] = [{"run": 'set -eu\ncurl "$HOOK"\n'}]
+    c[FILET] = yaml.safe_dump(y, allow_unicode=True)
+    with pytest.raises(AssertionError):
+        test_les_annulations_courtes_sont_filtrees(c)
 
 
 # ⚠️ CE FILET-JOUET EST ECRIT A LA MAIN, PAS PAR `yaml.safe_dump`.

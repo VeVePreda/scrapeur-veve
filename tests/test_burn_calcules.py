@@ -32,6 +32,24 @@ from scraper import discord_burn as B
 
 AUJ = _dt.date(2026, 8, 5)
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🔴🔴 POURQUOI L'HORIZON EST ECRIT EN TOUTES LETTRES DANS CES TESTS (lot 172)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Ces controles portent sur la REGLE DE SELECTION : quels comics recoivent une
+# carte calculee, dans quel ordre, et lesquels sont ecartes. Ils ne portent PAS
+# sur le nombre de jours d'avance.
+#
+# ⛔ Ils l'ont pourtant mesure sans le dire : ils appelaient `burns_calcules`
+#   SANS `horizon`, donc sur le defaut du module. Quand Preda a demande de
+#   passer de 30 jours a 48 h (lot 172), QUATRE d'entre eux sont tombes — et
+#   aucun ne parlait d'horizon. ⭐⭐⭐ *Un banc qui herite d'un reglage qu'il ne
+#   nomme pas mesure ce reglage sans le vouloir, et rougit un jour pour une
+#   raison etrangere a sa question.*
+# ⇒ `HORIZON_BANC` fige la fenetre de ces cas-la. Le DEFAUT du module, lui, est
+#   epingle a part : `tests/test_discord_burn.py`,
+#   `test_l_horizon_des_burns_calcules_est_de_48h`.
+HORIZON_BANC = 30
+
 
 def fiche(nom, sortie, supply, retenues, genre="comic", cle=None):
     return {
@@ -62,14 +80,14 @@ FICHES = {
 
 
 def test_seuls_les_comics_qui_brulent_sortent():
-    out = B.burns_calcules(FICHES, {}, {}, AUJ)
+    out = B.burns_calcules(FICHES, {}, {}, AUJ, horizon=HORIZON_BANC)
     assert [i["uuid"] for i in out] == ["asm547", "asm548"], (
         "un comic à 2,0 % de retenues, un comic du mercredi ou un craft ne "
         "doit jamais recevoir de carte calculée")
 
 
 def test_tries_du_plus_proche_au_plus_lointain():
-    out = B.burns_calcules(FICHES, {}, {}, AUJ)
+    out = B.burns_calcules(FICHES, {}, {}, AUJ, horizon=HORIZON_BANC)
     assert [i["_jour_calcule"] for i in out] == [_dt.date(2026, 8, 6),
                                                  _dt.date(2026, 8, 20)]
 
@@ -82,6 +100,22 @@ def test_horizon_borne_l_avance():
     assert [i["uuid"] for i in out] == ["asm547"]
 
 
+def test_a_48h_seul_le_burn_imminent_sort():
+    """🔥 LE REGLAGE REEL DEPUIS LE LOT 172 — « 48 h avant », mot de Preda.
+
+    Le 05/08, le burn d'`asm547` tombe le 06/08 (demain) : il sort.
+    Celui d'`asm548` tombe le 20/08 : il attendra le 18.
+    ⭐ Rien n'est perdu — la prevision existe depuis la sortie du comic, elle
+    attend simplement son heure au lieu de dormir un mois dans le salon.
+    """
+    out = B.burns_calcules(FICHES, {}, {}, AUJ, horizon=2)
+    assert [i["uuid"] for i in out] == ["asm547"]
+
+    # Et 48 h avant le 20/08, l'autre sort a son tour.
+    out = B.burns_calcules(FICHES, {}, {}, _dt.date(2026, 8, 18), horizon=2)
+    assert [i["uuid"] for i in out] == ["asm548"]
+
+
 def test_un_burn_deja_passe_ne_ressort_pas():
     f = {"vieux": fiche("Avengers #8", "2026-04-02", 1000, 99, cle="vieux")}
     assert B.burns_calcules(f, {}, {}, AUJ) == []
@@ -92,16 +126,19 @@ def test_un_burn_deja_passe_ne_ressort_pas():
 # ---------------------------------------------------------------------------
 def test_un_item_deja_sur_la_page_n_est_pas_double():
     """⭐ Sinon la même série aurait deux cartes : celle de VeVe et la nôtre."""
-    out = B.burns_calcules(FICHES, {"asm547": {}}, {}, AUJ)
+    out = B.burns_calcules(FICHES, {"asm547": {}}, {}, AUJ,
+                           horizon=HORIZON_BANC)
     assert [i["uuid"] for i in out] == ["asm548"]
 
 
 def test_une_carte_deja_publiee_ou_close_ne_se_recree_pas():
     assert [i["uuid"] for i in
-            B.burns_calcules(FICHES, {}, {"asm547": {"mid": "123"}}, AUJ)
+            B.burns_calcules(FICHES, {}, {"asm547": {"mid": "123"}}, AUJ,
+                             horizon=HORIZON_BANC)
             ] == ["asm548"]
     assert [i["uuid"] for i in
-            B.burns_calcules(FICHES, {}, {"asm547": {"clos": True}}, AUJ)
+            B.burns_calcules(FICHES, {}, {"asm547": {"clos": True}}, AUJ,
+                             horizon=HORIZON_BANC)
             ] == ["asm548"]
 
 

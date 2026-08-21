@@ -119,10 +119,26 @@ MAX_NEUFS = int(os.environ.get("DISCORD_BURN_MAX", "6"))
 DELAI_JOURS = int(os.environ.get("DISCORD_BURN_DELAI", "30"))
 
 # 🆕 Jusqu'a combien de jours a l'avance on annonce un burn CALCULE, que VeVe
-# n'a pas encore mis sur sa page. 30 = toute la fenetre : un comic entre dans le
-# post le jour de sa sortie. ⭐ C'est le gain du lot 68 — avant, ce module ne
-# savait rien avant que VeVe ne parle.
-HORIZON_JOURS = int(os.environ.get("DISCORD_BURN_HORIZON", "30"))
+# n'a pas encore mis sur sa page.
+#
+# 🔴🔴 PASSE DE 30 A 2 AU LOT 172 (21/08/2026) — DEMANDE DE PREDA, SES MOTS :
+#   « ne plus annoncer a la decouverte, mais **48 h avant la date du burn** ».
+# 30 jours, c'etait « a la decouverte » : un comic entrait dans le post le jour
+# de sa sortie, et sa carte y dormait un mois. 2 jours = 48 h.
+#
+# ⭐ Le calcul (lot 67/68) ne change pas d'un caractere : `burn_date_prevue`
+#   est toujours lue des la sortie du comic. C'est seulement le MOMENT DE
+#   PUBLIER qui recule. La prevision existe, elle attend.
+#
+# ⛔ CE QUE CE REGLAGE NE TOUCHE PAS : les items lus sur la page
+#   `burning-soon` de VeVe. Ceux-la, c'est VEVE qui les annonce ; les cacher 28
+#   jours de plus reviendrait a en savoir moins que le site officiel. Le
+#   « 48 h » ne s'applique donc qu'aux burns CALCULES, ceux que nous seuls
+#   connaissons a l'avance.
+#
+# 🎚️ Se regle sans toucher au code : variable de depot `DISCORD_BURN_HORIZON`
+#   (Settings -> Secrets and variables -> Actions -> Variables).
+HORIZON_JOURS = int(os.environ.get("DISCORD_BURN_HORIZON", "2"))
 
 # Plafond PROPRE aux cartes calculees. ⚠️ Volontairement separe de MAX_NEUFS :
 # celui-la protege d'un gabarit de page mal lu (un symptome), celui-ci borne
@@ -838,9 +854,32 @@ def run() -> int:                                           # noqa: C901
               f"MÉMORISE sans publier ; relève le plafond si c'est légitime.",
               file=sys.stderr)
         for u in neufs:
+            # 🔴🔴🔴 `clos: False`, ET C'EST LA CORRECTION DU LOT 172.
+            # ─────────────────────────────────────────────────────────────
+            # AVANT : `clos: True`. Le garde-fou n'AVALAIT rien la plupart du
+            # temps — mesure du 20/08 : les 9 items marques `avale` portaient
+            # tous un `mid`, donc ils avaient bien fini publies. Ils se
+            # rattrapaient parce que `presents` les remettait dans `a_voir` au
+            # passage suivant.
+            # 🐛 MAIS LE TROU EXISTE, ET IL EST ETROIT :
+            #     a_voir = presents + (suivis NON clos)
+            #   Un item avale sort avec `clos: True`. **Si l'item disparait de
+            #   la page avant le passage suivant**, il n'est plus dans
+            #   `presents` ET il est exclu des suivis
+            #   ⇒ jamais publie, jamais rattrape, sans un mot.
+            #   Ici la liste `burning-soon` tient plusieurs jours et le cron
+            #   est quotidien : on est passe a cote PAR LE RYTHME, pas par la
+            #   conception. Un jour ou VeVe purge sa page plus vite, l'item
+            #   disparait pour de bon.
+            # ⇒ `clos: False` le garde dans les suivis : il repassera meme si
+            #   la page ne parle plus de lui.
+            # ⭐ `avale: True` reste, lui : c'est la TRACE du report, et c'est
+            #   ce qui permet de dire « on a differe » plutot que « on a
+            #   perdu ». Le garde-fou est un REPORT D'UN PASSAGE, pas une
+            #   perte — et il faut que ce soit vrai, pas seulement dit.
             dossier[u] = {"nom": presents[u]["titre"][:80],
                           "famille": presents[u]["famille"],
-                          "clos": True, "avale": True}
+                          "clos": False, "avale": True}
         api.save_state(STATE_PATH, state, wh, THREAD)
         return 1
 

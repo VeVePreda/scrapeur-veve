@@ -635,6 +635,45 @@ def _miroir_ok(state: Dict, cle: str) -> None:
     (state.get("miroir_rate") or {}).pop(cle, None)
 
 
+def _adopter_orphelin(d: Dict, charge: Dict, pourquoi: str) -> str:
+    """Retrouver la carte que Discord a peut-etre creee malgre le silence.
+
+    🔴🔴🔴 LE DEFAUT REPARE ICI — MESURE LE 20/08/2026
+    ─────────────────────────────────────────────────────────────────────────
+    `poster()` a rendu vide, ou leve `Read timed out`. On en concluait « le
+    message n'existe pas » et on le repostait le lendemain.
+    ⭐⭐⭐ **UN DELAI SUR LA REPONSE N'EST PAS UNE PREUVE DE NON-CREATION.**
+
+    Ce qu'on a mesure sur `discord_drops_state.json`, carte TMNT — Dojo
+    Discipline (`c594d1ff-…`) :
+        carte 📦DROP ................ 07:48:01
+        miroir INSCRIT dans l'etat .. 08:18:55  (le rattrapage du lendemain)
+        la capture de Preda ......... 07:48     dans le salon miroir
+    ⇒ le message de 07:48 existait, **et n'etait dans aucun etat**. Sans `mid`,
+      `reagir()` n'a jamais ete appelee : c'est ca, « les emojis manquent ».
+      Puis le rattrapage en a cree un SECOND, celui-la avec ses emojis.
+      ⇒ un DOUBLON dans le salon, et un ORPHELIN qui ne recevra jamais son
+        « ✅ DROP SORTI ». Les deux muets.
+
+    ⇒ On relit le salon et on ADOPTE. Un seul geste supprime les deux.
+
+    ⛔ L'ADOPTION EST STRICTE : `retrouver_identique` n'accepte qu'un contenu
+      identique caractere pour caractere. Adopter le mauvais message ferait
+      pointer l'etat sur une carte etrangere, qu'on editerait ensuite — pire
+      que le defaut repare.
+    ⚠️ Et elle peut echouer sans que ce soit une faute : pas de bot token, pas
+      les droits de lecture, ou l'orphelin noye sous 25 messages. Le rattrapage
+      existant reste alors le repli. Il n'est plus le PREMIER reflexe.
+    """
+    mid = api.retrouver_identique(salon_miroir(), charge.get("content") or "")
+    if mid:
+        print(f"  ♻️ miroir public : « {d['nom']} » — l'envoi n'a pas repondu "
+              f"({pourquoi}), MAIS le message existe deja dans le salon "
+              f"(id {mid}). On l'ADOPTE au lieu d'en reposter un second. "
+              f"⭐ Sans ca : un doublon et une carte sans emojis.", flush=True)
+    return mid or ""
+
+
 def poster_miroir(d: Dict, state: Dict) -> str:
     """La MEME carte dans 📘sondage-drop, **sans aucun ping**.
 
@@ -649,8 +688,11 @@ def poster_miroir(d: Dict, state: Dict) -> str:
     """
     if not MIROIR_WEBHOOK:
         return ""
+    charge = message(d, ping=False)
     try:
-        mid = api.poster(MIROIR_WEBHOOK, MIROIR_THREAD, message(d, ping=False))
+        mid = api.poster(MIROIR_WEBHOOK, MIROIR_THREAD, charge)
+        if not mid:
+            mid = _adopter_orphelin(d, charge, "reponse vide")
         if not mid:
             _miroir_rate(state, d["cle"])
             print(f"  ⚠️ miroir public : « {d['nom']} » n'a pas pu etre poste "
@@ -667,6 +709,21 @@ def poster_miroir(d: Dict, state: Dict) -> str:
         api.souffler()
         return mid
     except Exception as e:                                  # noqa: BLE001
+        # 🔴🔴🔴 ICI TOMBE LE `Read timed out`. ⛔ NE PAS CONCLURE A UN ECHEC.
+        # Discord a peut-etre CREE le message pendant que la reponse se
+        # perdait. Avant de noter un rate (donc de reposter demain), on
+        # RELIT le salon et on adopte l'exemplaire deja la.
+        mid = _adopter_orphelin(d, charge, str(e))
+        if mid:
+            state.setdefault("miroir", {})[d["cle"]] = mid
+            _miroir_ok(state, d["cle"])
+            n = api.reagir(salon_miroir(), mid, REACTIONS)
+            if n < len(REACTIONS):
+                print(f"  ⚠️ miroir public : {n}/{len(REACTIONS)} reactions "
+                      f"posees sur l'exemplaire adopte de « {d['nom']} ».",
+                      flush=True)
+            api.souffler()
+            return mid
         _miroir_rate(state, d["cle"])
         print(f"  ⚠️ miroir public KO pour « {d['nom']} » ({e}) — la carte de "
               f"📦DROP est bien la, le miroir sera RETENTE au prochain "

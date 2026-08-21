@@ -512,7 +512,70 @@ def test_l_anti_avalanche_memorise_sans_publier(banc, monkeypatch):
                                        RON: compteurs(600, 259)})
     assert code == 1
     assert banc.postes == []
-    assert all(v.get("clos") for v in etat()["items"].values())
+    # ⭐ La TRACE du report reste : c'est elle qui permet de dire « on a
+    #   differe » plutot que « on a perdu ».
+    assert all(v.get("avale") for v in etat()["items"].values())
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🔴🔴 CE BANC EXIGEAIT `clos: True`. IL EXIGE MAINTENANT `clos: False`.
+# ═══════════════════════════════════════════════════════════════════════════════
+# La ligne retiree ci-dessus etait :
+#     assert all(v.get("clos") for v in etat()["items"].values())
+# Elle etait FIDELE au code, et le code avait un trou.
+#
+# 🐛 LE TROU, MESURE LE 20/08 : la boucle principale traite
+#       a_voir = presents + (suivis NON clos)
+#   Un item avale sortait avec `clos: True`. Tant qu'il RESTE sur la page
+#   `burning-soon`, `presents` le remet dans `a_voir` au passage suivant : le
+#   garde-fou n'etait donc qu'un report d'un passage, et les 9 items avales du
+#   20/08 portaient bien tous un `mid` — ils avaient fini publies.
+#   ⛔ MAIS SI L'ITEM DISPARAIT DE LA PAGE AVANT LE PASSAGE SUIVANT, il n'est
+#     plus dans `presents` **et** il est exclu des suivis :
+#     **jamais publie, jamais rattrape, sans un mot.**
+#   On est passe a cote PAR LE RYTHME (la page tient plusieurs jours, le cron
+#   est quotidien), pas par la conception.
+# ⭐⭐⭐ *Un garde-fou qui ferme la porte derriere lui protege une fois et perd
+#   ensuite.* Le test ci-dessous est celui qui manquait.
+
+def test_un_item_avale_revient_meme_si_la_page_ne_le_montre_plus(
+        banc, monkeypatch):
+    """🔑 LE VRAI CONTROLE DU GARDE-FOU : le report doit survivre a la page.
+
+    Passage 1 : le plafond mord, rien n'est publie.
+    Passage 2 : la page ne montre PLUS l'item (VeVe l'a retire).
+    ⇒ Il doit quand meme etre traite. Avec `clos: True`, il disparaissait.
+    """
+    monkeypatch.setattr(B, "MAX_NEUFS", 1)
+    code = _lancer(monkeypatch, PAGE, {SPIDEY: compteurs(47199, 46682),
+                                       RON: compteurs(600, 259)})
+    assert code == 1 and banc.postes == []
+    suivis = etat()["items"]
+    assert set(suivis) == {SPIDEY, RON}
+
+    # ⭐⭐ C'EST ICI QUE TOUT SE JOUE — on reconstruit `a_voir` exactement
+    #   comme la boucle principale le fait (`discord_burn.py`, « Les items a
+    #   traiter »). Un item `clos` en est exclu des qu'il quitte la page.
+    page_vide = {}
+    a_voir = list(page_vide) + [u for u, s in suivis.items()
+                                if not s.get("clos") and u not in page_vide]
+    assert set(a_voir) == {SPIDEY, RON}, (
+        "un item avale par le plafond est SORTI de la surveillance des que "
+        "VeVe l'a retire de sa page : jamais publie, jamais rattrape, et "
+        "sans un mot. C'est ce que `clos: True` provoquait.")
+
+
+def test_l_horizon_des_burns_calcules_est_de_48h():
+    """🔥 « ne plus annoncer a la decouverte, mais 48 h avant » (Preda, 21/08).
+
+    ⭐ Ce controle porte sur le REGLAGE, pas sur le calcul : `burn_date_prevue`
+    est toujours lue des la sortie du comic (lot 67). Seul le moment de
+    PUBLIER recule. Un retour a 30 rendrait la demande sans effet, en silence.
+    """
+    assert B.HORIZON_JOURS == 2, (
+        f"HORIZON_JOURS vaut {B.HORIZON_JOURS} : les burns calcules seraient "
+        f"annonces {B.HORIZON_JOURS} jours a l'avance, alors que Preda a "
+        f"demande 48 h. (Se regle par la variable DISCORD_BURN_HORIZON.)")
 
 
 def test_la_carte_part_meme_sans_sheet(banc, monkeypatch):
