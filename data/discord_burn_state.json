@@ -93,9 +93,9 @@
    "circulation_depart": 901,
    "nom": "The Amazing Spider-Man",
    "famille": "comics",
-   "a_bruler_annonce": 487,
+   "a_bruler_annonce": 484,
    "mid": "1534868742805258263",
-   "empreinte": "🔥 BURN À VENIR — The Amazing Spider-Man|15105570|⏳ Burn **<t:1787832000:D>**\n\n```\nEn circulation  901\nVendues         414\nÀ brûler        487\n```\n🔥 **54,1 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **414 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📊 Note de classement : **CC**\n📉 ATL 15 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/696a3ed3-b2bd-421e-aab1-9e4fecd35e51>)",
+   "empreinte": "🔥 BURN À VENIR — The Amazing Spider-Man|15105570|⏳ Burn **<t:1787832000:D>**\n\n```\nEn circulation  901\nVendues         417\nÀ brûler        484\n```\n🔥 **53,7 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **417 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📊 Note de classement : **CC**\n📉 ATL 15 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/696a3ed3-b2bd-421e-aab1-9e4fecd35e51>)",
    "clos": true
   },
   "2ad9cdef-8cc2-4860-b4ef-9d847e98ab11": {
@@ -105,8 +105,7 @@
    "famille": "comics",
    "a_bruler_annonce": 1,
    "mid": "1534868757099319327",
-   "empreinte": "⏸️ RETIRÉ DE LA LISTE — Spider-Man Swing Shift Director's Cut|9807270|⏸️ L'item a quitté la liste **sans burn constaté** côté VeVe.\nFenêtre prolongée, retirée, ou compteurs pas encore publiés — on ne conclut pas à sa place.\n\n📦 En circulation : **901** · 💰 vendues : **900**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📊 Note de classement : **CC**\n📉 ATL 135 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/2ad9cdef-8cc2-4860-b4ef-9d847e98ab11>)",
-   "disparu_le": "2026-08-07",
+   "empreinte": "🔥 BURN À VENIR — Spider-Man Swing Shift Director's Cut|15105570|⏳ Burn **<t:1788004800:D>**\n\n```\nEn circulation  901\nVendues         900\nÀ brûler          1\n```\n🔥 **0,1 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **900 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📊 Note de classement : **CC**\n📉 ATL 135 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/2ad9cdef-8cc2-4860-b4ef-9d847e98ab11>)",
    "clos": true
   },
   "a914a8cc-0274-49f6-a9db-a9dd45d1cad6": {
@@ -171,8 +170,9 @@
    "famille": "comics",
    "a_bruler_annonce": 901,
    "mid": "1539186325083660340",
-   "empreinte": "🔥 BURN À VENIR — Daredevil|15105570|⏳ Burn **<t:1789646400:D>** *(au plus tôt — calculé)*\n📐 *Date **calculée** (sortie + 30 j) — VeVe ne l'a pas encore mis en « Leaving Soon ». Le feu peut tomber plus tard, jamais plus tôt.*\n\n```\nEn circulation  901\nVendues           0\nÀ brûler        901\n```\n🔥 **100,0 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **0 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📉 ATL 699 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/da72c0f4-8a0e-4e6a-9ae5-9601fcbb211d>)",
-   "disparu_le": "2026-08-20"
+   "empreinte": "💯 SOLD OUT — Daredevil|2067440|💯 **Vendu jusqu'à la dernière édition** — aucun burn, le tirage reste entier.\n\n🎯 Supply final : **901 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📉 ATL 15 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/da72c0f4-8a0e-4e6a-9ae5-9601fcbb211d>)",
+   "disparu_le": "2026-08-20",
+   "clos": true
   },
   "25cb88dd-d7f9-47dc-90c1-91df3aee5398": {
    "nom": "Patrick Hughes - Series 3",
@@ -286,5 +286,5 @@
   }
  },
  "empreinte": "0cde2154acab",
- "maj": "2026-08-22T08:04:35+00:00"
+ "maj": "2026-08-23T08:02:56+00:00"
 }
