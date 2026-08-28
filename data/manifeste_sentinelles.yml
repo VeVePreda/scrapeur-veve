@@ -142,6 +142,8 @@ workflows:
   valide_critique: true
   valide_fenetre: false
   preuve: ecriture
+  depend_de:
+  - jetonveve/merge-transfers.yml
 - depot: jetonveve
   fichier: archive-medias.yml
   nom: Archive — médias de la veille
@@ -281,18 +283,20 @@ workflows:
 - depot: jetonveve
   fichier: merge-transfers.yml
   nom: Fusion transferts (IMX + CollectChain, un fichier)
-  cadence: manuel
+  cadence: 0 5 * * 2
   ecrit:
   - release:transfers-full-prev
   - release:transfers-full
-  alerte_echec: non
-  fenetre_h: null
-  critique: false
-  source_fenetre: sans objet
-  source_critique: sans objet — manuel, alerte d'echec seulement
-  preuve: sans objet
-  valide_fenetre: sans objet
-  valide_critique: sans objet
+  alerte_echec: oui
+  fenetre_h: 216
+  critique: true
+  source_fenetre: propose-2026-08-28
+  source_critique: juge-2026-08-28
+  pourquoi_critique: la SOURCE de l'entrepot — declare manuel, il etait exclu de la
+    surveillance, et son silence a gele le Sheet du 13/08 au 28/08
+  preuve: ecriture
+  valide_fenetre: false
+  valide_critique: false
 - depot: jetonveve
   fichier: merge-wallets.yml
   nom: Fusion wallets (first_seen definitif, 3 eres)
