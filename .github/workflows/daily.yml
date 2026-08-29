@@ -137,6 +137,22 @@ jobs:
           STACKR_COOKIE: ${{ secrets.STACKR_COOKIE }}
         run: python -m scraper.stackr_sales
 
+      - name: 3d) Ventes du marche VeVe (flux public, 1 ligne/vente)
+        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'ventes')) }}
+        run: python -m scraper.ventes_veve
+
+      - name: 3e) Agregat des ventes -> Release etat-ventes-stackr
+        if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'ventes')) }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python -m scraper.ventes_agregat
+          gh release view etat-ventes-stackr >/dev/null 2>&1 || \
+            gh release create etat-ventes-stackr \
+              --title "Ventes StackR + VeVe - les dernieres ventes par piece" \
+              --notes "Produit par scraper/ventes_agregat.py a partir de data/stackr_sales.csv (marche StackR, OMI) et data/veve_ventes.csv (marche VeVe, gems). Colonnes: element_id,ts_utc,marche,edition,price_usd,price_omi,vendeur,acheteur. Au plus 10 ventes par piece, les plus recentes, les DEUX marches confondus. price_usd StackR = price_omi x cours OMI du JOUR DE LA VENTE (gate.io, 120 j) - vide si le jour n'a pas de cours, et l'OMI reste. price_usd VeVe = le prix en gems. Vendeur/acheteur: pseudo quand connu, sinon adresse tronquee a la source. Lu au build par veve-sites (engine/data/warehouse.mjs, source ventes)."
+          gh release upload etat-ventes-stackr data/ventes_stackr.csv --clobber
+
       - name: 4) Dynamic edition counters (daily GraphQL pass)
         if: ${{ always() && (contains(env.STEPS, 'all') || contains(env.STEPS, 'editions')) }}
         env:
@@ -154,6 +170,12 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           [ -f data/wallet_registry_daily.csv ] && git add data/wallet_registry_daily.csv
           [ -f data/stackr_sales.csv ] && git add data/stackr_sales.csv
+          # 💰 LOT 210 — APPEND-ONLY : sans ce commit, chaque run repart de zero
+          # et l'historique des ventes VeVe ne se construit jamais.
+          # ⛔ PAS `data/ventes_stackr.csv` : il est DERIVE des deux autres,
+          # reconstructible en une seconde, et pesarait 850 Ko par jour dans
+          # l'historique du depot. La Release est sa seule maison.
+          [ -f data/veve_ventes.csv ] && git add data/veve_ventes.csv
           git diff --cached --quiet && { echo "Rien a committer."; exit 0; }
           if git diff --cached --quiet; then echo "Rien a committer."; exit 0; fi
           git commit -m "registry: maj quotidienne wallets"
