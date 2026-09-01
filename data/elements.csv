@@ -353,7 +353,7 @@ a47a6df4-1ca0-40b1-8ccb-d69b60d12dcc,ce8f9bf1-6656-407b-a1a0-53d8085a0cdf,Lad 6,
 4d5e1d1b-a183-4efc-84bf-1e469d588395,ce8f9bf1-6656-407b-a1a0-53d8085a0cdf,Lad 7,collectible,SECRET_RARE,FA,123,6,3,,The London Police,The London Police,29,2026-05-11,140,2026-04-15
 f702b265-e685-4c24-8bf4-d89410d1a2f3,ce8f9bf1-6656-407b-a1a0-53d8085a0cdf,Lad 8,collectible,SECRET_RARE,FA,123,6,5,,The London Police,The London Police,35,2026-04-13,167.89,2026-08-23
 17c774ac-824e-4f5d-9283-2789a5c589df,ce8f9bf1-6656-407b-a1a0-53d8085a0cdf,Lad 9,collectible,SECRET_RARE,FA,123,6,1,,The London Police,The London Police,34.75,2026-04-09,990,2026-07-02
-8648d886-ed81-4ea1-bae7-cb1a0bc975bd,869861f1-e4d7-43af-87b0-eb1c0aa76787,MYO - OG Gold,collectible,SECRET_RARE,FE,123,6,2,,MYO,SUYE,475,2026-06-04,1250,2026-07-23
+8648d886-ed81-4ea1-bae7-cb1a0bc975bd,869861f1-e4d7-43af-87b0-eb1c0aa76787,MYO - OG Gold,collectible,SECRET_RARE,FE,123,6,1,,MYO,SUYE,475,2026-06-04,1250,2026-07-23
 8f8959e9-48f0-4bf0-b14b-23dd5ae383ac,14e71c73-2db0-43b6-8e7e-8e48c64e73e7,JOEY,collectible,ULTRA_RARE,FE,124,3,0,,Metaverse Lyfe,Roth Rind Productions,,2026-07-09,,2026-07-09
 d4e0ace6-0b6a-45d6-9111-2aca93480185,14e71c73-2db0-43b6-8e7e-8e48c64e73e7,SAM,collectible,ULTRA_RARE,FE,124,3,1,,Metaverse Lyfe,Roth Rind Productions,36.99,2026-08-04,88888,2026-07-11
 9f42cb50-e9ef-4232-b7c0-50aead6ba5d6,8c4a45dc-243c-462c-aa9a-edeed3a03ca4,Nina Palomba - Hang-time Hub,collectible,SECRET_RARE,CE,125,6,1,,DesignerCon 2025,DesignerCon General,500,2026-01-16,2200,2025-12-16
@@ -385,7 +385,7 @@ d9325a48-f981-4287-b4ad-3cc898ee2457,7e2aab67-f3b4-4b84-9605-0ba6af579f1f,KFC Co
 67d50437-4aee-4d0a-bdad-99505e237e2a,0116829a-1afa-4687-85af-b07fd35084ed,RUNNING MON ver. VIPER,collectible,SECRET_RARE,FA,150,11,2,,RUNNING MON,Hands In Factory,25,2025-10-30,320,2025-07-05
 1c18f6f3-aa1d-4de1-a77d-f67ef47c2836,2ac5cfc1-e16c-4075-aab1-8f5f2340682a,Sadness Memory Orb,collectible,SECRET_RARE,FE,150,13,0,,Disney Pixar Inside Out,Pixar,5,2025-09-23,50000,2025-11-27
 99452901-7fa3-48fd-a56f-d352a65505d7,1fc2954e-9167-4800-ab11-daf2113963a9,Whoops Rabbid,collectible,ULTRA_RARE,,150,7,2,,Rabbids,Ubisoft,14,2025-12-12,50,2025-12-30
-2bc35402-179f-41b5-912c-f5ae9aae2fee,e8532eb8-d9e9-47e9-9d11-f90dd2cfd1dd,Wolverine - Primal Strike,collectible,SECRET_RARE,CE,150,21,5,,Wolverine,Marvel,360,2024-07-29,28000,2026-08-26
+2bc35402-179f-41b5-912c-f5ae9aae2fee,e8532eb8-d9e9-47e9-9d11-f90dd2cfd1dd,Wolverine - Primal Strike,collectible,SECRET_RARE,CE,150,21,4,,Wolverine,Marvel,360,2024-07-29,28000,2026-08-26
 5bba0767-1ed6-4bc9-92dc-651d8b4e66d4,5fa15779-7ec1-485e-841b-5600b6b51b93,‍‍Joy Memory Orb,collectible,COMMON,FE,150,11,0,,Disney Pixar Inside Out,Pixar,20,2026-07-19,5000,2026-04-13
 bd955bb1-baf6-4d0b-a70d-5b14283f8384,5f66c451-40f7-4bd6-aba5-0fd9c049d1cd,Death Trooper - SE-14r Blaster Advance,collectible,COMMON,FA,151,7,2,,Star Wars™: Troopers Collection,Star Wars,44,2026-01-03,10000,2026-05-04
 d9bdd586-77c4-4cbc-b27c-6567172c7fc3,a08e71f6-5bd1-42e4-a2b1-398736499d1d,Night Trooper - Shooting,collectible,COMMON,FA,151,6,1,,Star Wars™: Troopers Collection,Star Wars,10,2026-07-09,180000,2026-07-26
@@ -561,7 +561,7 @@ e2786ce4-3883-457b-b8d4-7ac1a0748d67,cd5de150-7cf1-4a13-98e4-5de6553bd41b,Grenad
 ac5bc2af-f67d-46da-bac1-1b404a3dd6d1,11ee4f33-e2db-42b1-9c47-0d2ab78e8172,H.I.M.,collectible,RARE,FA,300,41,2,,Powerpuff Girls,Cartoon Network,19.99,2026-08-22,21600,2021-12-19
 a638063f-a295-48b5-8f4f-23de759f5fec,40e808c2-9a40-445a-a877-abe4541ba7c8,Mrs. Potts & Chip,collectible,SECRET_RARE,FA,300,16,1,,Disney Beauty and the Beast Collection,Disney,25,2026-07-01,,2025-07-23
 d4f65509-13a2-4011-84b6-f4b228f28d94,0116829a-1afa-4687-85af-b07fd35084ed,RUNNING MON ver. OGRE,collectible,ULTRA_RARE,FA,300,16,3,,RUNNING MON,Hands In Factory,4,2025-11-15,50,2026-05-27
-6d17c72e-5783-4c86-afd3-95850d625ad7,0116829a-1afa-4687-85af-b07fd35084ed,RUNNING MON ver. VEVE JACKET,collectible,ULTRA_RARE,FA,300,16,3,,RUNNING MON,Hands In Factory,10,2025-07-01,199,2026-01-05
+6d17c72e-5783-4c86-afd3-95850d625ad7,0116829a-1afa-4687-85af-b07fd35084ed,RUNNING MON ver. VEVE JACKET,collectible,ULTRA_RARE,FA,300,16,4,,RUNNING MON,Hands In Factory,10,2025-07-01,199,2026-01-05
 fdd6f19d-4614-44d4-b816-5cef345d7981,11a06323-50b0-4ed3-91fa-5a21c8d21d00,Red Horse,collectible,SECRET_RARE,,300,11,5,,Ducobi,Ducobi,23.55,2026-06-15,28,2026-08-03
 53ffd4dc-2ac7-4c1f-bca1-78c4316201a0,f1081784-28f0-4476-b56f-300876f52436,Rogue - X-Treme Force,collectible,SECRET_RARE,FA,300,16,4,,Rogue,Marvel,32.99,2025-11-10,1500,2026-03-16
 99c8e9ab-7ea7-4ef8-aa34-f5df2891d65b,6b579383-ab66-4618-9e3b-fe6c545f50aa,Sabretooth - Vengeful Escape,collectible,SECRET_RARE,FA,300,16,8,,Sabretooth,Marvel,28,2025-07-09,250,2026-07-09
@@ -756,7 +756,7 @@ ce1d4fe9-0b3d-463b-a620-942699a650b5,615dc1a7-3f19-4faf-8f61-1ed9d2727155,Franke
 bfee101f-2ea1-48b4-a662-c0778f616af7,847e14ab-8213-44eb-9ba5-83e666f2fe17,Hojakdo Island,collectible,ULTRA_RARE,FE,500,21,4,,Ducobi,Ducobi,4.8,2026-05-09,19.95,2026-02-22
 28b53716-1751-49e2-9cf2-354427e41546,96ce05f7-a4a3-431d-8a6b-1917a7327f3e,Jasmine and Jafar,collectible,ULTRA_RARE,,500,41,3,,Disney Princess Collection,Disney,3,2025-11-14,33,2025-11-27
 9c5831e3-9544-4af2-a3d3-cf0d8a8910f9,2b17e26f-e88d-4aa4-895c-fef15320d6d6,Jubilee - Full Spectrum,collectible,ULTRA_RARE,,500,26,6,,Jubilee,Marvel,9.96,2026-06-26,50,2025-11-15
-17e0ad50-e443-46f9-9016-0f79c5753a7a,68ed7c1a-da3a-49e0-b023-87ed4bb3b272,Kaiju Tokigold,collectible,SECRET_RARE,CE,500,41,5,,Toy Tokyo x tokidoki Kaiju Tokigold,Toy Tokyo,26,2025-11-10,245,2025-03-19
+17e0ad50-e443-46f9-9016-0f79c5753a7a,68ed7c1a-da3a-49e0-b023-87ed4bb3b272,Kaiju Tokigold,collectible,SECRET_RARE,CE,500,41,4,,Toy Tokyo x tokidoki Kaiju Tokigold,Toy Tokyo,26,2025-11-10,245,2025-03-19
 fba213fa-736f-473b-b62e-433f8248b8ad,5008213b-b120-43cf-ab03-71f7352820ce,Mech Bobo - Gold,collectible,ULTRA_RARE,CE,500,1,2,,Evermind Comics,247 Studios,29,2025-11-28,145,2026-01-19
 d6012097-18c4-488b-8133-44b575447270,d7420349-dcaa-428c-89d5-95ffdf4e2444,Mr. Mischief the Monkey Grin - Gold,collectible,SECRET_RARE,,500,41,4,,Ron English’s Popaganda,Ron English,25,2025-11-14,10000000,2026-08-20
 c1d7003a-ceb9-475f-b6f2-50d3f07411d8,422bfb6f-528b-4f1f-a627-14c362602fa2,Nozzle Eye - Gold,collectible,RARE,CE,500,21,2,,Nick Walker,ElmonX,17.99,2026-08-09,2500,2026-01-02
@@ -787,7 +787,7 @@ ea9a9878-1841-4d3b-8248-cedbca4c8807,5e800a4f-1592-41db-b55f-e62cf6d47a15,Death 
 d6033d14-4af7-4aee-a38f-080e4cd98fd1,cd0a3532-0fda-4f09-9e16-223b604ce8f9,Gouged Stormtrooper Helmet,collectible,SECRET_RARE,FE,501,22,7,,Star Wars TM: Trooper Helmets,Star Wars,27.99,2025-11-14,10000000,2026-02-14
 351f7ac8-be07-48d5-9a66-4b2d65982430,8886792e-4441-4c1d-aa69-7a51fdde10cb,Mimban Trooper - Crouching,collectible,ULTRA_RARE,,501,21,12,,Star Wars™: Troopers Collection,Star Wars,3.99,2026-02-09,16,2026-02-01
 0cc92d82-9a02-4e3d-90b4-bb82965877fa,906c5db8-b538-4335-b55a-fa532d615658,Night Trooper Helmet,collectible,SECRET_RARE,FE,501,21,3,,Star Wars TM: Trooper Helmets,Star Wars,23,2026-08-21,630,2025-07-14
-6f5d6b03-da4c-4121-9024-74221436f214,8886792e-4441-4c1d-aa69-7a51fdde10cb,Shadow Trooper - Crouching,collectible,ULTRA_RARE,,501,21,11,,Star Wars™: Troopers Collection,Star Wars,3.99,2026-02-09,25.8,2026-08-19
+6f5d6b03-da4c-4121-9024-74221436f214,8886792e-4441-4c1d-aa69-7a51fdde10cb,Shadow Trooper - Crouching,collectible,ULTRA_RARE,,501,21,10,,Star Wars™: Troopers Collection,Star Wars,3.99,2026-02-09,25.8,2026-08-19
 fb126fc0-85cd-4363-aded-425205ec8d62,cd0a3532-0fda-4f09-9e16-223b604ce8f9,Stabbed Trooper Helmet,collectible,SECRET_RARE,FE,501,21,4,,Star Wars TM: Trooper Helmets,Star Wars,14.99,2025-07-27,60,2025-05-17
 69227665-8301-4c3b-a2ad-35729f1c3479,8886792e-4441-4c1d-aa69-7a51fdde10cb,Stormtrooper - Crouching,collectible,ULTRA_RARE,,501,21,8,,Star Wars™: Troopers Collection,Star Wars,4.5,2026-02-10,22,2026-06-01
 45bf1796-6773-4012-a891-24706df69466,510f74fb-5600-4863-b2f5-9912a5369145,Stormtrooper - Special Edition,collectible,SECRET_RARE,FA,501,41,2,,Star Wars™:  Return of the Jedi™ Collection,Star Wars,95,2024-08-16,375,2025-07-25
@@ -847,7 +847,7 @@ cbe24b8c-1830-473d-b535-06648b654f65,9a7b0ced-e1d1-468b-b995-dcef5cb0b376,Jason 
 174c2635-5716-46fa-a5f1-6a4eb9f31bfb,6b06ba5b-40df-46d2-8401-069eb9b78976,Kassandra Base,collectible,ULTRA_RARE,CE,555,21,4,,Assassin's Creed,Ubisoft,6.3,2025-11-08,100,2026-03-24
 99ef7ea3-9f79-45f1-9152-42837ad5282b,c3e402d9-66e5-42e8-8b53-2ce71a38c968,MARBLE LORD - Tristan Eaton,collectible,RARE,CE,555,41,5,,VICELORD,Tristan Eaton,3,2025-08-20,49.99,2025-05-15
 96c9e719-1bc1-4976-9061-c7025ed37049,d15f2166-7a49-4c13-aa19-693b44ccfd47,MYO - OG Gold/Silver,collectible,SECRET_RARE,FE,555,21,1,,MYO,SUYE,269,2026-06-30,5000,2026-06-04
-dcae65b7-bd26-41d5-8509-8212bf2f3241,f710b48f-44c5-4bae-b84c-ce43acb047ff,Rooftop Watch – Brickline Rise,collectible,ULTRA_RARE,FE,555,31,0,,VeVe Dioramas,VeVe,7,2025-08-22,153,2026-05-15
+dcae65b7-bd26-41d5-8509-8212bf2f3241,f710b48f-44c5-4bae-b84c-ce43acb047ff,Rooftop Watch – Brickline Rise,collectible,ULTRA_RARE,FE,555,31,3,,VeVe Dioramas,VeVe,7,2025-08-22,19999,2026-08-31
 efce0615-f0e6-43ba-8e30-e3eb8f56d37f,338bfc34-bee7-42a3-a85a-910c8b72f28e,Sam Wilson - Marvel Metallic Red,collectible,SECRET_RARE,CE,555,21,8,,Marvel Metallic Reds,Marvel,20.99,2025-10-29,120,2025-11-26
 794c3826-643a-438b-9e37-787c91e83221,a26c93b2-def8-47f0-a9db-3b0e1b7caebb,Spider-Man - Marvel Metallic Red,collectible,SECRET_RARE,CE,555,21,5,,Marvel Metallic Reds,Marvel,93,2026-07-24,435,2026-01-13
 576ad8fb-45f2-47aa-9b94-54fd80871aa0,61c206b6-ddea-4b16-bdc0-289c5310b6ab,Thanos - Marvel Metallic Red,collectible,SECRET_RARE,CE,555,21,2,,Marvel Metallic Reds,Marvel,19.99,2025-01-15,149.95,2025-07-20
@@ -913,7 +913,7 @@ a017670a-cfa3-480d-900a-c8355d4a3a27,0116829a-1afa-4687-85af-b07fd35084ed,RUNNIN
 999ddcd6-4167-4c3e-8dd5-5454961925a1,4ea2c846-337c-4071-86d6-b173487fd2a0,Ronin,collectible,SECRET_RARE,FA,600,43,7,,Avengers,Marvel,7.25,2023-12-14,97,2024-07-11
 952c9eee-bddf-4898-ac4c-2602dd80a2ab,d2743445-7a00-48c3-99cf-ada21eda2f82,The Pink Panther - Gold,collectible,SECRET_RARE,FA,600,41,4,,The Pink Panther,Metro-Goldwyn-Mayer (MGM),49.99,2025-02-03,249.99,2026-03-06
 5e4f8a69-f7c3-4060-8eb8-7b34540a36ce,2162eeb7-58cb-4769-a4f2-06e8c5be3fd4,Wendy’s Gift Box,collectible,ULTRA_RARE,FE,600,21,9,,Disney Peter Pan Collection,Disney,2.21,2025-04-10,59,2026-08-22
-0911a467-0a70-4399-b99e-fa447496024c,ba7ec426-c4f7-4ea4-8f34-cb0a5f79eb58,X-Men: 60 Uncanny Years Poster,collectible,SECRET_RARE,CE,600,41,7,,X-Men,Marvel,13,2025-02-05,399,2025-10-15
+0911a467-0a70-4399-b99e-fa447496024c,ba7ec426-c4f7-4ea4-8f34-cb0a5f79eb58,X-Men: 60 Uncanny Years Poster,collectible,SECRET_RARE,CE,600,41,8,,X-Men,Marvel,13,2025-02-05,399,2025-10-15
 43712ae0-657d-4562-b686-5217abbe030f,3d36a7e2-961e-40de-ab44-fa1353eeb456,Laughing Rabbids,collectible,ULTRA_RARE,FA,606,41,4,,Rabbids,Ubisoft,6.5,2025-10-05,99.99,2023-04-28
 0c20eae8-dd0c-4786-ae2b-a4c9445783c0,653e5b17-e1ef-4e13-969c-acefbd193ea1,Arendelle in Spring,collectible,SECRET_RARE,FE,613,41,2,,Disney Frozen Collection,Disney,22,2025-11-14,1928,2025-05-27
 d175dd45-8919-4b60-bef4-5a64d9d045df,653e5b17-e1ef-4e13-969c-acefbd193ea1,Elsa's Ice Palace,collectible,SECRET_RARE,FE,613,41,2,,Disney Frozen Collection,Disney,21,2025-07-06,600,2026-07-10
@@ -1033,8 +1033,8 @@ d1099f21-5336-42cd-a813-42fddfcf2aff,e111339a-1aae-4f4e-9947-a74d2a87592e,Night 
 01e18846-c61c-42b4-a8f7-41ac50ffd7fd,af97b210-4461-4407-a077-e675aa454190,Pinz,collectible,RARE,FA,750,21,1,,Poxh Pixeez,Woodwerk Studios,4.99,2026-04-29,999,2025-12-31
 4845bbab-2ecd-454e-bb8b-1b671a31993b,f84d5ac5-9b5e-4682-a9b9-559b21c45cf7,Usagi (Green),collectible,RARE,FA,750,41,6,,Labbit Enemies,Frank Kozik,3.59,2025-09-08,73.99,2026-05-20
 8d6e31ef-0c5e-401a-a297-9e2db711cabf,51821f02-4f3d-40aa-a082-3ee40b6d5fe4,VeVe Search Party - Lincoln Design Co.,collectible,UNCOMMON,CE,750,41,5,,DesignerCon 2022 Collection,DesignerCon General,2.9,2025-05-30,69,2026-07-09
-5262e9f2-b83e-4665-a621-b555d4e9e814,af97b210-4461-4407-a077-e675aa454190,Zeux,collectible,RARE,FA,750,21,2,,Poxh Pixeez,Woodwerk Studios,5.69,2026-04-04,175000,2026-08-30
-69aa8eb1-0cd0-4a6f-8ee5-d06bd3eac21f,3323fc62-a5db-43e6-9bff-df6d12793998,Miura - Bianco Polo Park,collectible,RARE,FE,762,21,4,,Lamborghini Miura,Automobili Lamborghini,9.99,2025-04-15,2400,2025-02-02
+5262e9f2-b83e-4665-a621-b555d4e9e814,af97b210-4461-4407-a077-e675aa454190,Zeux,collectible,RARE,FA,750,21,3,,Poxh Pixeez,Woodwerk Studios,5.69,2026-04-04,175000,2026-08-30
+69aa8eb1-0cd0-4a6f-8ee5-d06bd3eac21f,3323fc62-a5db-43e6-9bff-df6d12793998,Miura - Bianco Polo Park,collectible,RARE,FE,762,21,5,,Lamborghini Miura,Automobili Lamborghini,9.99,2025-04-15,2400,2025-02-02
 ee047d57-731f-46e8-8a0d-98262df19304,8d7daa43-c462-4474-ad87-aad82f5c98e2,Creepshow Tombstone - Vol. 2 Issue 1,collectible,UNCOMMON,FE,766,21,2,,Creepshow TV,"Cartel Entertainment, LLC",2.75,2025-10-15,100,2026-08-26
 b78505b5-9cdd-414b-b43e-c73a1f6191df,8d7daa43-c462-4474-ad87-aad82f5c98e2,Creepshow Tombstone - Vol. 2 Issue 2,collectible,UNCOMMON,FE,766,21,3,,Creepshow TV,"Cartel Entertainment, LLC",3,2025-11-18,80.99,2026-08-26
 26e88992-ef0f-4669-9dc9-b26cc00f46e1,8d7daa43-c462-4474-ad87-aad82f5c98e2,Creepshow Tombstone - Vol. 2 Issue 3,collectible,UNCOMMON,FE,766,21,4,,Creepshow TV,"Cartel Entertainment, LLC",2.95,2025-05-29,100,2025-07-17
@@ -1049,16 +1049,16 @@ cb5a1381-302f-414d-adcd-0d8e6aeebc52,23658a5f-daf1-4773-8d93-4162be0ca911,Batter
 2db2e5c8-17f0-4187-9006-c60d9d3c87a4,551e2f89-d691-4dd2-8218-d619115695a8,Darth Vader Bust - White Marble,collectible,RARE,,777,21,3,,Dark Side Collection,Star Wars,8,2026-02-06,25.45,2026-04-02
 868fe1f8-cc4a-421a-877c-198bd0262274,d6fd1179-f873-4031-ab6e-abb3e585c2db,Darth Vader Samurai - Crimson Descent,collectible,RARE,,777,21,7,,Dark Side Collection,Star Wars,6.9,2025-10-10,89,2026-03-08
 04c1b81f-a6c9-4c57-be41-5f25001cfe44,e25714be-5f0e-43a8-935c-1b7ba2cbc15e,Epiko Logo - Original,collectible,UNCOMMON,FE,777,21,16,,Epiko,Wharf Street Studios Limited,5.25,2026-08-30,20,2026-08-30
-90dc4c4d-7177-4fde-9bae-a42dc5ff7e5c,e25714be-5f0e-43a8-935c-1b7ba2cbc15e,Foster,collectible,UNCOMMON,FA,777,21,11,,Epiko,Wharf Street Studios Limited,4.99,2026-08-30,20,2026-08-30
+90dc4c4d-7177-4fde-9bae-a42dc5ff7e5c,e25714be-5f0e-43a8-935c-1b7ba2cbc15e,Foster,collectible,UNCOMMON,FA,777,21,10,,Epiko,Wharf Street Studios Limited,4.99,2026-08-30,20,2026-08-30
 4737dfaf-a202-411c-998c-42f98010247b,23658a5f-daf1-4773-8d93-4162be0ca911,Fuel Drum Stack,collectible,RARE,,777,21,0,,Star Wars™: A New Hope Collection,Star Wars,3.79,2026-07-27,22,2026-06-06
-fdf183e2-42ac-4cdb-b760-5e54a92a31c4,c3e402d9-66e5-42e8-8b53-2ce71a38c968,GLOSS LORD - Tristan Eaton,collectible,COMMON,CE,777,41,12,,VICELORD,Tristan Eaton,2,2025-08-21,35,2022-11-20
+fdf183e2-42ac-4cdb-b760-5e54a92a31c4,c3e402d9-66e5-42e8-8b53-2ce71a38c968,GLOSS LORD - Tristan Eaton,collectible,COMMON,CE,777,41,14,,VICELORD,Tristan Eaton,2,2025-08-21,35,2022-11-20
 590afe3a-120d-4ff3-a983-0213765d6e45,23658a5f-daf1-4773-8d93-4162be0ca911,GNK Power Droid,collectible,RARE,FE,777,22,5,,Star Wars™: A New Hope Collection,Star Wars,14,2026-05-05,49,2026-08-23
 23fcbfb3-2f02-49bb-abd5-4825e7f26e80,c047e14e-cb4a-4ba5-aaa3-235fb7beaa3a,Groot Black Panther,collectible,ULTRA_RARE,,777,31,4,,Marvel Mightys,Marvel,6,2025-01-21,27,2025-07-07
 e5481692-b3a2-4bb4-80ca-414235571a48,bfb1c828-6119-4d04-a087-e09dceaf9cb9,Hangar Bay 327 - Animated,collectible,RARE,,777,21,4,,Star Wars™: A New Hope Collection,Star Wars,25,2026-07-17,77000.66,2026-05-08
 73cda966-4e10-4243-ab3b-d7d7a35f932e,23658a5f-daf1-4773-8d93-4162be0ca911,Hangar Walkway,collectible,RARE,,777,21,2,,Star Wars™: A New Hope Collection,Star Wars,6,2026-05-06,25,2026-06-16
 f37c5bb1-5803-49d1-b4ef-3e6958c031fb,86001fc9-b359-43c2-a28e-06582def0e80,Hunk - Yellow Lion,collectible,SECRET_RARE,FA,777,41,10,,DreamWorks’ Voltron: Legendary Defender,Dreamworks,15.99,2025-04-16,330,2025-10-11
 38bc4ba4-ed87-425a-8fef-2e5cd436a0a5,e999caf1-7ae9-475a-ad11-730c6d888f3b,ILLAZILLAZ (Metal Element) - TNES,collectible,RARE,CE,777,41,11,,DesignerCon 2022 Collection,DesignerCon General,1,2025-11-20,46,2022-09-07
-0b5e951b-09bd-4b29-9db9-d7ca4814d92c,e25714be-5f0e-43a8-935c-1b7ba2cbc15e,Janie,collectible,UNCOMMON,FA,777,22,19,,Epiko,Wharf Street Studios Limited,5.5,2026-08-31,20,2026-08-30
+0b5e951b-09bd-4b29-9db9-d7ca4814d92c,e25714be-5f0e-43a8-935c-1b7ba2cbc15e,Janie,collectible,UNCOMMON,FA,777,22,17,,Epiko,Wharf Street Studios Limited,5.5,2026-08-31,20,2026-08-30
 02ab1567-e3b7-4862-bd09-4115bcfed9fc,e25714be-5f0e-43a8-935c-1b7ba2cbc15e,Max,collectible,UNCOMMON,FA,777,21,10,,Epiko,Wharf Street Studios Limited,5.2,2026-08-30,20,2026-08-30
 2c3b5185-c87d-440e-a040-902aacc1d57d,984bb84f-f984-424f-907b-76fe0baccede,Monovader - Blue Mic Theory,collectible,UNCOMMON,FE,777,21,11,,Monovader,Coolrain,1.5,2026-05-15,15,2026-05-11
 c8f0ded7-7052-4e35-be76-cb7353ad924b,984bb84f-f984-424f-907b-76fe0baccede,Monovader - Chrome,collectible,UNCOMMON,FE,777,21,20,,Monovader,Coolrain,2.49,2026-06-15,7,2026-05-15
@@ -1095,7 +1095,7 @@ aa3fbafe-4671-4b33-86dc-7e0556e33abf,3d36a7e2-961e-40de-ab44-fa1353eeb456,Skatin
 58b62a0f-90d5-442c-9114-53aa25fb379e,653e5b17-e1ef-4e13-969c-acefbd193ea1,Anna and Prince Hans,collectible,ULTRA_RARE,FE,813,41,1,,Disney Frozen Collection,Disney,5.9,2025-11-14,9999,2025-06-02
 145280a1-9f79-4b7c-a87f-b786b552eb30,653e5b17-e1ef-4e13-969c-acefbd193ea1,Olaf's Summer,collectible,ULTRA_RARE,FE,813,42,2,,Disney Frozen Collection,Disney,7,2025-09-07,199,2025-11-10
 06137121-cc15-4b85-b69d-346b97d20337,460aa3b9-1f5e-4afa-91fa-9f5a8bd90eb8,Maserati MC12 - Pantone Orange,collectible,RARE,FE,814,21,2,,Maserati,Maserati,11,2025-08-23,444,2025-12-17
-9d25ee7b-bf59-4d56-a391-f7329bfe8973,726a35e4-f6f6-4b35-abf1-84410179a98e,Rocket,collectible,SECRET_RARE,FA,814,,8,,Marvel Mightys,Marvel,19,2025-10-18,169,2023-08-19
+9d25ee7b-bf59-4d56-a391-f7329bfe8973,726a35e4-f6f6-4b35-abf1-84410179a98e,Rocket,collectible,SECRET_RARE,FA,814,,7,,Marvel Mightys,Marvel,19,2025-10-18,169,2023-08-19
 ce2fb115-5bf2-4e03-aa7b-2a348b36571b,232ddf82-f5a1-4f6e-a204-0251184b7ea2,Mickey’s Signature,collectible,SECRET_RARE,FE,815,,6,,The Mickey Mouse NFT Collection,Disney,69.99,2025-04-15,494,2023-03-22
 5695db59-33ae-4ce5-a751-0f17d26265e4,98a406b7-a956-410b-82cf-b80cecb070ff,Dante,collectible,SECRET_RARE,FA,817,41,1,,Disney Pixar Coco Collection,Disney,24,2025-03-25,1130,2026-07-05
 b150dbe8-cbd5-4efe-906d-ae32259f082d,2162eeb7-58cb-4769-a4f2-06e8c5be3fd4,Cannon,collectible,RARE,FE,820,21,14,,Disney Peter Pan Collection,Disney,1.99,2025-06-19,40,2026-03-06
@@ -1168,9 +1168,9 @@ fe25e470-e059-45a4-863d-d25a085b0dfe,8e322b00-91ca-47e2-9e86-d9d9ef70fcca,MyColl
 538b85be-ef8d-4874-a7d5-916be105f292,5530885f-e184-4ade-aef3-2936a2ec6869,That Cat Bronson,collectible,ULTRA_RARE,CE,888,41,9,,DesignerCon 2021,DesignerCon General,33,2025-08-27,4500,2022-01-14
 3b990f92-ef9c-4634-8992-27de92c50b98,df5a25f5-fd4c-4234-9ba9-dc52569cb802,The Half Note Jazz Club,collectible,ULTRA_RARE,FE,888,41,2,,Disney Pixar Soul Collection,Disney,6.5,2025-07-26,10000,2025-12-28
 d08cf3f5-f182-4de6-a540-2fbeb726561a,932ba62a-c6e8-4a84-8775-3b104fb84930,The Hunter,collectible,ULTRA_RARE,CE,888,41,4,,CHOICES,Jermaine Rogers,29,2025-03-17,2100,2021-10-10
-9c03916b-f57c-43d8-a0b0-7f7dbbbf73d9,a4cbdbc4-12fa-45b5-b51f-4897bb478c3f,Tian Zun Huang Yin,collectible,SECRET_RARE,FA,888,42,5,,Pili Fantasy,Pili International Multimedia,7.39,2023-04-08,308,2026-07-02
+9c03916b-f57c-43d8-a0b0-7f7dbbbf73d9,a4cbdbc4-12fa-45b5-b51f-4897bb478c3f,Tian Zun Huang Yin,collectible,SECRET_RARE,FA,888,42,6,,Pili Fantasy,Pili International Multimedia,7.39,2023-04-08,308,2026-07-02
 3d9e2fef-d48b-40c0-b295-88da8426bec9,e28c1d43-955d-4513-80cd-a39aa4ebf073,Valkyrie - Action,collectible,RARE,,888,41,1,,Marvel Mightys,Marvel,9.99,2026-03-18,25,2026-07-08
-0a50c1f6-4aba-4de7-99bb-9fe80a1aa605,ceb3e870-d1c5-47ce-8822-1c681a2aa030,VeVe Logo White Orange,collectible,ULTRA_RARE,,888,41,3,,VeVe Logo Collection,VeVe,13,2025-05-09,197,2023-08-17
+0a50c1f6-4aba-4de7-99bb-9fe80a1aa605,ceb3e870-d1c5-47ce-8822-1c681a2aa030,VeVe Logo White Orange,collectible,ULTRA_RARE,,888,41,4,,VeVe Logo Collection,VeVe,13,2025-05-09,197,2023-08-17
 3025635d-ac71-4d8f-876c-bc5b3a6662a7,df5a25f5-fd4c-4234-9ba9-dc52569cb802,When Inspiration Strikes,collectible,ULTRA_RARE,FE,888,42,1,,Disney Pixar Soul Collection,Disney,7.5,2026-05-02,74,2026-08-09
 148b9255-4ea9-4a4e-b3f3-9b8a77f780b3,24d71845-e33a-426d-a351-5bcec2fb47b7,White Backstab,collectible,ULTRA_RARE,,888,41,4,,Labbit,Frank Kozik,40,2025-11-14,3500,2025-12-05
 bfbb5341-6a35-4ecb-b3a7-896bf6eb870c,3684fedc-c07e-4780-9473-204b19a90c03,Year of the Horse - Pane of 20,collectible,SECRET_RARE,FE,888,21,2,,Lunar New Year,United States Postal Service,6,2026-06-11,39.99,2026-08-11
@@ -1277,7 +1277,7 @@ c983ca1d-6b6d-4cd7-b0fc-e735d9584cf0,e999caf1-7ae9-475a-ad11-730c6d888f3b,ILLAZI
 7c60e92d-a096-41a5-b222-38ac26ebf894,f3cd8c85-844c-4ae8-a026-18e656244a0e,"Jim Lake, Jr.",collectible,RARE,FA,999,41,4,,DreamWorks Trollhunters,Dreamworks,2.95,2025-12-27,42.69,2026-08-19
 6c1095fe-1a9d-49db-8215-2335a9808f63,f064822e-4672-46ec-b8d4-b90c7cc9353d,Joan Of Arc,collectible,ULTRA_RARE,,999,41,7,,Rewind Collective,Rewind Collective,7,2025-11-21,277,2022-03-31
 0e238bc3-0cda-4163-9cd5-ce63b2845986,6b06ba5b-40df-46d2-8401-069eb9b78976,Kassandra,collectible,ULTRA_RARE,CE,999,21,3,,Assassin's Creed,Ubisoft,17.77,2026-04-25,5000,2025-05-04
-7a394bf7-30a5-499c-bc6e-a47b6eaaf713,a3148d86-dbd4-487f-b695-e859c733abfe,Lazinger,collectible,UNCOMMON,FE,999,41,12,,Labbiter XK-5 Mechas,Frank Kozik,2.25,2025-05-26,54,2025-09-24
+7a394bf7-30a5-499c-bc6e-a47b6eaaf713,a3148d86-dbd4-487f-b695-e859c733abfe,Lazinger,collectible,UNCOMMON,FE,999,41,13,,Labbiter XK-5 Mechas,Frank Kozik,2.25,2025-05-26,54,2025-09-24
 c68e2b7a-e05c-477a-a6c6-14634812a7e3,15b55473-220c-4bf7-8289-a2ef6352604a,Little Friends Silver,collectible,ULTRA_RARE,CE,999,41,7,,DesignerCon 2021,DesignerCon General,10,2025-10-20,1500,2026-01-13
 e37ee580-892b-4db5-b6d7-3221eaee4960,c96c4b1e-2a05-473d-873b-417f3894530a,Lucky,collectible,SECRET_RARE,CE,999,41,4,,Toy Tokyo x Jermaine Rogers,Toy Tokyo,50,2025-10-31,4700,2021-10-18
 f68a5fd3-4208-4384-8683-095a8fe10fb3,f064822e-4672-46ec-b8d4-b90c7cc9353d,Mulan,collectible,ULTRA_RARE,,999,41,6,,Rewind Collective,Rewind Collective,6,2025-09-05,380,2025-10-05
@@ -1383,7 +1383,7 @@ f4ba3117-9a23-4ab7-b489-2908ccb176c6,987f6d02-17df-40a3-b610-dd5234836400,Sandma
 a9ae0af3-8c76-45eb-9ef0-cd314ebc4e20,9a4768cd-c0c7-4179-8d59-1ae4a2af7f7f,Carnage,collectible,ULTRA_RARE,FA,1111,42,5,,Spider-Man,Marvel,36,2025-04-24,124.95,2025-12-29
 6de7f3f5-f2fd-44a5-b9bd-931fe237b02e,4f9beadc-53dc-4a21-941e-861029609328,Creeping DERO,collectible,RARE,CE,1111,41,8,,DesignerCon 2021,DesignerCon General,9,2025-01-18,1645,2022-01-14
 b1d8323f-c884-4ff8-97a9-01e4bcd5e3a7,45eacadc-087b-41cf-9d7d-e737d75f5d49,Dancefloor Dreams – Neon Pulse,collectible,RARE,FE,1111,21,0,,VeVe Dioramas,VeVe,7.77,2025-07-06,1000000,2026-06-16
-3a3f2167-ba4a-4b93-a98b-c45613c3ace4,f3cd8c85-844c-4ae8-a026-18e656244a0e,Draal,collectible,UNCOMMON,FA,1111,41,2,,DreamWorks Trollhunters,Dreamworks,1.82,2025-02-04,20,2023-03-04
+3a3f2167-ba4a-4b93-a98b-c45613c3ace4,f3cd8c85-844c-4ae8-a026-18e656244a0e,Draal,collectible,UNCOMMON,FA,1111,41,3,,DreamWorks Trollhunters,Dreamworks,1.82,2025-02-04,20,2023-03-04
 01d771e3-bf43-435c-a97c-7bf7f3ce259d,3bd635c8-782a-40de-86c2-6d0fc009129e,Evil Queen: Vintage Metal Poster,collectible,RARE,FE,1111,41,4,,Disney Villains Collection,Disney,4,2025-11-20,550,2025-07-19
 06b6d347-f3de-4b02-b961-3dcd033cdb85,aea0de54-7c1a-44ca-9ca8-798bc4ac1716,Ezio - Assassin's Stance,collectible,ULTRA_RARE,FA,1111,21,7,,Assassin's Creed,Ubisoft,2.99,2025-01-10,111,2026-07-17
 3e24518f-be71-4226-a758-655a803f4807,df5a25f5-fd4c-4234-9ba9-dc52569cb802,Joe and Mr. Mittens,collectible,RARE,FE,1111,41,2,,Disney Pixar Soul Collection,Disney,2,2025-11-14,25,2023-10-21
@@ -1422,7 +1422,7 @@ a35a6323-40ba-4c70-b65c-99c166f6c507,ce8f9bf1-6656-407b-a1a0-53d8085a0cdf,Dog,co
 0f9de5c7-9110-4e09-b054-55c969dafca3,83ba64af-0756-4dd2-b0a6-2c981540207e,Marvel’s Avengers: Beyond Earth’s Mightiest - Poster,collectible,SECRET_RARE,CE,1160,41,1,,Avengers,Marvel,5.5,2025-11-16,40,2025-12-29
 b7af07ae-716b-4c4c-b13a-1b3c55b00cf2,424cd8af-92b6-4189-a5d0-c2ab97d90410,Hear More Evil Monkey - Original,collectible,ULTRA_RARE,FE,1166,41,1,,Ron English’s Popaganda,Ron English,2.25,2025-04-11,25,2023-06-18
 1789d2da-271a-4772-9622-d9a7fad2f580,424cd8af-92b6-4189-a5d0-c2ab97d90410,Mr. Mischief the Monkey Grin - Original,collectible,ULTRA_RARE,FE,1166,41,8,,Ron English’s Popaganda,Ron English,2,2026-01-03,100,2026-04-23
-637f88b9-2ccf-45e1-a3aa-abc13ff13cf8,424cd8af-92b6-4189-a5d0-c2ab97d90410,Seymour Evil Monkey - Original,collectible,ULTRA_RARE,FE,1166,41,3,,Ron English’s Popaganda,Ron English,3,2025-11-14,25,2023-06-18
+637f88b9-2ccf-45e1-a3aa-abc13ff13cf8,424cd8af-92b6-4189-a5d0-c2ab97d90410,Seymour Evil Monkey - Original,collectible,ULTRA_RARE,FE,1166,41,2,,Ron English’s Popaganda,Ron English,3,2025-11-14,25,2023-06-18
 4d18f169-e8d4-4a10-a783-a53db7363f6f,aa66341d-b921-4491-90a5-caedc8273232,Female Eivor - Flame of the Fjord,collectible,COMMON,FA,1170,21,3,,Assassin's Creed,Ubisoft,4,2026-02-23,30,2026-02-21
 e107821b-0980-4a3f-80a5-a96abf5eadd1,aa66341d-b921-4491-90a5-caedc8273232,Male Eivor - Blade of the North,collectible,COMMON,FA,1170,21,4,,Assassin's Creed,Ubisoft,4.9,2026-02-23,30,2026-02-21
 443c3c75-f0db-4763-9976-2ffa58f8e7f8,f82e7378-7bfd-44f0-b801-1b06d4395128,Valhalla - Blade of the North,collectible,UNCOMMON,,1170,21,0,,Assassin's Creed,Ubisoft,17,2026-02-23,100,2026-04-08
@@ -1470,7 +1470,7 @@ f13e1d28-20e3-473d-af6b-2d6e12ce8bbe,6249a960-ab77-4916-a755-95fed3eff8bf,The In
 f51dfb26-a50e-43bf-b713-9813470c5fbd,1c84859d-65e0-408a-ae77-8a5576e10592,The Count,collectible,UNCOMMON,FA,1234,21,9,,Sesame Street,Sesame Workshop,7,2025-08-06,972,2026-02-12
 63feb830-6cf1-4544-b39b-a74ef50bac8d,9e307a51-494a-4568-bf4c-4cd9e013098c,"Surprise, Minnie!",collectible,UNCOMMON,FE,1243,41,6,,The Disney Minnie Mouse Collection,Disney,1.99,2025-08-26,800,2026-01-15
 3b43ff0a-b0ae-4df8-a9d2-f19cada64cd5,c83a0c97-e3a9-444a-a7e2-c7df431fa847,Cheshire Cat,collectible,ULTRA_RARE,FA,1245,41,6,,Disney Alice in Wonderland Collection,Disney,9,2025-11-14,99,2025-12-30
-df4040f2-18a2-42d7-b67b-ede12c684102,ebc46ecf-3c4c-4919-9f4c-137367a5e2c1,BLAM!,collectible,RARE,,1250,21,22,,Fun Fridays,VeVe,1,2026-07-19,5,2026-07-17
+df4040f2-18a2-42d7-b67b-ede12c684102,ebc46ecf-3c4c-4919-9f4c-137367a5e2c1,BLAM!,collectible,RARE,,1250,21,23,,Fun Fridays,VeVe,1,2026-07-19,5,2026-07-17
 ed8ba50a-5cdd-4844-aff9-fdd5c741d9bf,40d4767d-520d-4127-9730-1110d41b4331,Flerkitten 1,collectible,RARE,FA,1250,42,5,,Marvel Studios’ The Marvels,Marvel,2.5,2025-11-07,20000,2026-08-06
 93552b5b-3ead-4e6e-8f20-8e24b90357c7,40d4767d-520d-4127-9730-1110d41b4331,Flerkitten 2,collectible,RARE,FA,1250,41,3,,Marvel Studios’ The Marvels,Marvel,2.5,2025-11-03,86,2024-08-14
 b6f29798-c0ff-4bd8-96fc-a5f8b9b621ae,40d4767d-520d-4127-9730-1110d41b4331,Flerkitten 3,collectible,RARE,FA,1250,41,5,,Marvel Studios’ The Marvels,Marvel,3,2025-11-14,99,2026-04-06
@@ -1593,7 +1593,7 @@ dd95e35e-19ec-43b7-ba57-4dcd37a35f34,f12db44b-3852-4897-b186-9ad104c032f5,Jugger
 7518a463-6a62-4202-a661-583ccf664332,bacd2c77-808a-4240-ad9d-0360fe841733,Miss Minutes,collectible,SECRET_RARE,FA,1500,41,10,,Marvel Studios’ Loki,Marvel,7,2026-01-16,44,2026-08-17
 4217662c-612d-4081-b088-9384c94f0d2a,bb459d78-d8b1-455a-a206-cffa0224fc69,Mr. Robot,collectible,ULTRA_RARE,,1500,21,9,,Rabbids,Ubisoft,8.9,2026-08-16,20,2026-08-11
 67b21be9-1853-4c6a-8453-fc208de31b5b,48e42c45-3935-45e5-a8e6-339bff050817,Nick Fury,collectible,ULTRA_RARE,FA,1500,41,10,,Marvel Mightys,Marvel,4.5,2025-08-25,30,2024-02-23
-4d1972b6-b15f-4c98-ab98-cec603aa58de,919a5e58-0838-4de0-9c97-a285e65551f1,Ritmo,collectible,ULTRA_RARE,FA,1500,41,7,,Unicornos,tokidoki,39.99,2025-11-09,1999,2021-11-03
+4d1972b6-b15f-4c98-ab98-cec603aa58de,919a5e58-0838-4de0-9c97-a285e65551f1,Ritmo,collectible,ULTRA_RARE,FA,1500,41,6,,Unicornos,tokidoki,39.99,2025-11-09,1999,2021-11-03
 12398a86-44e9-43cb-b15e-f8441aa6b284,e1335a1e-37cc-4289-86fe-b977d1850bbb,Rogue & Gambit - Kinetic Kiss,collectible,UNCOMMON,,1500,41,4,,Rogue & Gambit,Marvel,10,2025-06-29,999999999,2026-03-22
 81a71914-a1f3-4138-bfb5-bc41c020475f,a781d521-69eb-4abd-ae82-56c96bcd204b,Shield Generator,collectible,UNCOMMON,,1500,21,91,,Star Wars™: Episode V The Empire Strikes Back,Star Wars,1,2026-05-27,5,2026-05-27
 bd273292-2dd8-49f1-9199-f8dbfe7cd62d,a781d521-69eb-4abd-ae82-56c96bcd204b,Small Generator,collectible,UNCOMMON,,1500,21,85,,Star Wars™: Episode V The Empire Strikes Back,Star Wars,1,2026-05-27,5,2026-05-27
@@ -1738,18 +1738,18 @@ dd3e18ed-b702-4173-81a9-85534f4003d4,24d71845-e33a-426d-a351-5bcec2fb47b7,Redrum
 74ffff21-4447-4ce3-a62f-610747e8afdf,ee1505bd-f514-48ad-b27c-c364c0a5f03e,Snow Globes - Snowman,collectible,RARE,FE,1888,41,7,,USPS Snow Globes,United States Postal Service,1,2025-10-06,6.99,2025-07-19
 46973084-cb60-41e2-b7cc-ba112976255d,eb711dbe-3ea7-4361-a283-5cc4e772fca0,Snowflake Labbit,collectible,RARE,,1888,41,5,,Labbit,Frank Kozik,1.99,2025-11-11,198.98,2022-01-20
 b39fd90a-c0dc-40ab-83da-7f142cc2b450,f3055c50-bb85-484e-816c-acf8a4a751a0,The Visible Labbit,collectible,RARE,FE,1888,41,4,,Labbit,Frank Kozik,3,2025-08-20,398,2021-10-06
-3d677e40-ac5d-4c53-83a2-892d8275524e,f3055c50-bb85-484e-816c-acf8a4a751a0,The Visible Labbit - Neon Edition,collectible,RARE,FE,1888,41,5,,Labbit,Frank Kozik,6,2025-08-19,630,2021-10-06
+3d677e40-ac5d-4c53-83a2-892d8275524e,f3055c50-bb85-484e-816c-acf8a4a751a0,The Visible Labbit - Neon Edition,collectible,RARE,FE,1888,41,4,,Labbit,Frank Kozik,6,2025-08-19,630,2021-10-06
 fb40b165-5907-44cb-9570-a9c1639d6cdb,3784024f-a799-4821-b9b9-d68ac548e443,Tricky the Obese Bunny,collectible,ULTRA_RARE,FA,1888,41,5,,Ron English’s Cereal Killers,Ron English,4,2025-10-21,491,2021-11-27
 383b2411-0ef9-4ec9-8b7a-2825ebeab4c6,10b076bd-666f-4600-a6c8-6c25c944eaaa,Year of the Horse Medallion,collectible,UNCOMMON,FE,1888,21,17,,NZ Post Stamp Art,NZ Post,1.05,2026-02-19,3.33,2026-06-20
 0c07f0cf-3bbe-4176-9f12-693cad110d08,2cd2e763-4cc5-4c50-b860-9a6595a8aa42,Year of the Tiger,collectible,RARE,FE,1888,41,7,,Lunar New Year,United States Postal Service,3,2025-11-19,185,2022-02-03
-06289587-89e9-4317-bd5b-038fe1f2150e,a6ec7ec7-1b6b-4bbe-a6c7-99a1ebc6c008,Yucky Charmer,collectible,ULTRA_RARE,FE,1888,41,5,,Ron English’s Cereal Killers,Ron English,4,2025-11-11,640,2021-11-24
+06289587-89e9-4317-bd5b-038fe1f2150e,a6ec7ec7-1b6b-4bbe-a6c7-99a1ebc6c008,Yucky Charmer,collectible,ULTRA_RARE,FE,1888,41,6,,Ron English’s Cereal Killers,Ron English,4,2025-11-11,640,2021-11-24
 9cfdb320-2b4e-40b3-8552-f94e98fc2350,12194228-1931-40de-9410-6250e48eaa19,kozyndan - The Bunnies Fall,collectible,RARE,CE,1888,41,7,,DesignerCon 2022 Collection,DesignerCon General,3,2025-11-18,50,2022-06-04
 aca3eac8-fea3-4f1f-af6e-38b1854f2c65,1a06f6e4-d2a1-4d19-81e8-f24ce7567ab8,Single 2d 'Pembroke Peak' gummed stamp,collectible,UNCOMMON,FE,1898,41,11,,New Zealand 1898 Pictorials,NZ Post,1,2025-02-20,19.99,2026-01-30
 f216c114-f12c-4c32-a2af-0c8632206274,1a06f6e4-d2a1-4d19-81e8-f24ce7567ab8,Single 2s 'Milford Sound' gummed stamp,collectible,UNCOMMON,FE,1898,41,10,,New Zealand 1898 Pictorials,NZ Post,1,2025-08-20,84,2023-12-03
 36870fc2-0fa9-47f8-937c-b56eb1288ad2,66c7820d-90e2-4737-86e2-4c9fd0923272,Single 5s 'Mount Cook' gummed stamp,collectible,UNCOMMON,FE,1898,41,7,,New Zealand 1898 Pictorials,NZ Post,1.05,2025-11-24,14.99,2026-01-30
 6974b69e-b502-4bd8-820e-9b876cb02c9f,66c7820d-90e2-4737-86e2-4c9fd0923272,Single 6d 'Kiwi' gummed stamp,collectible,UNCOMMON,FE,1898,41,13,,New Zealand 1898 Pictorials,NZ Post,1.49,2024-06-19,9,2025-11-16
 3ecf56b1-5b35-4713-8032-37a3e789ef65,ee9c4e6a-5541-4aaa-bfe0-71e5b223bfdb,Coca-Cola – 1899 Bottle,collectible,COMMON,FE,1899,21,13,,Coca-Cola Vintage Bottles,The Coca-Cola Company,1,2025-09-04,20,2026-02-25
-98ca2db3-3319-4cd5-b814-b0cdbc070d1f,ee9c4e6a-5541-4aaa-bfe0-71e5b223bfdb,Coca-Cola – 1900 Bottle,collectible,COMMON,FE,1900,21,24,,Coca-Cola Vintage Bottles,The Coca-Cola Company,1,2025-09-10,14.95,2026-02-25
+98ca2db3-3319-4cd5-b814-b0cdbc070d1f,ee9c4e6a-5541-4aaa-bfe0-71e5b223bfdb,Coca-Cola – 1900 Bottle,collectible,COMMON,FE,1900,21,14,,Coca-Cola Vintage Bottles,The Coca-Cola Company,1,2025-09-10,14.95,2026-02-25
 9ed0e046-53f4-4c10-80e9-7cac8a0a01c9,ee9c4e6a-5541-4aaa-bfe0-71e5b223bfdb,Coca-Cola – 1900 Labeled Bottle,collectible,COMMON,FE,1900,21,9,,Coca-Cola Vintage Bottles,The Coca-Cola Company,1.1,2025-08-26,19.99,2026-02-25
 9f776158-1f55-414a-8f3f-b14dff8939dd,7db09e3d-d9e8-4fdd-83d6-c5ed8bf35259,Gambit - The X-Men Ace,collectible,RARE,,1900,41,3,,Gambit,Marvel,6.5,2025-09-25,500,2026-03-09
 7ec09fea-496d-42c6-9074-60bd3577feb4,f1081784-28f0-4476-b56f-300876f52436,Rogue - Shi’ar Warrior,collectible,RARE,FA,1900,41,2,,Rogue,Marvel,5.99,2025-04-13,11500,2025-11-26
@@ -1772,8 +1772,8 @@ a494f556-ebcd-4252-b4ec-ccd52c331c5c,8715efee-1485-409d-8cd8-b2abd50e9bc1,Mickey
 a6df862b-5cb3-4014-a6c8-0f7352bd5c24,9a114b1d-fcdc-47b0-ae7a-6ea2cc4bcf21,Finn McWiggles,collectible,COMMON,FE,1930,21,9,,The Feeshes,+Breadcat,1,2025-05-11,123,2026-01-31
 9de0fd51-f57e-4888-8fdc-ce7674a9b06a,f3e01281-f23f-4d5c-89f9-eb945ed6b5aa,1938 Benjamin Harrison,collectible,COMMON,FE,1938,21,8,,Presidential Series (1938),United States Postal Service,1,2025-02-17,9.5,2026-08-23
 a33b2a0b-d11e-402b-ae0d-b4d5603b416a,f3e01281-f23f-4d5c-89f9-eb945ed6b5aa,1938 Grover Cleveland,collectible,COMMON,FE,1938,21,10,,Presidential Series (1938),United States Postal Service,1,2025-02-18,19.99,2025-06-22
-fa0b161c-5a8d-42ed-9baa-1848c7e1a7da,e2c259d0-7ad7-4d81-a399-4db1af7d9079,Marvel Logo,collectible,RARE,CE,1939,41,6,,Marvel,Marvel,34.99,2026-07-24,199,2025-12-26
-0c90c49f-d867-47de-991f-d5b5606ffb09,d17a8cba-54bc-42f1-a1a2-2cf74e24c064,Namor - Phoenix,collectible,COMMON,,1939,41,20,,Phoenix Five,Marvel,11,2026-08-30,30,2026-08-29
+fa0b161c-5a8d-42ed-9baa-1848c7e1a7da,e2c259d0-7ad7-4d81-a399-4db1af7d9079,Marvel Logo,collectible,RARE,CE,1939,41,5,,Marvel,Marvel,34.99,2026-07-24,199,2025-12-26
+0c90c49f-d867-47de-991f-d5b5606ffb09,d17a8cba-54bc-42f1-a1a2-2cf74e24c064,Namor - Phoenix,collectible,COMMON,,1939,41,19,,Phoenix Five,Marvel,11,2026-08-30,30,2026-08-29
 1c3d0b87-102e-4fc2-88b2-cfb6fbbf5baa,8df630b4-7d5a-4d5a-a602-794cd333d755,Casting The First Spell,collectible,SECRET_RARE,,1940,41,15,,The Mickey Mouse NFT Collection,Disney,17,2025-08-26,280,2022-10-31
 48d0677a-a8d4-4fcd-aa80-5c0fc67b08b0,4511ae43-1ee4-48c8-a7df-eed7ac17ee7b,Winter Soldier – Vigilant Guard,collectible,COMMON,,1941,41,0,,Avengers,Marvel,2,2025-08-25,150,2026-02-01
 fbc6e8d2-feb1-46b9-9321-2cf8d34a47c2,725217b7-09b4-423c-badc-d33cefd237cb,Friend Owl,collectible,COMMON,FA,1942,21,12,,Disney Bambi Collection,Disney,1,2025-02-07,20,2024-12-22
@@ -1810,7 +1810,7 @@ bdbb93d0-c9db-41ef-8790-190b4088942a,7cd2582a-f5fa-47b9-9f79-6b1eb06b5935,Thing,
 307d71a8-fe8b-41a4-ba69-798ddba7ff76,97e51eb0-8894-4848-994d-2b426d7007e3,Juggernaut,collectible,RARE,FA,1965,41,8,,X-Men,Marvel,21,2026-08-10,299,2024-10-26
 2034fc16-4eeb-4080-926b-218f347e6e9b,edf956d9-bf40-4a9f-8b8b-2d598a6e3008,Thunderball - UK Quad Poster,collectible,ULTRA_RARE,FE,1965,41,10,,James Bond - 007,James Bond - 007,2.99,2025-04-16,500,2026-08-02
 03a8f5c2-50f5-4802-bc43-b8e26cffa057,b99a3797-50d7-46da-ac9a-ad4cbb410824,Emi - Curious,collectible,COMMON,FA,1966,21,0,,Ultraman: Rising,Tsuburaya Productions,4,2025-07-13,1000000,2025-12-28
-e955dcc5-43e2-4cdd-a978-c8b66ddd6c96,3323fc62-a5db-43e6-9bff-df6d12793998,Miura - Arancio Miura,collectible,UNCOMMON,FE,1966,21,3,,Lamborghini Miura,Automobili Lamborghini,7,2025-03-23,200,2026-01-01
+e955dcc5-43e2-4cdd-a978-c8b66ddd6c96,3323fc62-a5db-43e6-9bff-df6d12793998,Miura - Arancio Miura,collectible,UNCOMMON,FE,1966,21,5,,Lamborghini Miura,Automobili Lamborghini,7,2025-03-23,200,2026-01-01
 9e399a2c-e51f-49ed-a1d3-16569550c967,7f54bc8f-d488-4461-b60f-9a8b0bf8cb97,Ultraman - Silent Guardian,collectible,COMMON,,1966,21,2,,Ultraman: Rising,Tsuburaya Productions,3,2025-07-21,850,2025-09-25
 47cd772d-3707-437c-beec-d4f62e61ba41,edf956d9-bf40-4a9f-8b8b-2d598a6e3008,You Only Live Twice - UK Quad Poster,collectible,ULTRA_RARE,FE,1967,41,8,,James Bond - 007,James Bond - 007,3.24,2025-05-02,43.95,2022-10-20
 c3dd8bc8-8c6d-460a-b858-7531a283ba89,9a7a8c7c-5172-4809-a0d6-fd53b234644a,Bert,collectible,COMMON,FA,1969,21,3,,Sesame Street,Sesame Workshop,7,2025-12-02,888,2025-12-18
@@ -1822,7 +1822,7 @@ bd9f38e8-78b4-4eb1-84ed-a6e3ed560d63,5d3af064-9b8d-4be2-805a-76a5d053746c,Sam Wi
 2db18c43-ffa3-4823-93fc-209e7eb77d77,edf956d9-bf40-4a9f-8b8b-2d598a6e3008,Diamonds Are Forever - Japanese One Sheet Poster,collectible,ULTRA_RARE,FE,1971,41,6,,James Bond - 007,James Bond - 007,3.5,2025-10-04,130,2026-08-16
 6c16492e-453a-4b5b-9894-7039a8241351,b9bf7ae0-8f30-4c36-84d6-02321df5b55b,Howard the Duck - Private Eye,collectible,ULTRA_RARE,FA,1973,41,4,,Howard the Duck,Marvel,4.75,2025-11-11,50,2023-03-12
 444f60ea-3bfd-472b-b774-24916aba489f,982c77bb-b757-4301-83f5-cbf592313a12,Lamborghini Countach LP 400 - Bianco  Siderale,collectible,RARE,FE,1974,41,5,,Lamborghini Countach,Automobili Lamborghini,6.5,2025-09-17,79,2026-02-22
-ec04c6de-1ef4-436b-bb1a-8a9109a95bb6,d393394e-332a-4146-81f7-baac7b3e85aa,Colossus - Phoenix,collectible,COMMON,FA,1975,41,12,,Phoenix Five,Marvel,4.9,2026-08-03,30,2026-07-19
+ec04c6de-1ef4-436b-bb1a-8a9109a95bb6,d393394e-332a-4146-81f7-baac7b3e85aa,Colossus - Phoenix,collectible,COMMON,FA,1975,41,13,,Phoenix Five,Marvel,4.9,2026-08-03,30,2026-07-19
 210d1f92-1a57-47d4-aff0-965aff056b32,a1ae32b7-ab48-4d36-a196-345b8892a826,Cthulhu Idol - Bronze,collectible,RARE,CE,1975,41,13,,Call of Cthulhu,Chaosium,4.5,2025-06-09,285,2022-01-19
 270dc2b6-b609-42e9-b074-7a3afc4c821a,a1ae32b7-ab48-4d36-a196-345b8892a826,Cthulhu Idol - Gold,collectible,RARE,CE,1975,41,4,,Call of Cthulhu,Chaosium,5.3,2025-10-27,600,2025-12-18
 ab958f89-ccd1-4b8f-a520-ae2fa638d138,a1ae32b7-ab48-4d36-a196-345b8892a826,Cthulhu Idol - Jade,collectible,RARE,CE,1975,41,6,,Call of Cthulhu,Chaosium,5.75,2025-10-18,308,2022-01-18
@@ -1838,7 +1838,7 @@ d4af21d2-86cd-430c-877b-501b6cbc3cff,551e2f89-d691-4dd2-8218-d619115695a8,Darth 
 66bf871d-a8d4-474e-a0f2-b1ceb28c7b94,1440b2b5-b0d8-454d-942c-eb93e5442775,Millennium Falcon,collectible,COMMON,FE,1977,21,21,,Star Wars Vehicles Collection,Star Wars,66,2026-05-04,145,2026-05-11
 9f84960d-a2da-4c16-9e55-5dfb799e88cb,8886792e-4441-4c1d-aa69-7a51fdde10cb,Mimban Trooper - Running,collectible,UNCOMMON,,1977,21,36,,Star Wars™: Troopers Collection,Star Wars,1,2026-02-05,10,2026-02-01
 5fd09e1f-58f8-467f-9e78-d64f6e3a69b9,5a539b15-a7ee-4e15-8b0c-fac6334d1556,R2-D2,collectible,ULTRA_RARE,,1977,41,27,,Star Wars Droids Collection,Star Wars,65,2025-11-08,450,2026-05-25
-462fc423-9563-415e-aa1c-77c19f7a0650,8886792e-4441-4c1d-aa69-7a51fdde10cb,Shadow Trooper - Running,collectible,UNCOMMON,,1977,21,48,,Star Wars™: Troopers Collection,Star Wars,1,2026-02-16,10,2026-02-01
+462fc423-9563-415e-aa1c-77c19f7a0650,8886792e-4441-4c1d-aa69-7a51fdde10cb,Shadow Trooper - Running,collectible,UNCOMMON,,1977,21,44,,Star Wars™: Troopers Collection,Star Wars,1,2026-02-16,10,2026-02-01
 2e4e01f7-bf0e-4952-af03-153d14f54ab7,9c477976-649d-406a-a1f4-98c056380752,Simon Prades Variant,collectible,UNCOMMON,,1977,41,6,,Star Wars ™: The Mandalorian #1 Framed Art,Star Wars,1.09,2025-06-02,28.77,2026-04-02
 d324d199-8532-4449-b67b-fdad373da71a,8886792e-4441-4c1d-aa69-7a51fdde10cb,Stormtrooper - Running,collectible,UNCOMMON,,1977,21,30,,Star Wars™: Troopers Collection,Star Wars,1.15,2026-02-10,10,2026-02-01
 12786e8c-7cd5-4739-8917-9b93e08842b1,50d35ced-1135-4078-b506-6581890d9d7b,Rewind Collective - Flag,collectible,UNCOMMON,,1978,41,7,,Givenchy Beauty + Rewind Collective,Rewind Collective,1,2025-11-11,69.69,2022-06-30
@@ -1856,7 +1856,7 @@ ceea21a6-2a60-4371-bd86-5249bf0741a7,7cc57c7e-8f2e-4109-8893-f22be70301d6,Boba F
 e957f893-9b39-4a0f-ade8-168b31f62647,3b97734b-3006-48ef-86cb-f2e171033e40,Emma Frost - Phoenix,collectible,COMMON,,1980,41,7,,Phoenix Five,Marvel,10.85,2026-06-07,30,2026-06-07
 fdb6c958-dc73-4452-aec4-19baa6abbe18,66b24e9a-ec3f-4156-9574-74832b829e3e,HOTH Battlefield Diorama - Echo Base Defense,collectible,UNCOMMON,CE,1980,21,1,,Star Wars™: Episode V The Empire Strikes Back,Star Wars,28.26,2025-10-14,940,2025-10-11
 7c6e0265-6fe1-4d5a-b902-b38b600026ee,b5232532-3f07-4bd3-9c42-cc8866c0138a,She-Hulk,collectible,COMMON,,1980,41,7,,Marvel Mightys,Marvel,1,2025-12-21,20,2025-09-28
-7051dd0b-67f0-4ffe-a81b-6a397a7a496c,e8cdb154-c79c-48a4-8d0a-831259aec6c7,T-47 Airspeeder - Red,collectible,COMMON,FE,1980,21,31,,Star Wars Vehicles Collection,Star Wars,4.5,2026-07-25,25,2026-05-24
+7051dd0b-67f0-4ffe-a81b-6a397a7a496c,e8cdb154-c79c-48a4-8d0a-831259aec6c7,T-47 Airspeeder - Red,collectible,COMMON,FE,1980,21,30,,Star Wars Vehicles Collection,Star Wars,4.5,2026-07-25,25,2026-05-24
 37a67fd7-bc6f-4902-b73e-9d175399bd03,e8532eb8-d9e9-47e9-9d11-f90dd2cfd1dd,Wolverine - Battle Ready,collectible,UNCOMMON,CE,1980,41,17,,Wolverine,Marvel,5.99,2025-01-14,40,2024-07-26
 a0c50208-f32c-4e7e-9664-c28555a9f523,c61a3f9d-8b26-4d16-a368-98c3fcf54ae5,Yoda,collectible,COMMON,FA,1980,21,21,,Star Wars Yoda Series Collection,Star Wars,35,2026-08-08,70,2026-05-13
 069ed892-ac0a-4ebe-9089-f72b815a8c69,eb7d1eb9-5824-4588-9a31-5119978de9ce,First Blood - Original US Theatrical Poster (1982),collectible,RARE,FE,1982,21,6,,Rambo,STUDIOCANAL (A CANAL+ Company),2.25,2024-06-27,12,2024-06-22
@@ -1865,7 +1865,7 @@ a0c50208-f32c-4e7e-9664-c28555a9f523,c61a3f9d-8b26-4d16-a368-98c3fcf54ae5,Yoda,c
 e342f3a5-9c98-4ec3-ad2d-2112b6bf3c0f,39dc9901-1320-4a14-9ec8-f1ec906b8279,Deadpool the Duck,collectible,SECRET_RARE,FA,1983,41,2,,Marvel Mightys,Marvel,12.02,2025-09-19,198,2022-06-25
 9c67d52d-1f05-4a9a-abb7-dfb390da50bc,ccdded0c-a025-413a-bdaa-473851777992,Scout Trooper,collectible,RARE,FA,1983,41,7,,Star Wars™:  Return of the Jedi™ Collection,Star Wars,8.99,2025-08-25,209,2026-01-11
 10f278dd-3d5b-425f-b12c-4bdbc7f24b7c,b64bcc88-6d1a-4cbd-9724-3409d16e9ed0,Back to the Future,collectible,RARE,CE,1985,41,8,,Con Exclusive Prints,Mondo,2.22,2025-11-14,345,2022-01-18
-bba0290e-1506-4702-a8fb-c1892b5bb638,17ad0a72-b86b-4c05-8bd8-0d441ad3e4d8,Back to the Future,collectible,RARE,CE,1985,41,7,,Con Exclusive Prints,Mondo,3.33,2025-11-13,600,2022-01-19
+bba0290e-1506-4702-a8fb-c1892b5bb638,17ad0a72-b86b-4c05-8bd8-0d441ad3e4d8,Back to the Future,collectible,RARE,CE,1985,41,6,,Con Exclusive Prints,Mondo,3.33,2025-11-13,600,2022-01-19
 82794523-446e-47e0-a81a-67d0a84ed350,eb7d1eb9-5824-4588-9a31-5119978de9ce,Rambo: First Blood Part II - Original US Theatrical Poster (1985),collectible,SECRET_RARE,FE,1985,21,2,,Rambo,STUDIOCANAL (A CANAL+ Company),15,2025-08-31,2000,2026-05-22
 fd3033ce-51d1-484a-8f5f-102aaf7cf99f,b61eaacc-c6da-4b9b-8aa9-8d177112faa1,Boo's Activated Door,collectible,SECRET_RARE,FE,1986,41,6,,Disney100 Platinum Moments Collection,Disney,15.5,2025-10-28,1000.69,2025-11-13
 2bb0e18a-bfe1-4cd8-a0d0-d1c8a38c8ef6,b61eaacc-c6da-4b9b-8aa9-8d177112faa1,Miguel Poster,collectible,SECRET_RARE,FE,1986,,3,,Disney100 Platinum Moments Collection,Disney,13,2025-06-23,135,2023-07-09
@@ -1903,7 +1903,7 @@ a8f8d463-7081-4fdf-b411-1a3182200f8b,5d57415b-5d54-4e7b-a82d-c3140b266027,Big Th
 f50bd55d-fcd4-46b6-9574-78e3ff253c2e,5d57415b-5d54-4e7b-a82d-c3140b266027,Orbitron®,collectible,SECRET_RARE,FE,1992,41,4,,The Disneyland® Paris 30th Anniversary Collection,"Disney Parks, Experiences and Products",7,2025-10-25,69,2026-05-12
 bc961870-a3c9-40bc-a35d-46e4a5353c2c,5d57415b-5d54-4e7b-a82d-c3140b266027,Pirates of the Caribbean,collectible,SECRET_RARE,FE,1992,41,7,,The Disneyland® Paris 30th Anniversary Collection,"Disney Parks, Experiences and Products",7,2025-08-20,60,2022-09-25
 b7ea3a29-17e1-47cb-a6ca-2ec419165e3c,5d57415b-5d54-4e7b-a82d-c3140b266027,“it’s a small world”,collectible,SECRET_RARE,FE,1992,41,6,,The Disneyland® Paris 30th Anniversary Collection,"Disney Parks, Experiences and Products",7.77,2025-10-16,111.11,2025-02-05
-11fffaef-6dc8-4982-b7a3-c68d27a307b8,2553476a-5dcd-4f64-9a2d-8b3c42ea1d39,Dilophosaurus,collectible,RARE,FA,1993,41,12,,Jurassic Park 30th Anniversary,Universal,2.99,2025-08-22,25,2023-08-18
+11fffaef-6dc8-4982-b7a3-c68d27a307b8,2553476a-5dcd-4f64-9a2d-8b3c42ea1d39,Dilophosaurus,collectible,RARE,FA,1993,41,13,,Jurassic Park 30th Anniversary,Universal,2.99,2025-08-22,25,2023-08-18
 d8f17b60-acf4-4378-b6f8-ae72a08e8321,5a6eb0ff-b361-480d-92d6-6679b77bac3a,Tyrannosaurus Rex,collectible,RARE,FE,1993,41,2,,Jurassic Park 30th Anniversary,Universal,9.99,2025-08-04,393,2026-04-06
 57c94f74-1d3c-4bc1-944b-8c5f95634c36,04f7b361-510f-4139-917f-6a915d8f0ffb,Aladdin,collectible,ULTRA_RARE,FA,1994,41,5,,Disney Aladdin Collection,Disney,5,2025-08-22,69,2026-01-02
 d0a26d72-a119-430d-aa7a-8b3af766cb76,95f28812-3932-446b-a12c-34b00bdf544b,Rafiki,collectible,ULTRA_RARE,FA,1994,41,5,,Disney The Lion King Collection,Disney,6,2025-03-22,99,2025-06-18
@@ -1940,7 +1940,7 @@ ed419393-e574-48fb-8130-48941992e2b0,b6ade9c3-2ecb-4e7f-a959-7aee95f986e1,Altaï
 4568ad61-9fce-404f-b8ee-d9b5c4667532,ce08e31a-1c30-4885-91b5-8debcf3c89ee,"Jet Pack from Thunderball, 1965",collectible,RARE,FE,2007,41,7,,James Bond - 007,James Bond - 007,2,2025-09-02,20,2023-11-05
 b5709a30-1677-410d-ab7e-8b755859a70e,42fda4ad-61f5-4fa3-a78f-15626b93477f,"Q-Boat from The World is Not Enough, 1999",collectible,RARE,FE,2007,41,8,,James Bond - 007,James Bond - 007,5.8,2025-11-19,1999,2026-05-24
 6b35e0b7-ade2-41a9-b3fc-bb2182fac771,3a492753-0297-4829-a838-d48421e6dda4,Carl Fredricksen,collectible,UNCOMMON,FA,2009,41,7,,Disney Pixar UP,Disney,2.73,2025-01-29,55,2026-08-27
-85f31f35-a752-43f1-a4d2-9f10d6c64e80,5e800a4f-1592-41db-b55f-e62cf6d47a15,Death Trooper DLT-19D - Running,collectible,UNCOMMON,,2009,21,12,,Star Wars™: Troopers Collection,Star Wars,1.09,2026-03-07,11,2026-04-02
+85f31f35-a752-43f1-a4d2-9f10d6c64e80,5e800a4f-1592-41db-b55f-e62cf6d47a15,Death Trooper DLT-19D - Running,collectible,UNCOMMON,,2009,21,13,,Star Wars™: Troopers Collection,Star Wars,1.09,2026-03-07,11,2026-04-02
 8c33d824-cf0e-4db8-848e-9231be25c2e3,5e800a4f-1592-41db-b55f-e62cf6d47a15,Death Trooper E-11D - Running,collectible,UNCOMMON,,2009,21,13,,Star Wars™: Troopers Collection,Star Wars,1.09,2026-03-09,14,2026-04-02
 2253cf7f-d6e4-4c1b-9ada-fc10d4c3379f,5e800a4f-1592-41db-b55f-e62cf6d47a15,Death Trooper Pistol - Running,collectible,UNCOMMON,,2009,21,26,,Star Wars™: Troopers Collection,Star Wars,1.09,2026-03-02,11.66,2026-04-02
 17577ff6-659a-48d4-a500-938c653f444e,c4513059-f370-4a21-bbfa-86b68e84c8cf,Murciélago LP670-4 SV Oro Adonis,collectible,UNCOMMON,FE,2009,41,7,,Lamborghini Murciélago,Automobili Lamborghini,6.56,2025-09-01,70,2023-09-09
@@ -1975,8 +1975,8 @@ ff06b81f-da0c-4c38-b0e6-05889ee4ba95,947776c7-ac79-420e-84d5-c211cb115dd5,Episod
 025a320d-8bce-4fad-9cb2-4b41d6a2f727,9b475c44-70bb-4f04-b812-bdf3ef9c56d9,Sung Jinwoo - Weakest Hunter,collectible,COMMON,FA,2018,21,25,,Solo Leveling,Solo Leveling Animation Partners,10,2026-07-23,40,2026-04-19
 ec460953-de8a-4649-8a68-666bb2f2168b,455a7885-e3ac-4b95-81ef-f482f81facef,Weakest Hunter - Frame,collectible,COMMON,FE,2018,21,26,,Solo Leveling,Solo Leveling Animation Partners,1.1,2026-08-25,6.99,2026-05-05
 c9622670-7b4c-4caa-a31c-f0b3ba45086a,a40076c4-a14f-439e-a1c9-f0d706557418,Beskar Ingots,collectible,ULTRA_RARE,FE,2019,33,1,,Star Wars ™: The Mandalorian,Star Wars,13,2025-05-10,195,2026-05-24
-418f4269-ff34-4cff-a679-1781a334ff6b,bd11dd53-15a1-4d25-8190-ab3ab6c10818,Elsa,collectible,RARE,,2019,41,14,,Disney Frozen Collection,Disney,13,2025-10-22,150,2026-02-04
-05bfaa01-9847-43e5-82ee-8c7999c26aa7,1c963849-fa2a-41af-afb7-cfa0480c8762,IG-11 - Protector,collectible,COMMON,FA,2019,21,20,,Star Wars ™: The Mandalorian,Star Wars,7.99,2026-05-30,25,2026-05-30
+418f4269-ff34-4cff-a679-1781a334ff6b,bd11dd53-15a1-4d25-8190-ab3ab6c10818,Elsa,collectible,RARE,,2019,41,15,,Disney Frozen Collection,Disney,13,2025-10-22,150,2026-02-04
+05bfaa01-9847-43e5-82ee-8c7999c26aa7,1c963849-fa2a-41af-afb7-cfa0480c8762,IG-11 - Protector,collectible,COMMON,FA,2019,21,20,,Star Wars ™: The Mandalorian,Star Wars,9.99,2026-05-30,25,2026-05-30
 c6785ff7-d2d1-404a-a1f0-7a5104e73009,a40076c4-a14f-439e-a1c9-f0d706557418,‍The Armorer,collectible,ULTRA_RARE,FA,2019,21,3,,Star Wars ™: The Mandalorian,Star Wars,10,2025-05-16,299,2025-08-18
 512bf0bd-6b91-4dea-95ce-e09bb68c5438,89d76004-c189-487b-88e8-8943b68ae6d1,Mirabel Madrigal,collectible,UNCOMMON,FA,2021,41,3,,Disney Encanto Collection,Disney,14.5,2025-11-10,333.33,2026-07-22
 29df76ed-368e-4415-be9f-34e87b751d3d,7899e782-7191-4e47-bd67-e7986633cb22,I'll Take Those Odds,collectible,ULTRA_RARE,FA,2022,42,7,,Lightyear NFT Collection,Pixar,15,2025-11-05,6000000,2026-08-11
@@ -2005,7 +2005,7 @@ c88c8ecf-a2b8-45fe-bf18-91ab1b36ec35,fa4f2675-bc32-4792-8344-d1c0e3ccc518,UCI Ge
 684d93e2-0ecf-47a5-a2c5-1c7dd0b8d4dd,4d4d5e25-2c92-4c18-a90b-ad913e0f7fe8,Spider-Man 2099 - Beyond Destiny,collectible,COMMON,,2099,41,10,,Spider-Man,Marvel,3.99,2025-11-23,99,2026-02-18
 f91fbba9-e5f3-4d7d-93b4-91efacbc0b27,3e7c7c4b-07c9-4d41-995e-d6b0ad7f0e13,Spider-Man 2099 - Genetic Awakening,collectible,COMMON,,2099,41,18,,Spider-Man,Marvel,3.7,2025-11-18,40,2025-08-01
 d8e91fe1-47f5-4375-a3de-0040c9851417,d548c34b-73b2-49e5-acc7-2f4ace22656a,Minnie Mouse,collectible,ULTRA_RARE,FA,2100,41,6,,Disney100 Platinum Moments Collection,Disney,29.97,2025-01-29,259,2025-12-01
-eb30fff7-466f-4fac-aa0a-e8bfd78e9d57,5881594c-d4ab-43d8-ac8f-3cfe8a8eb1be,Nemo,collectible,ULTRA_RARE,FA,2100,41,11,,Disney100 Platinum Moments Collection,Disney,11,2025-08-29,92,2023-07-05
+eb30fff7-466f-4fac-aa0a-e8bfd78e9d57,5881594c-d4ab-43d8-ac8f-3cfe8a8eb1be,Nemo,collectible,ULTRA_RARE,FA,2100,41,7,,Disney100 Platinum Moments Collection,Disney,11,2025-08-29,92,2023-07-05
 a18440b9-4f7e-4136-986a-c8801a8b981b,881c4efd-79d2-4e41-95e2-498eea257e2f,VeVe Christmas Tree - Platinum,collectible,RARE,FE,2100,,10,,VeVe Christmas 2024,VeVe,1,2025-07-27,7.77,2026-07-09
 d2a2df08-a4f3-4092-8533-04170c33ae55,a6c3e3c8-b371-4687-824a-dc88f3b5763c,Eye of Agamotto - Animated,collectible,SECRET_RARE,FE,2110,41,5,,Doctor Strange,Marvel,75,2025-11-13,998,2025-11-23
 5e9b0f4f-6120-487c-93e7-12f8c268fbca,52124d5e-c282-48c8-8f62-0ea896c99433,Thanos - Warrior,collectible,SECRET_RARE,FA,2110,,7,,Marvel Studios’ Avengers: Infinity War,Marvel,64.99,2025-04-18,774,2023-07-05
@@ -2016,7 +2016,7 @@ ecef7552-6435-4a7e-9db7-8eaf3fce1193,9ed7f8a8-fadd-41ec-be1e-2204179b2dad,Lady D
 cb514393-4ab4-4042-afcf-33e6083341ed,38de29d8-0ffb-4b58-8015-3678e003a4fd,Collectors at Heart - Vinyl Pressing,collectible,RARE,CE,2200,6,19,,Metaverse Lyfe,Roth Rind Productions,1,2025-11-14,6.99,2025-11-14
 856e7c22-27a8-4eb7-b6c1-9d827dbf0f26,d54e5ffb-d597-42a0-a11a-f2226ac80b6e,Cyclops,collectible,RARE,FA,2200,41,11,,Marvel Mightys,Marvel,10.99,2024-01-10,550,2025-10-23
 1e49b915-2794-4eb5-bc74-773aa9cdc85c,7589386f-1424-40f2-885a-1dc4a7bff84b,Doctor Strange,collectible,RARE,FA,2200,41,3,,Marvel Mightys,Marvel,5.75,2025-10-18,24.99,2026-04-01
-ba556949-a241-4a1f-b340-882319aa5b10,d54e5ffb-d597-42a0-a11a-f2226ac80b6e,Gambit,collectible,RARE,FA,2200,41,14,,Marvel Mightys,Marvel,4.95,2025-05-26,35,2024-07-03
+ba556949-a241-4a1f-b340-882319aa5b10,d54e5ffb-d597-42a0-a11a-f2226ac80b6e,Gambit,collectible,RARE,FA,2200,41,8,,Marvel Mightys,Marvel,4.95,2025-05-26,35,2024-07-03
 ae7c2332-5623-4e84-a8c8-cf14b37bedcc,546cc94b-4970-4c3f-9d39-1e96c8606039,Ghost-Spider,collectible,COMMON,,2200,41,12,,Spider-Man,Marvel,6.7,2025-09-25,40,2024-03-31
 f64bf297-8a18-4e49-a539-d99f19fd5350,f12db44b-3852-4897-b186-9ad104c032f5,Mister Sinister,collectible,RARE,FA,2200,41,7,,Marvel Mightys,Marvel,1.99,2025-08-26,33,2026-08-16
 72ec80b5-11e5-4082-be8d-dd662e1ba756,0bbe05ae-f17b-44a8-9b75-27631ad3e959,Moisture Vaporator,collectible,COMMON,FE,2200,41,4,,Star Wars™: A New Hope Collection,Star Wars,1.2,2025-02-19,20,2024-09-29
@@ -2028,7 +2028,7 @@ f2851bc1-9dad-415a-b90c-cfb60f6e8449,92ed6a78-e712-4ca9-87c7-4682ef2ccc7d,Wolver
 00f74840-9bf1-4881-b138-15ca772c1985,ae665745-7c86-408c-b061-9f08bc0206b6,ED-209 - Animated,collectible,RARE,FA,2209,41,4,,Robocop,Metro-Goldwyn-Mayer (MGM),10,2025-10-18,69.5,2024-10-25
 f578773f-012f-48b5-9156-117545e39739,661489fe-2a85-4647-a509-ceeae495f629,Black Widow Nesting Doll,collectible,ULTRA_RARE,FE,2222,41,6,,Avengers,Marvel,7,2025-07-09,99,2025-07-13
 7a736163-6ff5-446d-9a74-c73fa1959e2c,3cd79397-eeb5-4671-b453-270b1f6dddf3,Dragon Girl - Gold,collectible,SECRET_RARE,CE,2222,41,10,,Toy Tokyo x Simone Legno,Toy Tokyo,22,2025-04-14,221,2026-01-08
-19861993-902b-4a5a-a7d7-bd90a8cc5849,019dcf1b-69e4-477b-a56a-e551a57e8192,Honey Butt the Obese,collectible,RARE,FE,2222,41,10,,Ron English’s Cereal Killers,Ron English,3.5,2025-11-19,380,2021-12-02
+19861993-902b-4a5a-a7d7-bd90a8cc5849,019dcf1b-69e4-477b-a56a-e551a57e8192,Honey Butt the Obese,collectible,RARE,FE,2222,41,8,,Ron English’s Cereal Killers,Ron English,3.5,2025-11-19,380,2021-12-02
 5891c391-9cf7-4498-a4cf-a98efc65b784,e9fb8ad4-befd-4d84-9b31-2816bf2bdf27,Jasmine,collectible,ULTRA_RARE,FE,2222,41,5,,Disney Princess Paper Art Collection,Disney,3.5,2025-02-01,75,2025-09-23
 61fa958d-8683-41b5-8421-446732676d8e,bec62774-4ee3-4dc0-a919-22d2f97a4957,Kahalo ver. Original,collectible,COMMON,FE,2222,21,20,,Hands In Factory & Uptempo,Hands In Factory,1,2025-05-09,14.99,2025-04-27
 3f1819b2-d358-492e-b1a0-80a5b3cfe039,42a5045d-a608-4753-9128-d9cc2d7a71dc,Morbius,collectible,COMMON,FA,2222,41,6,,Marvel Mightys,Marvel,1.85,2025-11-08,18.5,2025-02-04
@@ -2036,7 +2036,7 @@ f578773f-012f-48b5-9156-117545e39739,661489fe-2a85-4647-a509-ceeae495f629,Black 
 dafd1777-5245-4a69-9b99-c31926c307dd,95622377-64b3-4694-9760-03e1d505d680,Red Hulk,collectible,RARE,FA,2222,41,11,,Hulk,Marvel,10,2025-05-20,195,2023-08-02
 f2f2c2a2-d3b5-4372-a59e-e560ff91cd29,6f62501f-29e3-4462-b8b6-7e72d84ff4f2,Specimen #129,collectible,UNCOMMON,FE,2222,41,8,,Veil: Specimen,Jermaine Rogers,2,2025-04-18,280,2022-01-18
 20b33086-b896-4e06-afa4-66fd7f2ca96e,a6ec7ec7-1b6b-4bbe-a6c7-99a1ebc6c008,Sugar Bear,collectible,RARE,FE,2222,41,8,,Ron English’s Cereal Killers,Ron English,2.99,2025-02-18,272,2021-11-24
-2b187b2b-fa3d-440d-80c1-2389f864d051,932ba62a-c6e8-4a84-8775-3b104fb84930,The Protector,collectible,COMMON,CE,2222,41,14,,CHOICES,Jermaine Rogers,3,2025-11-19,280,2022-01-19
+2b187b2b-fa3d-440d-80c1-2389f864d051,932ba62a-c6e8-4a84-8775-3b104fb84930,The Protector,collectible,COMMON,CE,2222,41,15,,CHOICES,Jermaine Rogers,3,2025-11-19,280,2022-01-19
 4ca4eb09-9fe7-458f-b935-669d4652aab2,74049403-ec6e-40a1-8515-4d12db4799d0,Lincoln Logo Mayhem Board,collectible,COMMON,CE,2250,41,4,,DesignerCon 2021,DesignerCon General,1.89,2025-11-12,123.55,2021-11-16
 0ae0b47d-0ad6-4665-82db-bc5f0b80de67,d2984211-e303-494b-a28f-3d35cf70a49e,John F. Walker - Action,collectible,RARE,,2266,41,1,,Marvel Mightys,Marvel,3,2025-10-20,2200,2025-11-14
 af653c3c-f0a0-4e4d-ba6c-7d194a747001,a4cbdbc4-12fa-45b5-b51f-4897bb478c3f,Chi Yan Chi Lin,collectible,COMMON,FA,2288,41,4,,Pili Fantasy,Pili International Multimedia,2,2025-11-14,82,2026-02-09
@@ -2065,7 +2065,7 @@ f5c9bb3e-292b-45c6-a809-f9df9e1cf6a8,e6468267-0911-4108-b81f-a6b402be72af,ROSÉ 
 5be6ac11-59a6-4c87-9651-b5b06187f979,f0e6d728-aacc-4702-9262-8ec8d8745f90,Rambo Takes Aim - Animated,collectible,ULTRA_RARE,FA,2400,41,9,,Rambo,STUDIOCANAL (A CANAL+ Company),7,2025-11-14,60,2023-03-11
 ca6b36f9-e72b-4e29-95da-b1c4a3626242,c88e3ed4-bfca-4216-8c62-d0f47ff6d756,Snow,collectible,COMMON,FE,2400,6,231,,Fun Fridays,VeVe,1,2026-08-14,5,2026-08-14
 8714a00d-df10-428f-8c23-64fce00d35f9,dd1b8260-25d1-4334-9c87-175c37bba32c,Tarzan Yell® Animated Statue,collectible,ULTRA_RARE,FA,2400,41,5,,Tarzan®,"Edgar Rice Burroughs, Inc.",18.99,2025-02-05,1150,2024-01-28
-8661cbe7-e20f-4da4-83f2-2e232718f73c,21fb63f7-e550-410d-8999-1cac7dfc9618,The King of Cameos,collectible,RARE,FA,2400,41,15,,Stan Lee,Stan Lee Universe,2,2025-09-22,69.9,2025-02-05
+8661cbe7-e20f-4da4-83f2-2e232718f73c,21fb63f7-e550-410d-8999-1cac7dfc9618,The King of Cameos,collectible,RARE,FA,2400,41,14,,Stan Lee,Stan Lee Universe,2,2025-09-22,69.9,2025-02-05
 36d4a1e9-2398-4262-ad35-251d5a868865,692baf9e-35ff-4cca-9c05-cab9c93c1875,Kingpin,collectible,ULTRA_RARE,FA,2444,41,4,,Daredevil,Marvel,20,2025-06-23,155,2026-07-14
 90c5b82b-983f-4417-be09-2c6edd456898,028508c5-79e8-41e5-ad11-ba483d2e14b4,Dark Robin #3,collectible,RARE,FA,2450,41,5,,DC,Warner Bros. Discovery Global Consumer Products,5,2025-11-16,449,2026-05-09
 3de45cbc-3a22-433d-92c0-a8099d775e8d,bc2ce7e3-d7f3-40cd-8529-a9cf9e4758bf,Green Lantern (Hal Jordan),collectible,ULTRA_RARE,FA,2450,41,14,,Justice League,Warner Bros. Discovery Global Consumer Products,5,2025-09-22,105,2025-02-04
@@ -2141,7 +2141,7 @@ c61291f1-af7e-4016-ba93-708ade3c1eaf,fd35a6b2-e1c6-440e-8fd1-be574312f898,Profes
 32cf9730-e895-4be0-9feb-a88cc4002463,ebc46ecf-3c4c-4919-9f4c-137367a5e2c1,BAM!,collectible,COMMON,,2750,21,69,,Fun Fridays,VeVe,1,2026-07-17,5,2026-07-17
 757f2c07-4143-4c27-a43d-0014e054ea22,bb459d78-d8b1-455a-a206-cffa0224fc69,Exploiter,collectible,RARE,,2750,21,18,,Rabbids,Ubisoft,2.99,2026-08-09,15,2026-08-08
 6ad91db7-f2d6-4381-8072-cc495342cdf1,bb459d78-d8b1-455a-a206-cffa0224fc69,Fashionista,collectible,RARE,,2750,21,21,,Rabbids,Ubisoft,2.8,2026-08-08,15,2026-08-08
-4cbc534c-3332-4f0c-a3f1-05f7b030224c,ebc46ecf-3c4c-4919-9f4c-137367a5e2c1,POW!,collectible,COMMON,,2750,21,77,,Fun Fridays,VeVe,1,2026-07-17,5,2026-07-17
+4cbc534c-3332-4f0c-a3f1-05f7b030224c,ebc46ecf-3c4c-4919-9f4c-137367a5e2c1,POW!,collectible,COMMON,,2750,21,76,,Fun Fridays,VeVe,1,2026-07-17,5,2026-07-17
 6b496024-0a09-49be-b7f7-4ee655b38eea,39dc9901-1320-4a14-9ec8-f1ec906b8279,Dogpool,collectible,ULTRA_RARE,FA,2777,41,11,,Marvel Mightys,Marvel,4,2025-09-19,65,2022-07-26
 0baafb78-053e-43ca-a4b7-1608fa7ef736,2d7bf849-b2af-4464-ada8-25e5423ef53b,Big Bird,collectible,RARE,FA,2778,41,6,,Sesame Street,Sesame Workshop,3.2,2025-11-14,40,2023-11-26
 d629f709-d1b4-4e1d-803d-542a6b00ea9a,f239958f-8b66-4163-836d-0264dd92306c,VeVe Heart Logo - Pink,collectible,COMMON,FE,2782,,12,,VeVe Logo Collection,VeVe,1.5,2025-11-07,29.7,2024-10-25
@@ -2211,7 +2211,7 @@ e3c58965-57b1-40a7-b091-2ba227c4c284,75b71acc-8d20-4634-967c-47221c08f16f,ROSÉ 
 f210cd03-99a2-4a22-af3b-dc544ac84b4d,f1081784-28f0-4476-b56f-300876f52436,Rogue - 90’s X-Men,collectible,UNCOMMON,FA,3000,41,7,,Rogue,Marvel,5,2025-10-08,1000000,2025-11-23
 68b32df0-5f80-4e31-8a4d-d0d5e8b3c436,421620aa-f51e-437e-8c2d-28dc323a2e3f,1:1 Glider - Animated,collectible,ULTRA_RARE,FE,3007,41,5,,No Time To Die,James Bond - 007,9,2025-10-13,934,2022-01-18
 840cd502-351b-4397-b1c0-1cfcb612b799,a40076c4-a14f-439e-a1c9-f0d706557418,Grogu,collectible,RARE,FA,3019,21,11,,Star Wars ™: The Mandalorian,Star Wars,1,2026-02-05,49,2026-03-06
-427bf76b-1d1b-458f-aee0-a696c9e20027,a40076c4-a14f-439e-a1c9-f0d706557418,‍Din Djarin,collectible,RARE,FA,3019,21,2,,Star Wars ™: The Mandalorian,Star Wars,6,2025-05-19,1000000,2026-05-16
+427bf76b-1d1b-458f-aee0-a696c9e20027,a40076c4-a14f-439e-a1c9-f0d706557418,‍Din Djarin,collectible,RARE,FA,3019,21,3,,Star Wars ™: The Mandalorian,Star Wars,6,2025-05-19,1000000,2026-05-16
 36428d98-5f2b-406e-a6b8-fca3a70ad74c,d548c34b-73b2-49e5-acc7-2f4ace22656a,Donald Duck,collectible,RARE,,3100,41,17,,Disney100 Platinum Moments Collection,Disney,9,2025-07-26,64.89,2023-03-22
 1fa1a04f-0477-4f7b-a7d5-ba38b85e5bde,5881594c-d4ab-43d8-ac8f-3cfe8a8eb1be,Woody,collectible,RARE,,3100,41,3,,Disney100 Platinum Moments Collection,Disney,7,2025-10-17,60,2023-06-30
 2a9d29f2-d827-4c1d-aee7-22f7ab4f0a7d,919e8fb3-14ed-4101-a62f-8fd0b4faa3ce,ULTRAMAN JACK,collectible,UNCOMMON,FA,3150,41,2,,Ultraman,Tsuburaya Productions,2.5,2025-08-26,179,2026-05-03
@@ -2250,7 +2250,7 @@ fe0f996e-9621-4a5d-939e-e79032a631db,38b725e2-a978-4a19-9e92-b8168c4af581,Maestr
 b028d187-a551-4fca-a606-61b81a39dca8,6f62501f-29e3-4462-b8b6-7e72d84ff4f2,Specimen #72,collectible,COMMON,FE,3333,41,7,,Veil: Specimen,Jermaine Rogers,1.5,2025-01-15,238.99,2022-01-19
 9d7c8721-adf8-454a-af4d-4217ba661766,1cf0ef1a-5895-49ee-8b75-899d732e1b62,Alligator Loki - Animated,collectible,ULTRA_RARE,FA,3400,41,8,,Marvel Studios’ Loki,Marvel,3,2025-11-08,400,2022-01-19
 7a11cc10-fff8-41b7-8f22-2e6f5552736d,24d0b01d-e0a5-484b-bad4-d8dc33139612,The Little Prince on the Moon,collectible,RARE,FA,3443,41,10,,The Little Prince,Medialink,3.69,2025-09-11,30,2023-08-06
-cbe550c6-847b-47ea-a5b4-89187cd8ef99,d2984211-e303-494b-a28f-3d35cf70a49e,Sam Wilson - Action,collectible,UNCOMMON,,3466,41,2,,Marvel Mightys,Marvel,2.5,2025-10-20,499,2025-10-21
+cbe550c6-847b-47ea-a5b4-89187cd8ef99,d2984211-e303-494b-a28f-3d35cf70a49e,Sam Wilson - Action,collectible,UNCOMMON,,3466,41,3,,Marvel Mightys,Marvel,2.5,2025-10-20,499,2025-10-21
 10ed10b6-6155-4afb-9173-cd81cb0aaa76,d2984211-e303-494b-a28f-3d35cf70a49e,Steve Rogers - Action,collectible,UNCOMMON,,3466,41,7,,Marvel Mightys,Marvel,2.99,2025-05-30,899,2026-02-11
 03e6bff4-5dd3-4433-9124-1459f9591096,e904baa0-35d3-46f0-baae-31fe7133490d,Ultraman Day Poster,collectible,SECRET_RARE,FE,3472,,9,,Ultraman,Tsuburaya Productions,3.9,2025-10-29,35,2023-07-15
 9eeae60c-df75-4305-a5fd-241d356c4f7a,954b510e-d5de-4d5f-ac30-330d10061865,Mister Fantastic - Action,collectible,UNCOMMON,,3479,41,2,,Marvel Mightys,Marvel,3.45,2025-05-27,68,2026-07-01
@@ -2365,11 +2365,11 @@ d8a553e2-3b90-4d7a-b6a2-eb8644df4148,7cc3f678-094a-44c8-975a-0865e3909826,Beta A
 119e5750-cb5b-49a3-bb88-f7979ee98480,8b80ae5d-3be1-4902-aa0c-e80b70c74f7d,Blue Animated 1,collectible,RARE,FA,4250,41,2,,Jurassic World Dominion,Universal,2,2025-08-21,59.61,2025-11-19
 1d71f5c0-ad88-4e70-82b8-cc6be0948f25,f239958f-8b66-4163-836d-0264dd92306c,VeVe Heart Logo - Black,collectible,COMMON,FE,4276,43,18,,VeVe Logo Collection,VeVe,1,2025-07-12,10,2024-10-25
 eab7f4a3-ca72-4787-8e07-132180df423a,536bc2e4-09ba-49db-83ba-573ea05982db,Power Orb,collectible,ULTRA_RARE,FE,4305,41,7,,Marvel Studios’ Guardians of the Galaxy,Marvel,15.75,2025-10-30,145,2026-01-02
-95b86201-ed47-471f-ada2-4e053041379b,f9c9b15a-4de6-47a2-bfc7-ccbc8c5806aa,Partners Statue,collectible,ULTRA_RARE,FA,4333,41,30,,Disney+ Golden Moments,Disney,1850,2026-08-09,48995,2022-01-31
+95b86201-ed47-471f-ada2-4e053041379b,f9c9b15a-4de6-47a2-bfc7-ccbc8c5806aa,Partners Statue,collectible,ULTRA_RARE,FA,4333,41,29,,Disney+ Golden Moments,Disney,1850,2026-08-09,48995,2022-01-31
 2ec4e3b7-00ae-4c24-a2d1-ffab132c9a67,bb1bdbaf-255d-49b6-a56f-e1561d0b439f,JENNIE,collectible,COMMON,,4400,21,7,,BLACKPINK,YG Entertainment,1.25,2025-04-25,899,2026-06-07
 2a26bd99-0946-4388-bc53-3e596c3d6d34,e13ded30-047f-4c33-8dcd-26244180d909,JISOO,collectible,COMMON,,4400,21,2,,BLACKPINK,YG Entertainment,1.99,2025-04-13,4899,2026-07-16
 d57d9fa6-7796-48ca-9544-1699c14d36ee,bb79550c-0376-47dd-b017-97150eedb409,LISA,collectible,COMMON,,4400,21,4,,BLACKPINK,YG Entertainment,1.25,2025-04-24,177,2026-08-31
-7e4821ed-7ad2-4a08-9dd2-2d5c04261446,75b71acc-8d20-4634-967c-47221c08f16f,ROSÉ,collectible,COMMON,,4400,21,7,,BLACKPINK,YG Entertainment,1.5,2025-04-14,488,2025-07-18
+7e4821ed-7ad2-4a08-9dd2-2d5c04261446,75b71acc-8d20-4634-967c-47221c08f16f,ROSÉ,collectible,COMMON,,4400,21,6,,BLACKPINK,YG Entertainment,1.5,2025-04-14,488,2025-07-18
 be044aa7-1495-4b34-a3a6-b7303affcdae,8a738034-94f1-4548-9c8c-3b365b40a08c,Thor - Animated,collectible,ULTRA_RARE,FA,4400,41,12,,Thor,Marvel,6,2025-11-11,144.98,2022-06-25
 2cb3a529-07d0-4a7f-a911-2aa392d652c1,7496d056-3d63-4363-a8cc-22a23f567bd6,1:1 Ecto-1 Interactive,collectible,ULTRA_RARE,FE,4444,41,14,,Ghostbusters I,Ghostbusters,9.99,2025-10-15,899,2022-01-18
 930d65c5-68db-4833-b585-ea9d47b26521,019dcf1b-69e4-477b-a56a-e551a57e8192,Fat Tony,collectible,COMMON,FE,4444,41,6,,Ron English’s Cereal Killers,Ron English,2.5,2025-09-14,230,2022-01-18
@@ -2385,7 +2385,7 @@ c6981afb-31a9-4314-a825-b1f5faae0056,3784024f-a799-4821-b9b9-d68ac548e443,"Smack
 b72f0788-948e-4e0a-8c22-3e067e35634f,7965d349-b5ba-47a3-8f5b-eec542c42cea,The Rabbbits Jukebox,collectible,COMMON,FE,4444,41,16,,Ron English’s Popaganda,Ron English,1.19,2025-09-06,3000,2026-01-31
 9e545359-1e52-4b28-99a7-cab799e99eaf,0fc3308e-ba56-4408-898d-cf2af6c3d5fc,The Secret History Of Delusionville - Platinum,collectible,SECRET_RARE,FE,4444,41,2,,Ron English’s Popaganda,Ron English,8,2025-11-12,333,2026-06-14
 0e0313e5-e1bb-43be-bf73-e45bf130d86b,a6ec7ec7-1b6b-4bbe-a6c7-99a1ebc6c008,Two Ton Sam,collectible,COMMON,FE,4444,41,12,,Ron English’s Cereal Killers,Ron English,1.03,2025-11-10,97,2022-01-19
-ad13a3f0-64b8-453e-8c2e-23d8fea2192d,b0a8bef1-796f-4d89-b60e-dc9ffab2cfd7,Captain Hook: Never Smile at a Crocodile,collectible,UNCOMMON,FA,4500,41,3,,Disney Villains Collection,Disney,1.53,2025-07-04,1953,2026-03-02
+ad13a3f0-64b8-453e-8c2e-23d8fea2192d,b0a8bef1-796f-4d89-b60e-dc9ffab2cfd7,Captain Hook: Never Smile at a Crocodile,collectible,UNCOMMON,FA,4500,41,2,,Disney Villains Collection,Disney,1.53,2025-07-04,1953,2026-03-02
 1a258258-8835-4cb1-ae1e-1ed782166e33,1fb9b244-57f3-46d1-b5c8-83ab7c35c029,Galactus - Cosmic Laser Fury,collectible,UNCOMMON,FA,4500,41,6,,Galactus,Marvel,10,2025-08-24,888,2025-11-16
 a37f8b05-5548-4961-9e7c-1c4d9586985c,6b579383-ab66-4618-9e3b-fe6c545f50aa,Sabretooth - Primal Instinct,collectible,UNCOMMON,FA,4500,41,3,,Sabretooth,Marvel,6.99,2026-06-08,8888888,2025-02-16
 97434abe-b70a-4b53-b748-c727b01bfc60,dcf3b04e-097a-47c2-8b79-e5d5c3bc3321,The Punisher - Armed and Relentless,collectible,UNCOMMON,FA,4500,33,6,,The Punisher,Marvel,2.25,2025-11-14,40,2026-01-21
@@ -2398,7 +2398,7 @@ ab837c48-11e4-4fe9-b99a-0fd17f62e599,5f66c451-40f7-4bd6-aba5-0fd9c049d1cd,Death 
 92aa9444-e4f7-4961-b815-eef04b1313a8,881c4efd-79d2-4e41-95e2-498eea257e2f,VeVe Christmas Tree - Gold,collectible,UNCOMMON,FE,4600,21,20,,VeVe Christmas 2024,VeVe,1,2025-01-06,9.95,2026-07-10
 0acd73ab-9908-4060-a8b5-4d9330f1ecb6,e53d450f-a843-46fa-a748-d03b55667d5a,Day of the Dead Mother,collectible,ULTRA_RARE,FE,4666,41,6,,Day of the Dead,United States Postal Service,9,2025-10-23,1199,2022-01-20
 62cbbb56-6c35-4d7f-8dcf-4e4f301ffc73,faccc415-2aaa-475c-91e8-c97011764e44,Harley Quinn,collectible,ULTRA_RARE,,4777,41,6,,DC Cover Girls,DC Direct,6.59,2025-06-17,369,2022-02-06
-5a629d81-f499-4da6-bff6-419f1c27e921,66e0f97f-1ed0-4c61-bf53-0f4272f39466,Karina,collectible,RARE,FE,4777,41,6,,DEADBEATS,Matt Gondek,1,2025-08-26,60,2022-04-17
+5a629d81-f499-4da6-bff6-419f1c27e921,66e0f97f-1ed0-4c61-bf53-0f4272f39466,Karina,collectible,RARE,FE,4777,41,7,,DEADBEATS,Matt Gondek,1,2025-08-26,60,2022-04-17
 136beee1-a56f-4ccc-8982-a00bcae3b42c,e05184b8-ac29-4495-99b1-d22a63de6feb,Title IX - Soccer Player,collectible,ULTRA_RARE,FE,4777,41,8,,USPS Stamp Art,United States Postal Service,1,2025-03-31,31.8,2022-03-26
 a9a3706c-32e5-414f-b6f9-3510caa9d855,fe42dd0d-a084-4145-96c8-126caefd93d1,Weapon Racks – Silver Black,collectible,RARE,FE,4777,41,9,,Weapon Racks,Matt Gondek,1.4,2025-09-15,61.5,2022-03-06
 7b3e117c-fc0e-459f-9792-b131935e3135,74aa7657-277f-43fc-9865-6093161df14c,1860 George Washington (originally 24 cents),collectible,UNCOMMON,FE,4800,41,18,,Classics Forever,United States Postal Service,1.05,2025-03-01,27.77,2025-02-05
@@ -2431,11 +2431,11 @@ eb8895db-94cd-465a-bc25-05ce6e18e2c2,66e0f97f-1ed0-4c61-bf53-0f4272f39466,Melvin
 99bf64df-202a-418f-9ad3-82fe2b7637ae,fa4f2675-bc32-4792-8344-d1c0e3ccc518,UCI Germany Blue and Beta,collectible,UNCOMMON,,5090,41,6,,Jurassic World Dominion,Universal,3.67,2025-11-11,99.99,2024-06-04
 3035942c-117c-404f-9098-5df698f59272,95f28812-3932-446b-a12c-34b00bdf544b,The Lion King Pencil,collectible,SECRET_RARE,FE,5097,,13,,Disney The Lion King Collection,Disney,6,2024-06-07,40,2023-08-21
 c43e163e-cd49-4da9-b4aa-9aa2049cc2f5,5881594c-d4ab-43d8-ac8f-3cfe8a8eb1be,Miguel,collectible,COMMON,FA,5100,41,3,,Disney100 Platinum Moments Collection,Disney,13.69,2025-11-13,212,2025-07-26
-a00ad2e9-37fe-4ca2-b2df-5fea2e0131d0,8867761a-acc4-4349-bebc-8f8a0fd6b29e,"""Read Me A Story!""",collectible,COMMON,FE,5192,41,4,,Star Wars: Father's Day Collection,Star Wars,1,2025-08-31,20,2022-06-19
+a00ad2e9-37fe-4ca2-b2df-5fea2e0131d0,8867761a-acc4-4349-bebc-8f8a0fd6b29e,"""Read Me A Story!""",collectible,COMMON,FE,5192,41,5,,Star Wars: Father's Day Collection,Star Wars,1,2025-08-31,20,2022-06-19
 d34e9c60-06e9-456d-9d60-e9f2bd92b7d2,7899e782-7191-4e47-bd67-e7986633cb22,"I’m Buzz Lightyear, I’m always sure",collectible,RARE,FA,5212,41,4,,Lightyear NFT Collection,Pixar,3,2025-11-25,230,2026-06-24
 5c7c7adc-0758-43c8-8da6-c8282704cc2d,a08836a6-61e3-43b5-ba2d-6f49c36d6da6,T. rex Animated 1,collectible,RARE,FA,5250,41,10,,Jurassic World Dominion,Universal,2.73,2025-08-26,50,2022-06-12
 a2d990aa-9d9f-4eb3-89b9-398dabe7fa7c,89399c91-0901-46f9-91c2-0a2778113372,Tinker Bell Pencil,collectible,SECRET_RARE,FE,5299,,4,,Disney Peter Pan Collection,Disney,6,2025-02-05,69,2023-12-16
-53057d99-ac36-4dd2-b28a-8aa22d9f0b51,038250c7-7b99-4814-b9b7-d3fe8a395b5f,Ben Reilly - Acrobatic Arachnid,collectible,UNCOMMON,FA,5384,41,8,,Spider-Man,Marvel,7,2025-09-23,1199,2022-01-18
+53057d99-ac36-4dd2-b28a-8aa22d9f0b51,038250c7-7b99-4814-b9b7-d3fe8a395b5f,Ben Reilly - Acrobatic Arachnid,collectible,UNCOMMON,FA,5384,41,7,,Spider-Man,Marvel,7,2025-09-23,1199,2022-01-18
 2a1fe986-121b-48ab-bd64-1122192a0f31,39815cb8-d69e-46f6-9a15-9bfb429958bf,Ahsoka Tano,collectible,SECRET_RARE,FE,5454,41,5,,Lightsaber Collection,Star Wars,11,2025-10-29,218,2022-05-31
 ca649d00-5d67-405d-829c-afa85411c1fc,e798e576-4329-43fa-9292-c84211cf9ce6,#12 Harley Quinn,collectible,UNCOMMON,,5500,41,11,,"Harley Quinn Red, White & Black",DC Direct,2.5,2025-11-20,295,2022-01-18
 2ece2756-2e75-4d17-847a-45bbd9935e0f,45610ac3-0fed-4030-a994-d21f7099f7a2,#55 Gary Frank Batman,collectible,UNCOMMON,,5500,41,9,,Batman Black & White,DC Direct,3.67,2025-11-10,701,2022-01-18
@@ -2457,8 +2457,8 @@ afdcb3d4-b0d6-42f8-bc08-821d518119ff,165ad1ab-da4e-4d28-a525-8c2ca8a0ab7d,Black 
 e84cb947-3c97-486c-9b6b-f299af4cc6b9,5b497909-a23d-497e-84b6-b8b97c8ea6fe,Cookie Monster - Gold,collectible,SECRET_RARE,,5555,73,3,,Sesame Street,Sesame Workshop,5.96,2026-07-13,35,2026-03-14
 49ebb3bc-9ac4-43cd-a734-5aee8c6d67ef,4872cd91-9593-4a6a-9799-9a2ae5ece517,Earth Day - Stamp,collectible,RARE,FE,5555,41,17,,Earth Day,United States Postal Service,1,2024-11-17,6,2023-04-22
 77fe6eff-5fb9-40d8-ac9c-42e23eb64863,e21f6b16-90d8-40a8-9033-ec1207f2d089,Jawa 01,collectible,RARE,FA,5555,41,4,,Star Wars™: A New Hope Collection,Star Wars,1,2025-09-24,15,2026-04-02
-07aa6fbe-d527-4b4d-bb19-cd3eb81ba3e1,27d5899d-8198-40a8-8def-689e9ed51ced,Lounging Toby,collectible,UNCOMMON,FE,5555,41,8,,Toby,Gary Baseman,1,2025-07-08,50,2022-03-26
-05df9412-ca87-4492-8454-81f73a88c171,725309a1-3f0b-4eaf-9908-8fe77f8ec9a0,MOTOMICHI - Eyes,collectible,SECRET_RARE,FE,5555,11,31,,MOTOMICHI,SUYE,11,2026-08-22,19.95,2026-08-19
+07aa6fbe-d527-4b4d-bb19-cd3eb81ba3e1,27d5899d-8198-40a8-8def-689e9ed51ced,Lounging Toby,collectible,UNCOMMON,FE,5555,41,7,,Toby,Gary Baseman,1,2025-07-08,50,2022-03-26
+05df9412-ca87-4492-8454-81f73a88c171,725309a1-3f0b-4eaf-9908-8fe77f8ec9a0,MOTOMICHI - Eyes,collectible,SECRET_RARE,FE,5555,11,30,,MOTOMICHI,SUYE,11,2026-08-22,19.95,2026-08-19
 be660c37-ee7b-4da4-84ba-2138788889cd,9deb46ff-a86e-4d6c-9747-a286e65456f8,Rising Sun Hoverboard,collectible,UNCOMMON,FE,5555,41,6,,Back to the Future Part II,Universal,1.75,2025-08-23,154,2022-01-17
 bd16e6f6-1138-4083-8c0f-8e312c3c9450,f32360ec-a350-426a-954c-0271e6705fed,Santa Comes Down the Chimney,collectible,ULTRA_RARE,FE,5555,41,8,,A Visit from St. Nick,United States Postal Service,1,2025-11-05,295,2022-01-20
 c81ac9ff-1954-4ba5-8194-9b83ecdd3228,368ff5af-6b5d-4a10-b266-e19db7613c0c,Sunflower Grin - Special Mission - Gold,collectible,ULTRA_RARE,FE,5555,41,19,,Ukraine Relief Project,Ron English,1.29,2025-10-27,60.75,2022-03-14
@@ -2479,7 +2479,7 @@ b991e11e-c587-472e-9c57-092cc7625af8,856b8ddf-ac6a-47ac-a081-8cb95b9dcbda,DeLore
 8197f403-df07-45d8-9435-e4b30465250c,d410e54b-27fc-4f10-aaa0-ac36525c730d,Fantasma,collectible,RARE,FA,5888,41,16,,Mermicornos,tokidoki,1,2025-11-10,88,2022-01-18
 c8381bdd-5f77-40fc-81cf-4f27e4001d29,d410e54b-27fc-4f10-aaa0-ac36525c730d,Lilypad,collectible,RARE,FA,5888,41,13,,Mermicornos,tokidoki,1.2,2025-08-24,81,2022-01-19
 0b9cbb5a-7c04-4b6c-ab53-e401c6096618,608f625e-22cb-4de2-9000-d5296079b5d9,Lunar New Year: Snake,collectible,COMMON,FE,5888,21,2,,USPS Stamp Art,United States Postal Service,1,2025-01-30,2025202,2026-05-01
-a79849a8-a5cb-4a7f-b0bf-5dbe2249742c,9391023a-b455-4c20-9212-02f3e994898a,Romulan D'deridex Warbird,collectible,ULTRA_RARE,FE,5888,41,3,,Star Trek: The Next Generation,Star Trek,18,2025-11-16,175,2024-05-14
+a79849a8-a5cb-4a7f-b0bf-5dbe2249742c,9391023a-b455-4c20-9212-02f3e994898a,Romulan D'deridex Warbird,collectible,ULTRA_RARE,FE,5888,41,4,,Star Trek: The Next Generation,Star Trek,18,2025-11-16,175,2024-05-14
 55876156-f6d4-4ca8-bb50-fd6c1f5f0fb8,44b1cb23-eedd-46c5-938d-20334802f518,U.S.S. Enterprise-D (1:1),collectible,ULTRA_RARE,FE,5888,41,11,,Star Trek: The Next Generation,Star Trek,6.99,2025-11-17,999.99,2022-01-21
 786a69fd-65d2-4305-b415-43f50e04f861,3fb2fa29-f321-42b4-8809-e9a094cefec9,Ye Xiao Chai,collectible,RARE,FA,5888,41,8,,Pili Fantasy,Pili International Multimedia,2,2026-06-22,163,2022-02-07
 7aeb6394-97db-4268-85ac-7f2cc504687e,a0b1749b-c64a-416d-a1ef-2472bd039d7f,With Love and Kisses,collectible,COMMON,FE,5907,21,25,,USPS Stamp Art,United States Postal Service,1,2025-02-23,6,2025-02-14
@@ -2523,7 +2523,7 @@ bda03b90-7740-4ec4-b011-9e6a7a971d60,a681975f-7cd6-4f0c-a3ab-62ad0a9be65b,Deadpo
 7b39db08-adcb-4dc8-bfc2-4511197c5625,a6c3e3c8-b371-4687-824a-dc88f3b5763c,Eye of Agamotto - Open,collectible,RARE,FE,6500,41,15,,Doctor Strange,Marvel,1.99,2025-02-04,133.33,2023-01-30
 f037f161-585a-4e62-b28b-1f9d4f9198ef,016c43e5-dc04-456a-9b93-c1ab3f78ab56,Invisible Woman – Psionic Defender,collectible,RARE,,6500,41,14,,Fantastic Four,Marvel,1.49,2025-11-11,190,2022-01-18
 9ef89b68-dba0-4ecf-933b-b04cb70cf87a,df4aee42-fc56-49bc-aa0f-667bb57a166c,Scepter,collectible,UNCOMMON,CE,6500,41,10,,Marvel’s The Avengers,Marvel,3,2025-06-03,32,2023-01-29
-1e7014fa-7d7d-4af4-95fb-296d359612f4,7812a3cb-c693-4112-9fc5-ef3ea5345a06,Storm – Queen of Wakanda,collectible,RARE,FA,6500,41,12,,X-Men,Marvel,2,2025-07-13,224,2022-01-19
+1e7014fa-7d7d-4af4-95fb-296d359612f4,7812a3cb-c693-4112-9fc5-ef3ea5345a06,Storm – Queen of Wakanda,collectible,RARE,FA,6500,41,11,,X-Men,Marvel,2,2025-07-13,224,2022-01-19
 dfce2c78-6a36-42d6-9dab-53ae88a852e6,93f2fd51-918f-4b2e-a199-cb7a57a25108,Ultraman Seven,collectible,UNCOMMON,FA,6500,41,8,,Anime ULTRAMAN,Tsuburaya Productions,4.99,2025-01-05,875,2022-01-16
 98370f9b-b3fe-4261-a4c1-4fdfed88e97b,e54da525-3f06-4ab4-89c0-80518bce8a53,Experiment 626,collectible,UNCOMMON,FA,6626,41,12,,Disney Stitch Collection,Disney,1.55,2025-02-04,30,2022-06-26
 0fddd6c6-e19b-4d90-9475-b0844f2ae883,9d758ac1-fca3-4f18-9052-a3905e1d3ca8,Throg – Frog Of Thunder,collectible,UNCOMMON,FA,6630,41,10,,Throg,Marvel,1,2025-11-10,120,2022-01-18
@@ -2537,7 +2537,7 @@ fc394894-444f-43ad-927b-19390c5eef03,ac5f58a8-9b80-40be-9f52-7df2d0219491,Harley
 1778f949-7f87-4ef5-91e1-cc1f8bbd5700,5a24e0f5-8cff-43ee-a06d-6bf805b397be,OG Devil Bunny - Red,collectible,COMMON,CE,6666,41,10,,DesignerCon 2021,DesignerCon General,1.2,2025-10-17,135,2022-01-18
 3a867661-d468-4559-884f-777a86ec8eda,2cd150a3-4126-41f9-a0d8-542ab153cad1,Pluto,collectible,ULTRA_RARE,FE,6666,41,10,,Mickey and Friends NFT Collection,Disney,9,2025-11-14,1639,2022-02-04
 5afd3b4c-4249-4701-b4aa-cd492d804f82,f32360ec-a350-426a-954c-0271e6705fed,Santa and His Reindeer,collectible,RARE,FE,6666,41,6,,A Visit from St. Nick,United States Postal Service,1,2025-06-29,145,2026-01-02
-2dbdb7e3-6f49-4210-a050-a6b812e4caad,66e0f97f-1ed0-4c61-bf53-0f4272f39466,Aaron,collectible,UNCOMMON,FE,6777,41,11,,DEADBEATS,Matt Gondek,1,2025-02-08,60,2022-04-17
+2dbdb7e3-6f49-4210-a050-a6b812e4caad,66e0f97f-1ed0-4c61-bf53-0f4272f39466,Aaron,collectible,UNCOMMON,FE,6777,41,8,,DEADBEATS,Matt Gondek,1,2025-02-08,60,2022-04-17
 7f164d1b-974b-46d2-8292-dc9561b111ab,e05184b8-ac29-4495-99b1-d22a63de6feb,Title IX - Swimmer,collectible,UNCOMMON,FE,6777,41,1,,USPS Stamp Art,United States Postal Service,1,2022-04-03,20,2022-04-07
 114f9b05-5004-4657-884c-744baa97b872,fe42dd0d-a084-4145-96c8-126caefd93d1,Weapon Racks – Pink Blue,collectible,UNCOMMON,FE,6777,41,7,,Weapon Racks,Matt Gondek,1,2025-07-01,60,2022-03-05
 8e9682fc-9d88-4dad-a61e-74d743da57e7,be64871c-c540-444d-8b6c-ee4a58ba637a,#71 Batman,collectible,RARE,,6800,41,8,,Batman Black & White,DC Direct,3,2025-08-21,645,2022-01-18
@@ -2556,7 +2556,7 @@ e4efce12-66ce-43f3-9507-6bf2545cf0a8,b5bb05cd-c680-41cf-9b7c-faff54a1de1f,Year o
 5ab59120-1b5b-473c-9c80-3144d9a6e1d5,f8366928-62cb-4555-b834-a1b636eab639,"All Together, Now!",collectible,ULTRA_RARE,,6928,41,16,,The Mickey Mouse NFT Collection,Disney,59,2025-10-23,10696,2022-01-19
 664706f5-0d2b-456f-94e7-e32b97a4f2dd,c19a896d-de7f-4c83-b3e5-868c9b2457d3,The Finale,collectible,ULTRA_RARE,,6928,41,13,,The Mickey Mouse NFT Collection,Disney,5,2025-10-15,450,2022-04-02
 6edf0436-e37c-4e2f-a811-22e5df176765,8107be52-d18d-42a1-99e2-b217ee09a574,Edna Mode: Bold! Dramatic! Heroic!,collectible,ULTRA_RARE,FA,6999,41,11,,Pixar Pals,Pixar,2.5,2025-10-22,164.99,2022-03-14
-91ae052f-7496-48f1-a96d-0ece0dca200d,421620aa-f51e-437e-8c2d-28dc323a2e3f,Safin’s Mask,collectible,RARE,FE,7007,41,12,,No Time To Die,James Bond - 007,1.25,2025-11-13,122,2022-01-14
+91ae052f-7496-48f1-a96d-0ece0dca200d,421620aa-f51e-437e-8c2d-28dc323a2e3f,Safin’s Mask,collectible,RARE,FE,7007,41,10,,No Time To Die,James Bond - 007,1.25,2025-11-13,122,2022-01-14
 f17a4cb5-feaa-4a2c-9535-548901496591,421620aa-f51e-437e-8c2d-28dc323a2e3f,Valdo’s Case,collectible,RARE,FE,7007,41,11,,No Time To Die,James Bond - 007,1,2025-11-11,86.99,2021-12-18
 2c70e420-29bd-46bc-ba10-04073967e4d2,8282c50c-546d-4f96-83ac-0d8cb923eb49,Take Me Out to the Ball Game,collectible,RARE,FE,7123,41,21,,Take me Out to the Ball Game,United States Postal Service,1.26,2025-11-09,72.99,2022-04-18
 107572e7-d947-4cc0-b8dc-af5e16233566,fdd40746-5535-4991-86fc-d117d482d981,Bucky Barnes - On Guard,collectible,RARE,,7132,41,1,,Marvel Mightys,Marvel,3,2026-07-24,46,2026-03-10
@@ -2575,7 +2575,7 @@ e8064631-1c9d-408a-ada4-7534693c8c12,b0f94c2c-8b57-4dae-8794-efb6a407f502,Sentin
 bf8dbdb6-39cb-4acf-82bd-d9aee825892d,e825c685-1675-492d-a1eb-630a5ebd2635,Doc Ock - Sinister Foe,collectible,UNCOMMON,FA,7616,41,13,,Spider-Man,Marvel,1.88,2025-09-06,50,2022-08-31
 18d56bc0-d416-4d8b-b8d1-0df800a45f72,e53d450f-a843-46fa-a748-d03b55667d5a,Day of the Dead: Child,collectible,COMMON,FE,7666,41,10,,Day of the Dead,United States Postal Service,1,2026-03-09,349,2021-12-09
 cd22d5da-11d3-4dd9-b441-3656340d3948,e5c90105-7e12-4033-b05a-71f10ee5d8f2,The King of Cameos - Gold & Silver Edition,collectible,COMMON,CE,7740,41,4,,Stan Lee,Stan Lee Universe,24.99,2026-04-19,999,2026-01-31
-6a3c8ad0-8bb9-4065-abff-9d12b8e82bc4,9769c040-dfcc-459f-9719-5b5b3b81abad,Lady and the Tramp,collectible,RARE,FA,7777,41,11,,Disney+ Golden Moments,Disney,9,2025-02-05,1449,2022-02-14
+6a3c8ad0-8bb9-4065-abff-9d12b8e82bc4,9769c040-dfcc-459f-9719-5b5b3b81abad,Lady and the Tramp,collectible,RARE,FA,7777,41,9,,Disney+ Golden Moments,Disney,9,2025-02-05,1449,2022-02-14
 160a236e-b8bd-4f20-ba0e-9d875310b5cf,9deb46ff-a86e-4d6c-9747-a286e65456f8,Marty’s Hoverboard,collectible,COMMON,FE,7777,41,13,,Back to the Future Part II,Universal,4.5,2025-10-27,497,2022-01-18
 91628d4f-bf1a-454d-a213-424f34877bd2,9deb46ff-a86e-4d6c-9747-a286e65456f8,No Tech Hoverboard,collectible,COMMON,FE,7777,41,9,,Back to the Future Part II,Universal,1.45,2025-09-16,103,2022-01-18
 0c6af189-3d90-4fdd-b28b-a60c8d42ec7b,27d5899d-8198-40a8-8def-689e9ed51ced,Rushing Toby,collectible,COMMON,FE,7777,41,17,,Toby,Gary Baseman,1,2025-07-21,50,2022-03-26
@@ -2596,7 +2596,7 @@ ac501a79-5852-499a-9a0d-ec318ae7f249,9ceb9fe4-64de-495c-bdbd-6217a7620a0e,Snow G
 df8fec71-7e54-4dfb-b3e4-ea9c83aceca7,ab862e11-fe0a-4ec5-a970-bfea234eaf32,Captain America – The Punch,collectible,RARE,,8000,41,14,,Captain America,Marvel,3,2025-10-26,429,2022-01-14
 8fb5ccce-9c4a-49ab-b206-440767b49495,d4497f0d-6b40-4ae6-a38d-71ecb5afb18f,Loki,collectible,COMMON,FA,8000,41,7,,Marvel Mightys,Marvel,1.5,2025-11-12,27.99,2022-07-04
 796348ff-b081-4473-b255-acf577417d96,d4497f0d-6b40-4ae6-a38d-71ecb5afb18f,Thor,collectible,COMMON,,8000,41,11,,Marvel Mightys,Marvel,1,2025-10-22,25,2025-02-05
-084a9815-8ba3-4133-9bbf-be29a6f7cce4,a08836a6-61e3-43b5-ba2d-6f49c36d6da6,The Ultimate Apex Predator,collectible,UNCOMMON,FA,8250,41,24,,Jurassic World Dominion,Universal,0.01,2022-07-30,50,2022-06-12
+084a9815-8ba3-4133-9bbf-be29a6f7cce4,a08836a6-61e3-43b5-ba2d-6f49c36d6da6,The Ultimate Apex Predator,collectible,UNCOMMON,FA,8250,41,23,,Jurassic World Dominion,Universal,0.01,2022-07-30,50,2022-06-12
 07c1d5c1-e0c4-4e6a-9ad7-553e9a854f5f,acc1e39e-0019-4530-933d-9f65e0c85873,Flounder and Sebastian,collectible,RARE,FA,8333,41,24,,Disney+ Golden Moments,Disney,8,2025-10-15,259,2022-03-25
 d042924f-2db9-4180-8d16-38bf4c9e5b9d,9febb8c5-1017-4b93-9b80-a054f8389302,R2-D2,collectible,UNCOMMON,FA,8333,41,29,,Disney+ Golden Moments,Disney,20,2022-11-07,9698,2022-02-11
 ad5b7ae1-ad36-44e6-9dbd-a57e8b1a94bc,fe16030a-db0d-48cb-9ebb-5bbf1c1dc9dc,Tesseract,collectible,UNCOMMON,CE,8610,41,21,,Marvel’s The Avengers,Marvel,2,2025-10-26,34,2022-10-01
@@ -2605,7 +2605,7 @@ ad5b7ae1-ad36-44e6-9dbd-a57e8b1a94bc,fe16030a-db0d-48cb-9ebb-5bbf1c1dc9dc,Tesser
 15f0b30e-8770-4102-8226-7fd6f22cf8df,7899e782-7191-4e47-bd67-e7986633cb22,To Infinity and Beyond,collectible,COMMON,FA,8766,41,10,,Lightyear NFT Collection,Pixar,1.5,2025-10-09,60,2022-08-03
 0b129e4e-3a34-464d-8f6f-6ec4334909dc,10d4d107-86c4-48f8-997b-6a0b0cc79d1c,Black Panther – Vibranium Warrior,collectible,RARE,FA,8800,41,5,,Black Panther,Marvel,1.99,2025-01-30,173,2022-02-27
 f09d3ca4-d90a-4844-a28b-3207b87161a4,61199d71-1533-4dc7-83c9-aef76a4c1613,Bat-Signal,collectible,UNCOMMON,FE,8888,41,17,,DC Gallery,Warner Bros. Discovery Global Consumer Products,2.25,2025-08-22,19.95,2026-02-08
-da7f15db-60fa-48db-ac21-f7be7cf6917f,a9e85f35-c9c8-458b-8e41-d61544809d7f,Batgirl,collectible,UNCOMMON,,8888,41,8,,DC Artist Alley,DC Direct,1,2025-10-22,144,2022-01-18
+da7f15db-60fa-48db-ac21-f7be7cf6917f,a9e85f35-c9c8-458b-8e41-d61544809d7f,Batgirl,collectible,UNCOMMON,,8888,41,12,,DC Artist Alley,DC Direct,1,2025-10-22,144,2022-01-18
 acf1aae9-f70c-4782-830d-71cb124fb808,be503af2-878e-4a25-97b6-053a0be9e1cf,Batman vs. Killer Croc,collectible,RARE,FA,8888,41,10,,Battle Statues,DC Direct,8.7,2025-11-12,1989,2022-01-24
 f5a393e0-13d2-40a3-8c6f-075709139d24,2cd150a3-4126-41f9-a0d8-542ab153cad1,Daisy Duck,collectible,RARE,FE,8888,41,8,,Mickey and Friends NFT Collection,Disney,3.5,2025-08-21,750,2022-02-04
 199febf6-f9a8-44e3-b106-3c8e545bb78f,3fb2fa29-f321-42b4-8809-e9a094cefec9,Feng Cai Ling,collectible,UNCOMMON,FA,8888,41,15,,Pili Fantasy,Pili International Multimedia,1.25,2025-10-14,79,2022-02-07
@@ -2650,14 +2650,14 @@ c93849cb-ce19-4448-876d-b37d7258c6c4,44b1cb23-eedd-46c5-938d-20334802f518,Borg C
 12a68b57-417a-46ba-9683-df8a69eb8ba0,d410e54b-27fc-4f10-aaa0-ac36525c730d,Coraline,collectible,COMMON,FA,9888,41,13,,Mermicornos,tokidoki,1,2025-08-25,39.99,2022-02-05
 94e3db13-8cbc-4673-92c0-c75c2d627aa2,3fd4705e-21ac-44f7-9d1b-a9bab193e6a2,Holiday Groot – Ultimate Animated,collectible,RARE,FA,9888,41,12,,Guardians of the Galaxy,Marvel,1.3,2025-09-06,458.99,2022-01-18
 7e595273-5759-492c-b95d-4db62eaaef88,6738a0ea-1c48-4014-b15c-16f3f720967e,On Guard,collectible,UNCOMMON,FA,9932,41,34,,Underworlders Collection,Star Wars,1.9,2025-10-22,80,2022-07-30
-1a0b2842-23de-438d-8242-d11846483d6c,86fbf167-a78f-40a0-8b09-1c563ea4b457,Beware the Dark Side,collectible,UNCOMMON,FA,9977,41,17,,Dark Side Collection,Star Wars,7.8,2025-08-20,199.99,2022-05-31
+1a0b2842-23de-438d-8242-d11846483d6c,86fbf167-a78f-40a0-8b09-1c563ea4b457,Beware the Dark Side,collectible,UNCOMMON,FA,9977,41,18,,Dark Side Collection,Star Wars,7.8,2025-08-20,199.99,2022-05-31
 e6c7fca7-2199-42e1-b12e-1b289821520b,7496d056-3d63-4363-a8cc-22a23f567bd6,1:6 Ecto-1 Interactive,collectible,COMMON,FE,9999,41,16,,Ghostbusters I,Ghostbusters,1.99,2025-11-02,188,2022-01-18
 c844b748-f9f8-41d4-98c1-ed3178f379ba,2cd150a3-4126-41f9-a0d8-542ab153cad1,Donald Duck,collectible,UNCOMMON,FE,9999,41,5,,Mickey and Friends NFT Collection,Disney,3.89,2025-11-09,1199.95,2022-02-04
 4248d6fd-caca-4a26-91ad-7c8d9ddf4eca,39815cb8-d69e-46f6-9a15-9bfb429958bf,Mace Windu,collectible,ULTRA_RARE,FE,9999,41,10,,Lightsaber Collection,Star Wars,3.83,2025-11-11,65,2022-05-29
 0459f991-814c-4e82-9d42-2210578b1de1,ff45faa3-cd2e-4d5d-ad1f-148df629bb86,Queen of Hearts: Not Impressed,collectible,UNCOMMON,FA,9999,41,20,,Disney Villains Collection,Disney,1,2025-05-13,21.85,2022-04-23
 72fb80f0-9a51-422d-97c0-d09d84de0738,a9e85f35-c9c8-458b-8e41-d61544809d7f,Wonder Woman,collectible,COMMON,FA,9999,41,13,,DC Artist Alley,DC Direct,7.99,2025-11-04,1730,2022-01-18
 af02ad4f-100c-4995-810f-376c6854b00e,69f2ca17-ebc6-4f55-b3fa-5c299e5a81f3,Disney D,collectible,UNCOMMON,FE,10000,41,28,,Disney+ Golden Moments,Disney,9,2025-02-05,240,2022-09-10
-ebf0810d-353d-49d2-9fd8-032aaae61f6a,69f2ca17-ebc6-4f55-b3fa-5c299e5a81f3,Magic Lamp from Aladdin,collectible,UNCOMMON,FE,10000,41,29,,Disney+ Golden Moments,Disney,7,2025-10-18,169.69,2022-09-10
+ebf0810d-353d-49d2-9fd8-032aaae61f6a,69f2ca17-ebc6-4f55-b3fa-5c299e5a81f3,Magic Lamp from Aladdin,collectible,UNCOMMON,FE,10000,41,28,,Disney+ Golden Moments,Disney,7,2025-10-18,169.69,2022-09-10
 ad19dd92-4d70-4eed-9caf-6acfcbe026d1,b6d503ae-af4c-4d44-add9-ba6dc044f7d0,The Blue One,collectible,SECRET_RARE,FE,10000,21,11,,The Feeshes,+Breadcat,7.99,2025-11-09,250,2026-02-02
 2ce987c8-0ec3-4773-b6d6-d3c5516fba89,b6d503ae-af4c-4d44-add9-ba6dc044f7d0,The Coal Mining Miner,collectible,SECRET_RARE,FE,10000,21,6,,The Feeshes,+Breadcat,5.29,2025-10-15,888,2026-02-10
 8afcff93-6e98-44aa-8b60-e3cc0274d76a,b6d503ae-af4c-4d44-add9-ba6dc044f7d0,The Diamond of the Mines,collectible,SECRET_RARE,FE,10000,21,5,,The Feeshes,+Breadcat,15,2025-09-03,2000,2026-05-19
@@ -2687,7 +2687,7 @@ d8bf15a2-5c6c-46ea-97d4-1cbf112c35b5,ab862e11-fe0a-4ec5-a970-bfea234eaf32,Captai
 0cbca57d-4f26-4fc8-9853-591e991f47ff,a6c3e3c8-b371-4687-824a-dc88f3b5763c,Eye of Agamotto - Closed,collectible,UNCOMMON,FE,12000,41,14,,Doctor Strange,Marvel,1,2025-03-31,70,2022-04-28
 462c5fbb-fc0d-4aec-b7e8-856dea8b4963,39815cb8-d69e-46f6-9a15-9bfb429958bf,Kylo Ren,collectible,RARE,FE,12015,41,12,,Lightsaber Collection,Star Wars,1.99,2025-08-20,60,2022-05-26
 2cf09235-f140-422e-a800-d0b049fbaff0,9febb8c5-1017-4b93-9b80-a054f8389302,C-3PO,collectible,COMMON,FA,12333,41,24,,Disney+ Golden Moments,Disney,35,2025-10-26,5747,2022-02-11
-9954145f-e85c-462e-b84b-2b50a3e3fbe9,a12261d3-59fe-47aa-af5e-445371af460e,Elsa,collectible,COMMON,FA,12333,41,30,,Disney+ Golden Moments,Disney,35,2025-11-03,4999.98,2022-02-11
+9954145f-e85c-462e-b84b-2b50a3e3fbe9,a12261d3-59fe-47aa-af5e-445371af460e,Elsa,collectible,COMMON,FA,12333,41,31,,Disney+ Golden Moments,Disney,35,2025-11-03,4999.98,2022-02-11
 e6e5683f-5b64-4842-8f74-912a0fc919ba,22de5a94-71c8-4bca-9ec5-703cd93150fa,Homer & Bart,collectible,COMMON,FA,12333,41,24,,Disney+ Golden Moments,Disney,26,2025-11-09,2750,2022-02-11
 2e31455d-8c38-405d-b2f6-50b2e5d27ea0,bb29ae23-c837-47ae-b5a4-cd7cafcaa388,Iron Man,collectible,COMMON,FA,12333,41,19,,Disney+ Golden Moments,Disney,23.59,2025-11-09,3400,2022-02-11
 c898af60-be8a-490a-ac2b-537869c1892a,441fdb5e-23e0-4fd3-9068-fd70fbb0a319,1:1 DeLorean Time Machine - Interactive,collectible,ULTRA_RARE,FE,12500,41,14,,Back to the Future,Universal,15,2025-11-09,1899,2022-01-18
@@ -2700,7 +2700,7 @@ c898af60-be8a-490a-ac2b-537869c1892a,441fdb5e-23e0-4fd3-9068-fd70fbb0a319,1:1 De
 922fc0ba-2b30-4fcf-87e5-82c63f54748d,39dc9901-1320-4a14-9ec8-f1ec906b8279,Deadpool,collectible,COMMON,,12999,41,21,,Marvel Mightys,Marvel,1,2025-01-15,13,2022-05-22
 5da277e1-31b3-4d38-8ae4-6a1edc188a12,39dc9901-1320-4a14-9ec8-f1ec906b8279,Lady Deadpool,collectible,COMMON,FA,12999,41,17,,Marvel Mightys,Marvel,1,2025-06-18,13,2022-05-22
 370fff46-9ed2-402c-a981-955b3b0202e1,9769c040-dfcc-459f-9719-5b5b3b81abad,Donald Duck and Daisy Duck,collectible,COMMON,FA,13333,41,19,,Disney+ Golden Moments,Disney,13.99,2025-11-14,1970,2022-02-15
-4dc2db11-350d-4c3b-82c9-84fbcaa9d138,acc1e39e-0019-4530-933d-9f65e0c85873,Timon and Pumbaa,collectible,COMMON,FA,13333,41,19,,Disney+ Golden Moments,Disney,7.5,2025-02-04,335,2022-03-25
+4dc2db11-350d-4c3b-82c9-84fbcaa9d138,acc1e39e-0019-4530-933d-9f65e0c85873,Timon and Pumbaa,collectible,COMMON,FA,13333,41,18,,Disney+ Golden Moments,Disney,7.5,2025-02-04,335,2022-03-25
 11f2b172-e206-4644-8256-e51fd7298af2,acc1e39e-0019-4530-933d-9f65e0c85873,Winnie the Pooh and Piglet,collectible,COMMON,FA,13333,41,17,,Disney+ Golden Moments,Disney,9,2025-11-09,584.99,2022-03-25
 4804e172-42a2-419f-b1f0-431ece52c00a,4a634fc1-21e3-4894-b2b2-663986aa1293,Deadpool – Ugly Sweater Party,collectible,UNCOMMON,FA,13666,41,38,,Deadpool,Marvel,1,2025-10-23,185,2022-01-18
 f35e3e0b-dc86-462d-b06b-9c0abe74b924,5c5654c3-ce22-4aef-9493-d6e73fe4eb1d,ECOMI Logo Red Circle,collectible,COMMON,FE,13733,11,31,,OMI,ECOMI,1,2026-01-16,10.5,2024-07-03
@@ -2730,7 +2730,7 @@ f64f5581-0640-4c33-873d-1d798c086e24,510f74fb-5600-4863-b2f5-9912a5369145,Stormt
 2e87137d-51b3-41ee-93e1-80e0e799d6ba,99e5ca08-a363-4614-ad12-ed814b250ca2,Spider-Man – Hangin’ Out,collectible,UNCOMMON,FA,16000,41,27,,Spider-Man,Marvel,12,2025-10-18,1335,2022-01-18
 c03eb0c1-33cc-4a24-a104-c1c3633becd1,016c43e5-dc04-456a-9b93-c1ab3f78ab56,Invisible Woman – Sue Storm,collectible,COMMON,,16500,41,26,,Fantastic Four,Marvel,1,2025-10-02,101,2022-01-19
 1f7f450e-d3af-451c-978b-158aad824e9d,7812a3cb-c693-4112-9fc5-ef3ea5345a06,Storm – Mistress of the Elements,collectible,COMMON,FA,16500,41,11,,X-Men,Marvel,1,2025-10-22,150,2022-01-18
-2574a367-7ea1-4f57-be52-f226c2ed6e70,be64871c-c540-444d-8b6c-ee4a58ba637a,#89 Batman,collectible,COMMON,FA,16800,41,12,,Batman Black & White,DC Direct,3.49,2025-11-03,789.99,2022-01-17
+2574a367-7ea1-4f57-be52-f226c2ed6e70,be64871c-c540-444d-8b6c-ee4a58ba637a,#89 Batman,collectible,COMMON,FA,16800,41,13,,Batman Black & White,DC Direct,3.49,2025-11-03,789.99,2022-01-17
 4f992ee1-d183-485d-a9c9-00695bc727de,cd94f69d-33be-4b9d-b4d6-9d2703b2982b,Jim Lee Batman V3,collectible,COMMON,,16800,41,15,,Batman Black & White Brand,Warner Bros. Discovery Global Consumer Products,1.5,2025-11-11,67.2,2022-04-10
 88ac49f8-6433-4852-8702-53063cf644bb,8bd6f355-cdd9-4204-8cec-8add192c65e7,AMC Dilophosaurus,collectible,RARE,FE,17090,41,11,,Jurassic World Dominion,Universal,1,2025-11-10,32,2026-01-31
 cd7e1761-e21f-4356-8c43-2de19a293220,fdd40746-5535-4991-86fc-d117d482d981,Sam Wilson - On Guard,collectible,COMMON,,17332,41,4,,Marvel Mightys,Marvel,1.99,2026-04-07,999999,2025-08-03
@@ -2743,7 +2743,7 @@ f5e0f729-c64c-4d77-bdf6-831cc180a9fa,1f3796c8-746a-4f8b-981d-dfeae7a9461c,Ikaris
 a840e47a-0db8-46bd-bffe-c1c5ecb295d3,b6bfba55-b928-475b-8f65-083a78ecc561,Zombie Captain America #1,collectible,COMMON,FA,18200,41,28,,Captain America,Marvel,1,2025-04-03,165,2022-01-18
 9cccbffd-e907-44b4-9e2e-b285f090292d,92ff66b7-2585-4bad-906a-a21af3d1b629,Zombie Hunter Spider-Man #1,collectible,COMMON,FA,18200,41,24,,Spider-Man,Marvel,1.5,2025-08-25,464.9,2022-01-18
 3d38c822-050f-42bf-a382-f209819911e4,4a634fc1-21e3-4894-b2b2-663986aa1293,Deadpool – Deck The Halls,collectible,COMMON,FA,18666,41,27,,Deadpool,Marvel,1.12,2025-11-10,298.99,2022-01-18
-ff3c835b-61d3-44f1-b9d9-1645336bfc25,10d4d107-86c4-48f8-997b-6a0b0cc79d1c,Black Panther – Panther Pounce,collectible,UNCOMMON,FA,18800,41,23,,Black Panther,Marvel,1.4,2025-11-03,80,2022-02-27
+ff3c835b-61d3-44f1-b9d9-1645336bfc25,10d4d107-86c4-48f8-997b-6a0b0cc79d1c,Black Panther – Panther Pounce,collectible,UNCOMMON,FA,18800,41,20,,Black Panther,Marvel,1.4,2025-11-03,80,2022-02-27
 9f0d867f-016d-4f1a-8e45-4d6acec2fc82,3fd4705e-21ac-44f7-9d1b-a9bab193e6a2,Holiday Groot – Festive Lights,collectible,UNCOMMON,FA,18888,41,16,,Guardians of the Galaxy,Marvel,1,2025-04-02,106.69,2022-01-19
 8854d1aa-b535-4a8d-9a7f-1392b8581136,97f754a1-81e6-477d-817a-447631daab76,John F. Walker,collectible,UNCOMMON,FA,18888,41,18,,Marvel Mightys,Marvel,1,2025-08-02,100,2022-01-18
 2bddd574-39a8-400d-b614-a71ff7734a93,f8366928-62cb-4555-b834-a1b636eab639,A Jaunty Jig,collectible,COMMON,,18928,41,19,,The Mickey Mouse NFT Collection,Disney,2.49,2025-11-15,1350,2022-01-18
@@ -11580,7 +11580,7 @@ e13c26ef-2c18-4541-b727-b2c963d5d397,8741aacd-082e-4781-ad6a-0e7b7f3d6806,Specta
 33adc24f-5c4b-49fd-8fa0-738feedf464f,31e87418-88f9-493c-bee3-d77155547b2a,Spectacular Spider-Man: Brand New Day #3 (2026),comic,COMMON,3,1000,11,0,,Spectacular Spider-Man: Brand New Day,Marvel,7.98,2026-07-29,7.98,2026-07-29
 b88bab0f-7748-4770-be7a-c8da54bc25ab,31e87418-88f9-493c-bee3-d77155547b2a,Spectacular Spider-Man: Brand New Day #3 (2026),comic,RARE,3,1000,11,0,,Spectacular Spider-Man: Brand New Day,Marvel,7.98,2026-07-29,7.98,2026-07-29
 621b0291-d074-4c1d-80a0-006a6dc6b897,31e87418-88f9-493c-bee3-d77155547b2a,Spectacular Spider-Man: Brand New Day #3 (2026),comic,SECRET_RARE,3,1000,11,0,,Spectacular Spider-Man: Brand New Day,Marvel,7.98,2026-07-29,7.98,2026-07-29
-f9806534-f799-4782-a060-48cede672f8a,ff18722f-5da2-4c08-b5fb-174036e78956,Spectacular Spider-Man: Brand New Day #4 (2026),comic,COMMON,4,1000,11,0,,Spectacular Spider-Man: Brand New Day,Marvel,3.19,2026-08-31,7.98,2026-08-19
+f9806534-f799-4782-a060-48cede672f8a,ff18722f-5da2-4c08-b5fb-174036e78956,Spectacular Spider-Man: Brand New Day #4 (2026),comic,COMMON,4,1000,11,0,,Spectacular Spider-Man: Brand New Day,Marvel,3.09,2026-08-31,7.98,2026-08-19
 7fadb4f4-f367-44ab-84ee-10ad0a94db24,ff18722f-5da2-4c08-b5fb-174036e78956,Spectacular Spider-Man: Brand New Day #4 (2026),comic,UNCOMMON,4,1000,11,0,,Spectacular Spider-Man: Brand New Day,Marvel,4.2,2026-08-22,199.99,2026-08-30
 0afa5781-c30e-4aa4-8ec1-43e51df41cd7,ff18722f-5da2-4c08-b5fb-174036e78956,Spectacular Spider-Man: Brand New Day #4 (2026),comic,ULTRA_RARE,4,1000,11,0,,Spectacular Spider-Man: Brand New Day,Marvel,7.98,2026-08-19,7.98,2026-08-19
 d2d47f86-dd3a-4546-a132-f1aa1a964dc9,ff18722f-5da2-4c08-b5fb-174036e78956,Spectacular Spider-Man: Brand New Day #4 (2026),comic,SECRET_RARE,4,1000,11,0,,Spectacular Spider-Man: Brand New Day,Marvel,7.98,2026-08-30,1500000,2026-08-30
@@ -15147,8 +15147,8 @@ c73688ba-f8cf-40bb-925b-97f81e3f08be,1279a661-1b7c-4d09-a34a-8cc62bb96de2,The X-
 954333c1-5bf8-455b-bd56-aa2069b425ee,2c434f5a-2fa8-4054-a0c3-975c6ec7d585,Uncanny X-Men Vol. 1 #125 (1963),comic,RARE,125,1000,100,0,B,Uncanny X-Men Vol. 1,Marvel,2.6,2026-04-05,11,2026-03-24
 9eeda836-fbc3-4478-8d5e-1d6060d06f12,2c434f5a-2fa8-4054-a0c3-975c6ec7d585,Uncanny X-Men Vol. 1 #125 (1963),comic,ULTRA_RARE,125,1000,100,0,B,Uncanny X-Men Vol. 1,Marvel,5,2026-04-17,12.9,2026-03-26
 fb58d78d-c1e4-4f1c-b6c9-c86b35bc49b8,2c434f5a-2fa8-4054-a0c3-975c6ec7d585,Uncanny X-Men Vol. 1 #125 (1963),comic,SECRET_RARE,125,1000,100,0,B,Uncanny X-Men Vol. 1,Marvel,6.99,2026-05-27,333.33,2026-04-02
-056df928-91bd-4611-b144-2c2bf7e30936,ce33b280-66fc-403c-aa6e-9f7887752744,The X-Men Vol. 1 #131 (1963),comic,COMMON,131,1000,100,0,BBB,The X-Men Vol. 1,Marvel,2.5,2026-06-27,9.99,2026-08-01
-2090a138-713d-4516-a8f8-625a4f24c3a6,ce33b280-66fc-403c-aa6e-9f7887752744,The X-Men Vol. 1 #131 (1963),comic,UNCOMMON,131,1000,100,0,BBB,The X-Men Vol. 1,Marvel,1.5,2026-07-05,10,2026-07-29
+056df928-91bd-4611-b144-2c2bf7e30936,ce33b280-66fc-403c-aa6e-9f7887752744,Uncanny X-Men Vol. 1 #131 (1963),comic,COMMON,131,1000,100,0,BBB,Uncanny X-Men Vol. 1,Marvel,2.5,2026-06-27,9.99,2026-08-01
+2090a138-713d-4516-a8f8-625a4f24c3a6,ce33b280-66fc-403c-aa6e-9f7887752744,Uncanny X-Men Vol. 1 #131 (1963),comic,UNCOMMON,131,1000,100,0,BBB,Uncanny X-Men Vol. 1,Marvel,1.5,2026-07-05,10,2026-07-29
 ea12c6f6-6bf8-49e4-b5c2-4c3a6c5d6609,ce33b280-66fc-403c-aa6e-9f7887752744,Uncanny X-Men Vol. 1 #131 (1963),comic,RARE,131,1000,100,0,BBB,Uncanny X-Men Vol. 1,Marvel,3,2026-07-22,11.99,2026-08-01
 5c6e15e5-8608-4414-a42d-1238700a06ca,ce33b280-66fc-403c-aa6e-9f7887752744,Uncanny X-Men Vol. 1 #131 (1963),comic,ULTRA_RARE,131,1000,100,0,BBB,Uncanny X-Men Vol. 1,Marvel,7.75,2026-06-30,30,2026-06-25
 cfc77e73-c03c-4607-944d-c6e62c0dfff9,ce33b280-66fc-403c-aa6e-9f7887752744,Uncanny X-Men Vol. 1 #131 (1963),comic,SECRET_RARE,131,1000,100,0,BBB,Uncanny X-Men Vol. 1,Marvel,6.99,2026-07-28,155,2026-06-25
