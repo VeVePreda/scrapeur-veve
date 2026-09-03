@@ -113,9 +113,9 @@
    "circulation_depart": 901,
    "nom": "Black Panther",
    "famille": "comics",
-   "a_bruler_annonce": 675,
+   "a_bruler_annonce": 671,
    "mid": "1535206205772013621",
-   "empreinte": "🔥 BURN À VENIR — Black Panther|15105570|⏳ Burn **<t:1788436800:D>**\n\n```\nEn circulation  901\nVendues         226\nÀ brûler        675\n```\n🔥 **74,9 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **226 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📊 Note de classement : **CC**\n📉 ATL 3 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/a914a8cc-0274-49f6-a9db-a9dd45d1cad6>)",
+   "empreinte": "🔥 BURN À VENIR — Black Panther|15105570|⏳ Burn **<t:1788436800:D>** *(estimé)*\n\n```\nEn circulation  901\nVendues         230\nÀ brûler        671\n```\n🔥 **74,5 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **230 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📊 Note de classement : **CC**\n📉 ATL 3 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/a914a8cc-0274-49f6-a9db-a9dd45d1cad6>)",
    "clos": true
   },
   "b88dfabe-80af-4632-9248-c53ef3bc0960": {
@@ -290,9 +290,11 @@
    "famille": "crafts",
    "a_bruler_annonce": 189,
    "mid": "1542460896021053452",
-   "empreinte": "🔥 BURN À VENIR — VeVe Coins S1|15105570|⏳ Burn imminent — date non communiquée par VeVe\n\n```\nEn circulation  500\nVendues         311\nÀ brûler        189\n```\n🔥 **37,8 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **311 éditions**\n\n💠 Secret Rare · 💎 Prix boutique **50 $**\n📉 ATL 50 $ · 📈 ATH 1299 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/crafts/de90dd30-bc92-450f-8bdc-050185f6d2da>)"
+   "empreinte": "✅ BURN EFFECTUÉ — VeVe Coins S1|3066993|🔥 **188 éditions brûlées** — c'est définitif\n\n```\nEn circulation  500\nVendues         312\nBrûlées         188\n```\n🎯 Supply final : **312 éditions** (−37,6 %)\nℹ️ Annoncé : 189 · réel : 188\n\n💠 Secret Rare · 💎 Prix boutique **50 $**\n📉 ATL 50 $ · 📈 ATH 1299 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/collectibles/de90dd30-bc92-450f-8bdc-050185f6d2da>)",
+   "disparu_le": "2026-09-03",
+   "clos": true
   }
  },
  "empreinte": "0cde2154acab",
- "maj": "2026-09-02T12:19:58+00:00"
+ "maj": "2026-09-03T12:17:41+00:00"
 }
