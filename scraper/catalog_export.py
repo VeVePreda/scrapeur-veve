@@ -17,8 +17,8 @@ Sheet change — meme pattern que fiche.py). Sources : 🔵C-COLLECTIBLE +
 🟢C-COMICS (froid) + _DynState (floor/listings/store du jour).
 
 Sortie : catalogue.csv.gz — header :
-  uuid,kind,name,edition_type,rarity,release_date,series,brand,licensor,
-  tirage,store_price,floor,listings,ath,atl,image,ath_date,atl_date,
+  uuid,series_uuid,kind,name,edition_type,rarity,release_date,series,brand,
+  licensor,tirage,store_price,floor,listings,ath,atl,image,ath_date,atl_date,
   description,veve_comic_name
 
 🪪 IDENTITE CHAINE (28/07/2026) — etape ADDITIVE et GATED, cf. plus bas.
@@ -45,7 +45,47 @@ DYN_STATE_TAB = "_DynState"
 
 # nom de sortie -> nom de colonne dans le Sheet (froid)
 COLD_MAP = [
-    ("uuid", "veve_uuid"), ("kind", "category"), ("name", "name"),
+    ("uuid", "veve_uuid"),
+    # ═══════════════════════════════════════════════════════════════════════
+    # 🎯🔴🔴🔴 LOT N — `series_uuid`, ET C'EST LA CLE DE SET DE TOUT LE PROJET
+    # ═══════════════════════════════════════════════════════════════════════
+    # ⭐⭐⭐ SIXIEME FOIS EXACTEMENT LE MEME MOTIF SUR CE FICHIER, apres `image`,
+    # `ath_date`, `description`, `veve_url` et les six champs du lot 78 : la
+    # colonne est collectee par `veve_detail`, ecrite dans les onglets froids
+    # par `sheets.py` (elle est dans COLLECTIBLE_COLD **et** COMICS_COLD), et
+    # perdue a la derniere etape parce que personne n'ajoutait la ligne.
+    # ⛔ CE N'EST PAS UNE DONNEE MANQUANTE, C'EST UNE LIGNE MANQUANTE.
+    #
+    # 🔬 CE QU'ELLE VAUT, MESURE LE 08/09/2026 sur les 19 415 lignes
+    #    d'`elements_v3.csv`, hors ligne :
+    #      comics       -> 4 287 groupes, et **jamais plus de 5 pieces**
+    #                      2 075 groupes de 5, dont **2 075 a 5 raretes
+    #                      DISTINCTES** — soit 100 %
+    #      collectibles ->   924 groupes, contre les **936 Sets que VeVe publie**
+    #                      via `getSets` : deux sources independantes qui
+    #                      concordent a 1,3 %
+    #    ⇒ C'est EXACTEMENT la regle metier donnee par Preda le 06/09 :
+    #      « un set comics = 1x commun, 1x uncommon, 1x rare, 1x ultra rare,
+    #        1x secret rare ».
+    #    ✅ Contre-epreuve sur les cas qui bloquaient : `Alien Vs. Captain
+    #       America` (15 pieces sous UN seul nom) se decoupe en **4 sets**, un
+    #       par numero du comic ; `Mickey and Friends` 15 -> **3**.
+    #
+    # 🔴 POURQUOI SON ABSENCE COUTE CHER, MESURE EN PRODUCTION LE MEME JOUR :
+    #    faute de cette clef, `veve-sites` groupe par `veve_series_name` et
+    #    accorde le bonus de set MCP a des objets qui n'en sont pas.
+    #    `/api/analytics/sets_mcp?n=200` sert alors **176 numeros de comics sur
+    #    ses 200 premiers**, dont 96 de taille 1 : le classement est faux a
+    #    88 %, et c'est le bonus lui-meme qui les hisse en tete.
+    #
+    # ⚠️ AJOUT PUREMENT ADDITIF, ET C'EST VOULU : `HEADER` se derive de
+    #    COLD_MAP, les consommateurs lisent par NOM, et une colonne inconnue est
+    #    ignoree. Deposer ce fichier seul ne change donc RIEN au site tant que
+    #    `veve-sites` ne s'en sert pas — la colonne devient simplement
+    #    disponible. ⛔ Aucun plafond de churn ne la couvre : elle n'est pas un
+    #    libelle, elle ne se remanie pas.
+    ("series_uuid", "series_uuid"),
+    ("kind", "category"), ("name", "name"),
     ("edition_type", "edition_type"), ("rarity", "rarity"),
     ("release_date", "releaseDate"), ("series", "veve_series_name"),
     ("brand", "veve_brand"), ("licensor", "veve_licensor"),
