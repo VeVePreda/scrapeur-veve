@@ -191,7 +191,7 @@ bb0fcc73-9aea-4811-880c-0a8b42e841df,cecd5b49-f0fc-4ba7-bf26-40fd446af286,Nozzle
 8684b674-49b4-4ece-aa1e-510ed9e5ebaf,c88e3ed4-bfca-4216-8c62-d0f47ff6d756,Ash - Dark,collectible,ULTRA_RARE,FE,40,6,2,,Fun Fridays,VeVe,34.99,2026-08-24,250,2026-08-14
 7506ce1c-0d32-48a1-ac5a-26348be63f5e,b3020177-82d0-4d22-804f-a76aa42bf272,CUL-DE-SAC #6 - Alex Pardee Framed Art,collectible,SECRET_RARE,,40,,1,,CUL-DE-SAC,Bad Idea,94.99,2026-02-05,8000,2026-09-24
 c59d0246-84e4-476e-a398-f6f9d24a2f58,aefe2389-a969-45ac-9fdf-890bca27317a,OLYMPUS SAGA: MEGALITH #1 Variant Cover Poster,collectible,SECRET_RARE,,40,,2,,Bad Idea,Bad Idea,90,2026-05-30,245,2026-06-11
-e12e243b-e88f-4622-b0da-599c54385255,ebc46ecf-3c4c-4919-9f4c-137367a5e2c1,ZAP! - Gold,collectible,ULTRA_RARE,,40,6,2,,Fun Fridays,VeVe,39,2026-08-27,220,2026-07-17
+e12e243b-e88f-4622-b0da-599c54385255,ebc46ecf-3c4c-4919-9f4c-137367a5e2c1,ZAP! - Gold,collectible,ULTRA_RARE,FE,40,6,2,,Fun Fridays,VeVe,39,2026-08-27,220,2026-07-17
 4e1ee74f-6a01-4ab9-beaf-b479335a127b,2b03f2ae-ba2a-483c-9291-492fc514a72b,Cathedral Tank,collectible,COMMON,FE,41,6,2,,Ron English’s Popaganda,Ron English,30,2026-07-09,222222,2025-12-19
 391a48df-616d-4f3c-b183-d7f7a6414b01,cecd5b49-f0fc-4ba7-bf26-40fd446af286,Nozzle Eye - VeVe Spectrum,collectible,COMMON,CE,41,6,5,,Nick Walker,ElmonX,20,2026-07-26,1100,2026-08-21
 69ac3f5c-a2a4-4e20-82cb-412608386e48,4511ae43-1ee4-48c8-a7df-eed7ac17ee7b,Winter Soldier – Vigilant Guard Special Edition,collectible,COMMON,,41,6,0,,Avengers,Marvel,25,2026-04-22,999999,2025-09-02
@@ -2812,7 +2812,7 @@ aafd6cbb-b019-4312-9f50-a096b8be9943,8bd6f355-cdd9-4204-8cec-8add192c65e7,AMC Ty
 30a9f14d-f5ef-4047-bf97-c2b047190f83,441fdb5e-23e0-4fd3-9068-fd70fbb0a319,1:6 DeLorean Time Machine - Interactive,collectible,COMMON,FE,50000,41,32,,Back to the Future,Universal,1.99,2025-10-26,185,2022-01-18
 8f1cbd40-53b4-4b5b-b44b-5423bcff6bfe,3227ec9f-e36e-45f3-b126-d567808d2176,Happy New Year! 2026 - Tier 1,collectible,COMMON,,70000,26,0,,VeVe D&D,VeVe,,2026-12-31,,2026-12-31
 06215653-c578-44d4-a81b-3afff9192652,f2853426-d96c-44eb-b81e-bd84887d7f40,Tiny Jones,collectible,SECRET_RARE,FE,92072,,72,,The Feeshes,+Breadcat,1,2026-04-19,3.95,2026-06-15
-d113b6ab-9645-4942-b74c-d984d016b2b0,c9b2d5a3-f19c-4fe2-bfe6-de218281dab1,Tiny Jones Box,collectible,COMMON,FE,92072,,149,,+Breadcat Box Co.,+Breadcat,1,2026-04-17,1.5,2026-04-17
+d113b6ab-9645-4942-b74c-d984d016b2b0,c9b2d5a3-f19c-4fe2-bfe6-de218281dab1,Tiny Jones Box,collectible,SECRET_RARE,FE,92072,,149,,+Breadcat Box Co.,+Breadcat,1,2026-04-17,1.5,2026-04-17
 121f40d7-e3e6-41bc-971e-468d09af812c,2faff5b6-3b17-4629-8645-5301f735ad07,A House Without Windows (2021),comic,COMMON,,1000,,0,,A House Without Windows,Humanoids,2013,2026-01-14,2013,2026-01-14
 27b50505-36ea-4659-9a08-2c8beeed319f,1ef24009-90b9-40dd-b3ae-d079ed62d97f,Aladdin #1 (2026),comic,COMMON,1,0,,0,,Aladdin,Dynamite Entertainment,,2026-07-08,,2026-07-08
 27cb2785-e236-4a14-96c4-88c0db3aaff4,491da442-d71c-4e67-a229-63f24312b6c1,Aladdin #2 (2026),comic,COMMON,2,0,,0,,Aladdin,Dynamite Entertainment,,2026-08-19,,2026-08-19
@@ -10428,7 +10428,7 @@ ae67dae7-9413-40e5-b4a9-cbc8efb2d660,40395656-445a-443b-8c5e-aad7960633de,Punish
 ca12f9ca-a17b-4fd6-bab6-488d8df0ece3,8540c6fb-b353-4e81-809e-c9ff8057b112,Punisher Vol. 15 #8 (2026),comic,ULTRA_RARE,8,1000,11,0,,Punisher Vol. 15,Marvel,7.98,2026-09-09,7.98,2026-09-09
 68a66bec-c07c-4e41-8432-482a07280f8d,8540c6fb-b353-4e81-809e-c9ff8057b112,Punisher Vol. 15 #8 (2026),comic,SECRET_RARE,8,1000,11,0,,Punisher Vol. 15,Marvel,7.98,2026-09-09,7.98,2026-09-09
 7f54d52a-b341-4395-8d17-5d25be7ec70d,99cc033f-bd12-4c81-8a65-a30e9f9ea069,Punisher Vol. 3 #1 (2026),comic,COMMON,1,1000,11,0,,Punisher Vol. 3,Marvel,2.5,2026-04-21,11.99,2026-09-19
-ce1cf00f-1010-46a6-8af5-49e87212166a,99cc033f-bd12-4c81-8a65-a30e9f9ea069,Punisher Vol. 15 #1 (2026),comic,UNCOMMON,1,1000,11,0,,Punisher Vol. 15,Marvel,2.95,2026-05-29,22,2026-04-13
+ce1cf00f-1010-46a6-8af5-49e87212166a,99cc033f-bd12-4c81-8a65-a30e9f9ea069,Punisher Vol. 3 #1 (2026),comic,UNCOMMON,1,1000,11,0,,Punisher Vol. 3,Marvel,2.95,2026-05-29,22,2026-04-13
 85d99fbb-505e-4313-abfc-952ed0b9a756,99cc033f-bd12-4c81-8a65-a30e9f9ea069,Punisher Vol. 15 #1 (2026),comic,RARE,1,1000,11,0,,Punisher Vol. 15,Marvel,3,2026-02-26,500,2026-04-09
 708d3c42-31de-4962-b8d4-00b0ae5e7c7b,99cc033f-bd12-4c81-8a65-a30e9f9ea069,Punisher Vol. 3 #1 (2026),comic,ULTRA_RARE,1,1000,11,0,,Punisher Vol. 3,Marvel,8.98,2026-07-09,99,2026-02-25
 59696211-242d-46e5-8c3a-405d2be44064,99cc033f-bd12-4c81-8a65-a30e9f9ea069,Punisher Vol. 15 #1 (2026),comic,SECRET_RARE,1,1000,11,0,,Punisher Vol. 15,Marvel,8.98,2026-02-26,299,2026-03-01
