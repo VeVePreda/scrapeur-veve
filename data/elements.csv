@@ -1,6 +1,6 @@
 veve_uuid,series_uuid,name,category,rarity,edition_type,supply,first_public,listings,note,brand,licensor,atl,atl_date,ath,ath_date
 c97d900d-5334-45b3-ab56-bafc78e56912,f8cc6431-83fd-4388-9776-22d6c7a92371,Aang - Earthbender,collectible,RARE,,1000,,3,,Avatar the Last Airbender Collection,Paramount Pictures,22,2026-09-27,65,2026-08-17
-34317c89-965b-4752-b9ab-0c49a13bed43,00b47469-2b2e-4277-9110-5afd488318c5,Team Avatar: NYCC 2026,collectible,SECRET_RARE,CE,0,,0,,CYBERCEL,Paramount Pictures,,2026-07-23,,2026-07-23
+34317c89-965b-4752-b9ab-0c49a13bed43,00b47469-2b2e-4277-9110-5afd488318c5,Team Avatar: NYCC 2026,collectible,SECRET_RARE,CE,1410,,0,,CYBERCEL,Paramount Pictures,,2026-07-23,,2026-07-23
 42e99221-aa19-4a7c-90b5-4189e82065a9,a3858d25-4403-4b1a-a90b-c8b94a650768,1840 Two Penny Blue OJ-PL,collectible,COMMON,,1,,1,,Stanley Gibbons - Two Penny Blue,Stanley Gibbons,10,2025-10-19,10000042,2025-12-20
 a78ed376-d38b-4579-ac3b-19e7c02e8ef3,68f26c8e-fefd-4e39-9068-32eee57fd59c,A Dissident Enters - Special Edition,collectible,SECRET_RARE,CE,1,1,0,,Evermind Panels,247 Studios,60,2026-07-24,60,2026-07-24
 f0630425-8b39-4d25-b5f2-e11df9d22c54,07024901-9fc3-4b8c-9fca-107633381aff,Absolute Carnage #1,collectible,ARTIST_PROOF,AP,1,1,0,,Adi Granov,Marvel,3000,2024-06-10,15000,2025-01-16
@@ -2812,7 +2812,7 @@ aafd6cbb-b019-4312-9f50-a096b8be9943,8bd6f355-cdd9-4204-8cec-8add192c65e7,AMC Ty
 30a9f14d-f5ef-4047-bf97-c2b047190f83,441fdb5e-23e0-4fd3-9068-fd70fbb0a319,1:6 DeLorean Time Machine - Interactive,collectible,COMMON,FE,50000,41,32,,Back to the Future,Universal,1.99,2025-10-26,185,2022-01-18
 8f1cbd40-53b4-4b5b-b44b-5423bcff6bfe,3227ec9f-e36e-45f3-b126-d567808d2176,Happy New Year! 2026 - Tier 1,collectible,COMMON,,70000,26,0,,VeVe D&D,VeVe,,2026-12-31,,2026-12-31
 06215653-c578-44d4-a81b-3afff9192652,f2853426-d96c-44eb-b81e-bd84887d7f40,Tiny Jones,collectible,SECRET_RARE,FE,92072,,72,,The Feeshes,+Breadcat,1,2026-04-19,3.95,2026-06-15
-d113b6ab-9645-4942-b74c-d984d016b2b0,c9b2d5a3-f19c-4fe2-bfe6-de218281dab1,Tiny Jones Box,collectible,SECRET_RARE,FE,92072,,149,,+Breadcat Box Co.,+Breadcat,1,2026-04-17,1.5,2026-04-17
+d113b6ab-9645-4942-b74c-d984d016b2b0,c9b2d5a3-f19c-4fe2-bfe6-de218281dab1,Tiny Jones Box,collectible,COMMON,FE,92072,,149,,+Breadcat Box Co.,+Breadcat,1,2026-04-17,1.5,2026-04-17
 121f40d7-e3e6-41bc-971e-468d09af812c,2faff5b6-3b17-4629-8645-5301f735ad07,A House Without Windows (2021),comic,COMMON,,1000,,0,,A House Without Windows,Humanoids,2013,2026-01-14,2013,2026-01-14
 27b50505-36ea-4659-9a08-2c8beeed319f,1ef24009-90b9-40dd-b3ae-d079ed62d97f,Aladdin #1 (2026),comic,COMMON,1,0,,0,,Aladdin,Dynamite Entertainment,,2026-07-08,,2026-07-08
 27cb2785-e236-4a14-96c4-88c0db3aaff4,491da442-d71c-4e67-a229-63f24312b6c1,Aladdin #2 (2026),comic,COMMON,2,0,,0,,Aladdin,Dynamite Entertainment,,2026-08-19,,2026-08-19
