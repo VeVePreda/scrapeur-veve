@@ -2812,7 +2812,7 @@ aafd6cbb-b019-4312-9f50-a096b8be9943,8bd6f355-cdd9-4204-8cec-8add192c65e7,AMC Ty
 30a9f14d-f5ef-4047-bf97-c2b047190f83,441fdb5e-23e0-4fd3-9068-fd70fbb0a319,1:6 DeLorean Time Machine - Interactive,collectible,COMMON,FE,50000,41,32,,Back to the Future,Universal,1.99,2025-10-26,185,2022-01-18
 8f1cbd40-53b4-4b5b-b44b-5423bcff6bfe,3227ec9f-e36e-45f3-b126-d567808d2176,Happy New Year! 2026 - Tier 1,collectible,COMMON,,70000,26,0,,VeVe D&D,VeVe,,2026-12-31,,2026-12-31
 06215653-c578-44d4-a81b-3afff9192652,f2853426-d96c-44eb-b81e-bd84887d7f40,Tiny Jones,collectible,SECRET_RARE,FE,92072,,72,,The Feeshes,+Breadcat,1,2026-04-19,3.95,2026-06-15
-d113b6ab-9645-4942-b74c-d984d016b2b0,c9b2d5a3-f19c-4fe2-bfe6-de218281dab1,Tiny Jones Box,collectible,COMMON,FE,92072,,149,,+Breadcat Box Co.,+Breadcat,1,2026-04-17,1.5,2026-04-17
+d113b6ab-9645-4942-b74c-d984d016b2b0,c9b2d5a3-f19c-4fe2-bfe6-de218281dab1,Tiny Jones Box,collectible,SECRET_RARE,FE,92072,,149,,+Breadcat Box Co.,+Breadcat,1,2026-04-17,1.5,2026-04-17
 121f40d7-e3e6-41bc-971e-468d09af812c,2faff5b6-3b17-4629-8645-5301f735ad07,A House Without Windows (2021),comic,COMMON,,1000,,0,,A House Without Windows,Humanoids,2013,2026-01-14,2013,2026-01-14
 27b50505-36ea-4659-9a08-2c8beeed319f,1ef24009-90b9-40dd-b3ae-d079ed62d97f,Aladdin #1 (2026),comic,COMMON,1,0,,0,,Aladdin,Dynamite Entertainment,,2026-07-08,,2026-07-08
 27cb2785-e236-4a14-96c4-88c0db3aaff4,491da442-d71c-4e67-a229-63f24312b6c1,Aladdin #2 (2026),comic,COMMON,2,0,,0,,Aladdin,Dynamite Entertainment,,2026-08-19,,2026-08-19
@@ -12140,9 +12140,9 @@ eaf4fc5d-ddb0-49af-8ceb-222d854cfd25,ed6e874a-e578-463b-90e5-c7e31af60e47,Spider
 f6f59209-48be-425e-8819-15749dab20fc,11c2ee25-51ef-4d8f-a0d6-9844dba4e273,Spider-Man 2099 #19 (1992),comic,SECRET_RARE,19,1000,65,0,B,Spider-Man 2099,Marvel,6.99,2026-08-17,188,2026-06-22
 0ec6c457-4f37-488e-b028-cd7b562aab9f,12ae2e74-4ccd-4855-9384-7a885c6c373b,Spider-Man Noir Vol. 3 #1 (2025),comic,COMMON,1,1000,11,0,,Spider-Man Noir Vol. 3,Marvel,2,2025-12-20,100000,2026-09-20
 183d95fc-0db1-45e4-9264-48ad5ecfd7c1,12ae2e74-4ccd-4855-9384-7a885c6c373b,Spider-Man Noir Vol. 3 #1 (2025),comic,UNCOMMON,1,1000,11,0,,Spider-Man Noir Vol. 3,Marvel,2,2025-10-10,20000000,2026-01-30
-66b8409b-48b6-4986-921a-f476ec29fee4,12ae2e74-4ccd-4855-9384-7a885c6c373b,Spider-Man Noir Vol. 3 #1 (2025),comic,RARE,1,1000,11,0,,Spider-Man Noir Vol. 3,Marvel,3,2026-02-04,700,2026-02-13
+66b8409b-48b6-4986-921a-f476ec29fee4,12ae2e74-4ccd-4855-9384-7a885c6c373b,Spider-Man Noir #1 (2025),comic,RARE,1,1000,11,0,,Spider-Man Noir,Marvel,3,2026-02-04,700,2026-02-13
 d7c5d716-bf35-4e5d-8b37-b927b754b433,12ae2e74-4ccd-4855-9384-7a885c6c373b,Spider-Man Noir Vol. 3 #1 (2025),comic,ULTRA_RARE,1,1000,11,0,,Spider-Man Noir Vol. 3,Marvel,7.98,2026-05-28,2500,2025-10-13
-c7bd0cec-1ef5-40ff-bfea-fc9e06a5ed1f,12ae2e74-4ccd-4855-9384-7a885c6c373b,Spider-Man Noir Vol. 2 #1 (2025),comic,SECRET_RARE,1,1000,11,0,,Spider-Man Noir Vol. 2,Marvel,7.98,2026-04-22,3500,2025-10-13
+c7bd0cec-1ef5-40ff-bfea-fc9e06a5ed1f,12ae2e74-4ccd-4855-9384-7a885c6c373b,Spider-Man Noir #1 (2025),comic,SECRET_RARE,1,1000,11,0,,Spider-Man Noir,Marvel,7.98,2026-04-22,3500,2025-10-13
 d1bec660-2194-4a75-9781-6bf5acde923f,16b23cc3-45cf-45f4-89a0-f1e4678d5675,Spider-Man Noir Vol. 3 #2 (2025),comic,COMMON,2,1000,11,0,,Spider-Man Noir Vol. 3,Marvel,7.98,2025-11-12,7.98,2025-11-12
 e2feb81a-5513-46dc-b76a-274b3a68e945,16b23cc3-45cf-45f4-89a0-f1e4678d5675,Spider-Man Noir Vol. 3 #2 (2025),comic,UNCOMMON,2,1000,11,0,,Spider-Man Noir Vol. 3,Marvel,2,2026-05-27,15,2025-11-12
 bdd6ae62-87e9-43ea-b89b-79959f65d75a,16b23cc3-45cf-45f4-89a0-f1e4678d5675,Spider-Man Noir #2 (2025),comic,ULTRA_RARE,2,1000,11,0,,Spider-Man Noir,Marvel,7.98,2025-11-12,49,2025-11-13
@@ -14537,7 +14537,7 @@ b13c5c32-ba2b-43a8-8fdd-6c5fa4bf4de4,9b06390b-cccc-4156-8358-71f8e456ee11,Thunde
 46757771-ac47-49bf-a630-f0551c756b1b,7055cbe9-213d-4ec8-8999-4a57a97e82bb,ThunderCats x Silverhawks: Thunderhawks #2 (2026),comic,RARE,2,1000,11,0,,ThunderCats x Silverhawks: Thunderhawks,Dynamite Entertainment,7.98,2026-05-27,7.98,2026-05-27
 3688d017-d89a-44bc-8450-3d2f73dd0101,7055cbe9-213d-4ec8-8999-4a57a97e82bb,ThunderCats x Silverhawks: Thunderhawks #2 (2026),comic,ULTRA_RARE,2,1000,11,0,,ThunderCats x Silverhawks: Thunderhawks,Dynamite Entertainment,7.98,2026-05-27,7.98,2026-05-27
 1e286858-d4ff-4ed8-9a4f-a1b61b1bb752,7055cbe9-213d-4ec8-8999-4a57a97e82bb,ThunderCats x Silverhawks: Thunderhawks #2 (2026),comic,SECRET_RARE,2,1000,11,0,,ThunderCats x Silverhawks: Thunderhawks,Dynamite Entertainment,7.98,2026-05-27,7.98,2026-05-27
-9c308dfb-3a3e-44a8-aee7-aa5fd458bd5b,276339da-d452-41d8-b92a-372257538b34,ThunderCats x Silverhawks: Thunderhawks #2 (2026),comic,COMMON,2,1000,11,0,,ThunderCats x Silverhawks: Thunderhawks,Dynamite Entertainment,7.98,2026-05-13,7.98,2026-05-13
+9c308dfb-3a3e-44a8-aee7-aa5fd458bd5b,276339da-d452-41d8-b92a-372257538b34,ThunderCats x Silverhawks #2 (2026),comic,COMMON,2,1000,11,0,,ThunderCats x Silverhawks,Dynamite Entertainment,7.98,2026-05-13,7.98,2026-05-13
 22b8acfb-bcc4-4c72-8d05-d0ead2c4e9a6,276339da-d452-41d8-b92a-372257538b34,ThunderCats x Silverhawks: Thunderhawks #2 (2026),comic,UNCOMMON,2,1000,11,0,,ThunderCats x Silverhawks: Thunderhawks,Dynamite Entertainment,7.98,2026-05-13,7.98,2026-05-13
 fe6a151b-1dc2-43cb-b52c-9a29165cbcf9,276339da-d452-41d8-b92a-372257538b34,ThunderCats x Silverhawks: Thunderhawks #2 (2026),comic,RARE,2,1000,11,0,,ThunderCats x Silverhawks: Thunderhawks,Dynamite Entertainment,7.98,2026-05-13,7.98,2026-05-13
 ebbd6044-5922-4d17-a3de-fddf5c4d9ffc,276339da-d452-41d8-b92a-372257538b34,ThunderCats x Silverhawks: Thunderhawks #2 (2026),comic,ULTRA_RARE,2,1000,11,0,,ThunderCats x Silverhawks: Thunderhawks,Dynamite Entertainment,7.98,2026-05-13,7.98,2026-05-13
