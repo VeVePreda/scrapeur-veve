@@ -2812,7 +2812,7 @@ aafd6cbb-b019-4312-9f50-a096b8be9943,8bd6f355-cdd9-4204-8cec-8add192c65e7,AMC Ty
 30a9f14d-f5ef-4047-bf97-c2b047190f83,441fdb5e-23e0-4fd3-9068-fd70fbb0a319,1:6 DeLorean Time Machine - Interactive,collectible,COMMON,FE,50000,41,32,,Back to the Future,Universal,1.99,2025-10-26,185,2022-01-18
 8f1cbd40-53b4-4b5b-b44b-5423bcff6bfe,3227ec9f-e36e-45f3-b126-d567808d2176,Happy New Year! 2026 - Tier 1,collectible,COMMON,,70000,26,0,,VeVe D&D,VeVe,,2026-12-31,,2026-12-31
 06215653-c578-44d4-a81b-3afff9192652,f2853426-d96c-44eb-b81e-bd84887d7f40,Tiny Jones,collectible,SECRET_RARE,FE,92072,,72,,The Feeshes,+Breadcat,1,2026-04-19,3.95,2026-06-15
-d113b6ab-9645-4942-b74c-d984d016b2b0,c9b2d5a3-f19c-4fe2-bfe6-de218281dab1,Tiny Jones Box,collectible,SECRET_RARE,FE,92072,,149,,+Breadcat Box Co.,+Breadcat,1,2026-04-17,1.5,2026-04-17
+d113b6ab-9645-4942-b74c-d984d016b2b0,c9b2d5a3-f19c-4fe2-bfe6-de218281dab1,Tiny Jones Box,collectible,COMMON,FE,92072,,149,,+Breadcat Box Co.,+Breadcat,1,2026-04-17,1.5,2026-04-17
 121f40d7-e3e6-41bc-971e-468d09af812c,2faff5b6-3b17-4629-8645-5301f735ad07,A House Without Windows (2021),comic,COMMON,,1000,,0,,A House Without Windows,Humanoids,2013,2026-01-14,2013,2026-01-14
 27b50505-36ea-4659-9a08-2c8beeed319f,1ef24009-90b9-40dd-b3ae-d079ed62d97f,Aladdin #1 (2026),comic,COMMON,1,0,,0,,Aladdin,Dynamite Entertainment,,2026-07-08,,2026-07-08
 27cb2785-e236-4a14-96c4-88c0db3aaff4,491da442-d71c-4e67-a229-63f24312b6c1,Aladdin #2 (2026),comic,COMMON,2,0,,0,,Aladdin,Dynamite Entertainment,,2026-08-19,,2026-08-19
@@ -13598,7 +13598,7 @@ d06a7568-dfcf-4943-bf28-b65dbf86fb4e,01ed59ed-9957-4a82-994f-c8cd5bd39f56,The Bo
 d9b482cb-6646-49ac-b422-e1fa832b55b5,5848f682-4dcb-4c28-893c-8803f4af4c6c,The Boys: Dynamite Edition #5 (2006),comic,SECRET_RARE,5,1000,11,0,,The Boys: Dynamite Edition,Dynamite Entertainment,7.98,2026-08-01,99,2026-06-23
 042a11de-6392-4d86-b98e-ee83d84a7de7,049f8367-1beb-464f-9abf-7edc0665e66f,The Boys: Dynamite Edition #6 (2007),comic,COMMON,6,1000,12,0,,The Boys: Dynamite Edition,Dynamite Entertainment,1.9,2026-09-26,7.98,2026-04-08
 82c8f0cc-b02d-494a-86cb-7306e8699240,049f8367-1beb-464f-9abf-7edc0665e66f,The Boys: Dynamite Edition #6 (2007),comic,SECRET_RARE,6,1000,12,0,,The Boys: Dynamite Edition,Dynamite Entertainment,180,2026-06-25,550,2026-06-23
-feec7b57-e050-4d75-85a7-7eae8de7d614,3a3acaf8-c832-45ed-a5df-062edd350481,The Boys #7 (2006),comic,COMMON,7,1000,11,0,,The Boys,Dynamite Entertainment,1.9,2026-09-26,21.5,2026-06-25
+feec7b57-e050-4d75-85a7-7eae8de7d614,3a3acaf8-c832-45ed-a5df-062edd350481,The Boys: Dynamite Edition #7 (2006),comic,COMMON,7,1000,11,0,,The Boys: Dynamite Edition,Dynamite Entertainment,1.9,2026-09-26,21.5,2026-06-25
 9a15eaab-a4ca-4faa-a083-7e6af3c3ea2a,0156f30c-4d96-4da9-a44d-70e6f710f7df,The Boys #8 (2007),comic,COMMON,8,1000,11,0,,The Boys,Dynamite Entertainment,1.99,2026-08-03,15.5,2026-06-25
 c5049a1c-8472-4059-bed2-9cb8dda1a781,0156f30c-4d96-4da9-a44d-70e6f710f7df,The Boys #8 (2007),comic,SECRET_RARE,8,1000,11,0,,The Boys,Dynamite Entertainment,7.98,2026-06-01,99,2026-06-05
 000ae268-50c6-4acd-a306-85d26f79ff6e,72eea52a-3e69-426d-96a1-bbb844d6aab2,The Boys #9 (2007),comic,COMMON,9,1000,11,0,,The Boys,Dynamite Entertainment,2,2026-07-06,10,2026-07-12
@@ -15540,7 +15540,7 @@ c73688ba-f8cf-40bb-925b-97f81e3f08be,1279a661-1b7c-4d09-a34a-8cc62bb96de2,The X-
 954333c1-5bf8-455b-bd56-aa2069b425ee,2c434f5a-2fa8-4054-a0c3-975c6ec7d585,Uncanny X-Men Vol. 1 #125 (1963),comic,RARE,125,1000,100,0,B,Uncanny X-Men Vol. 1,Marvel,2.6,2026-04-05,20,2026-09-06
 9eeda836-fbc3-4478-8d5e-1d6060d06f12,2c434f5a-2fa8-4054-a0c3-975c6ec7d585,Uncanny X-Men Vol. 1 #125 (1963),comic,ULTRA_RARE,125,1000,100,0,B,Uncanny X-Men Vol. 1,Marvel,5,2026-04-17,12.99,2026-09-26
 fb58d78d-c1e4-4f1c-b6c9-c86b35bc49b8,2c434f5a-2fa8-4054-a0c3-975c6ec7d585,Uncanny X-Men Vol. 1 #125 (1963),comic,SECRET_RARE,125,1000,100,0,B,Uncanny X-Men Vol. 1,Marvel,6.99,2026-05-27,500000,2026-09-05
-056df928-91bd-4611-b144-2c2bf7e30936,ce33b280-66fc-403c-aa6e-9f7887752744,The X-Men Vol. 1 #131 (1963),comic,COMMON,131,1000,100,0,BBB,The X-Men Vol. 1,Marvel,2.5,2026-06-27,9.99,2026-08-01
+056df928-91bd-4611-b144-2c2bf7e30936,ce33b280-66fc-403c-aa6e-9f7887752744,Uncanny X-Men Vol. 1 #131 (1963),comic,COMMON,131,1000,100,0,BBB,Uncanny X-Men Vol. 1,Marvel,2.5,2026-06-27,9.99,2026-08-01
 2090a138-713d-4516-a8f8-625a4f24c3a6,ce33b280-66fc-403c-aa6e-9f7887752744,Uncanny X-Men Vol. 1 #131 (1963),comic,UNCOMMON,131,1000,100,0,BBB,Uncanny X-Men Vol. 1,Marvel,1.5,2026-07-05,10,2026-07-29
 ea12c6f6-6bf8-49e4-b5c2-4c3a6c5d6609,ce33b280-66fc-403c-aa6e-9f7887752744,The X-Men Vol. 1 #131 (1963),comic,RARE,131,1000,100,0,BBB,The X-Men Vol. 1,Marvel,3,2026-07-22,11.99,2026-08-01
 5c6e15e5-8608-4414-a42d-1238700a06ca,ce33b280-66fc-403c-aa6e-9f7887752744,Uncanny X-Men Vol. 1 #131 (1963),comic,ULTRA_RARE,131,1000,100,0,BBB,Uncanny X-Men Vol. 1,Marvel,7.75,2026-06-30,30,2026-06-25
