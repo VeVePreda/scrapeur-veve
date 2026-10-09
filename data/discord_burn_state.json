@@ -332,7 +332,9 @@
    "famille": "comics",
    "a_bruler_annonce": 1,
    "mid": "1557769131451875349",
-   "empreinte": "🔥 BURN À VENIR — Howard the Duck|15105570|⏳ Burn **<t:1791460800:D>** *(estimé)*\n\n```\nEn circulation  901\nVendues         900\nÀ brûler          1\n```\n🔥 **0,1 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **900 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📉 ATL 28 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/3223db82-73c5-4e49-9dce-851af33a7cdd>)"
+   "empreinte": "✅ BURN EFFECTUÉ — Howard the Duck|3066993|🔥 **1 éditions brûlées** — c'est définitif\n\n```\nEn circulation  901\nVendues         900\nBrûlées           1\n```\n🎯 Supply final : **900 éditions** (−0,1 %)\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📉 ATL 28 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/3223db82-73c5-4e49-9dce-851af33a7cdd>)",
+   "disparu_le": "2026-10-09",
+   "clos": true
   },
   "cd78a08b-eb14-42c0-aac1-da292924b4cf": {
    "brulees_depart": 0,
@@ -342,8 +344,17 @@
    "a_bruler_annonce": 2122,
    "mid": "1556297376069722176",
    "empreinte": "🔥 BURN À VENIR — Invincible Iron Man|15105570|⏳ Burn **<t:1791633600:D>**\n\n```\nEn circulation  2 658\nVendues           536\nÀ brûler        2 122\n```\n🔥 **79,8 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **536 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📉 ATL 149 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/cd78a08b-eb14-42c0-aac1-da292924b4cf>)"
+  },
+  "85580924-ab71-47ac-ae18-9304796ecb5b": {
+   "brulees_depart": 0,
+   "circulation_depart": 901,
+   "nom": "Age of Ultron",
+   "famille": "comics",
+   "a_bruler_annonce": 594,
+   "mid": "1558127402842849353",
+   "empreinte": "🔥 BURN À VENIR — Age of Ultron|15105570|⏳ Burn **<t:1792065600:D>**\n\n```\nEn circulation  901\nVendues         307\nÀ brûler        594\n```\n🔥 **65,9 %** du supply en circulation part en fumée\n🎯 Supply final estimé : **307 éditions**\n\n💠 Common · 💎 Prix boutique **6,99 $**\n📉 ATL 2 $ · 📈 ATH 699 $\n\n[Voir sur VeVe](<https://www.veve.me/collectibles/en/comics/85580924-ab71-47ac-ae18-9304796ecb5b>)"
   }
  },
  "empreinte": "0cde2154acab",
- "maj": "2026-10-08T14:58:26+00:00"
+ "maj": "2026-10-09T14:42:08+00:00"
 }
