@@ -2812,7 +2812,7 @@ aafd6cbb-b019-4312-9f50-a096b8be9943,8bd6f355-cdd9-4204-8cec-8add192c65e7,AMC Ty
 30a9f14d-f5ef-4047-bf97-c2b047190f83,441fdb5e-23e0-4fd3-9068-fd70fbb0a319,1:6 DeLorean Time Machine - Interactive,collectible,COMMON,FE,50000,41,32,,Back to the Future,Universal,1.99,2025-10-26,185,2022-01-18
 8f1cbd40-53b4-4b5b-b44b-5423bcff6bfe,3227ec9f-e36e-45f3-b126-d567808d2176,Happy New Year! 2026 - Tier 1,collectible,COMMON,,70000,26,0,,VeVe D&D,VeVe,,2026-12-31,,2026-12-31
 06215653-c578-44d4-a81b-3afff9192652,f2853426-d96c-44eb-b81e-bd84887d7f40,Tiny Jones,collectible,SECRET_RARE,FE,92072,,72,,The Feeshes,+Breadcat,1,2026-04-19,3.95,2026-06-15
-d113b6ab-9645-4942-b74c-d984d016b2b0,c9b2d5a3-f19c-4fe2-bfe6-de218281dab1,Tiny Jones Box,collectible,COMMON,FE,92072,,149,,+Breadcat Box Co.,+Breadcat,1,2026-04-17,1.5,2026-04-17
+d113b6ab-9645-4942-b74c-d984d016b2b0,c9b2d5a3-f19c-4fe2-bfe6-de218281dab1,Tiny Jones Box,collectible,SECRET_RARE,FE,92072,,149,,+Breadcat Box Co.,+Breadcat,1,2026-04-17,1.5,2026-04-17
 121f40d7-e3e6-41bc-971e-468d09af812c,2faff5b6-3b17-4629-8645-5301f735ad07,A House Without Windows (2021),comic,COMMON,,1000,,0,,A House Without Windows,Humanoids,2013,2026-01-14,2013,2026-01-14
 27b50505-36ea-4659-9a08-2c8beeed319f,1ef24009-90b9-40dd-b3ae-d079ed62d97f,Aladdin #1 (2026),comic,COMMON,1,0,,0,,Aladdin,Dynamite Entertainment,,2026-07-08,,2026-07-08
 27cb2785-e236-4a14-96c4-88c0db3aaff4,491da442-d71c-4e67-a229-63f24312b6c1,Aladdin #2 (2026),comic,COMMON,2,0,,0,,Aladdin,Dynamite Entertainment,,2026-08-19,,2026-08-19
@@ -7517,8 +7517,8 @@ d1fc2a93-da2c-4f81-8b34-8a3c2eecc0ba,55dcab15-282e-4269-af35-397b965c435b,The Im
 7a3c7ad6-f4bc-45fd-b426-e9e313a5dc73,55dcab15-282e-4269-af35-397b965c435b,The Immortal Thor Vol. 1 - Annual #10 (2023),comic,SECRET_RARE,10,1000,11,0,,The Immortal Thor Vol. 1 - Annual,Marvel,7.98,2024-05-01,7.98,2024-05-01
 541fcdf1-7923-415f-b0e1-898188e95632,33a1f92e-c9e9-47bc-9900-79db6386fa6a,The Immortal Thor Vol. 1 - Annual #11 (2023),comic,COMMON,11,1000,11,0,,The Immortal Thor Vol. 1 - Annual,Marvel,1.99,2024-05-23,11,2024-08-14
 d996f157-66d9-47f4-a377-a6c71f10e699,33a1f92e-c9e9-47bc-9900-79db6386fa6a,The Immortal Thor Vol. 1 - Annual #11 (2023),comic,SECRET_RARE,11,1000,11,0,,The Immortal Thor Vol. 1 - Annual,Marvel,7.98,2024-05-22,7.98,2024-05-22
-20eb25c2-3621-4408-81b4-af2746a4c31b,0bfcebf8-89be-4602-ac7e-2789b341c1f6,The Immortal Thor Vol. 1 #12 (2023),comic,COMMON,12,1000,11,0,,The Immortal Thor Vol. 1,Marvel,1.1,2026-06-20,69,2026-06-10
-d0278cb0-2712-4ade-9693-329441650d45,0bfcebf8-89be-4602-ac7e-2789b341c1f6,The Immortal Thor Vol. 1 #12 (2023),comic,UNCOMMON,12,1000,11,0,,The Immortal Thor Vol. 1,Marvel,2.15,2026-06-20,66,2026-06-09
+20eb25c2-3621-4408-81b4-af2746a4c31b,0bfcebf8-89be-4602-ac7e-2789b341c1f6,The Immortal Thor Vol. 1 - Annual #12 (2023),comic,COMMON,12,1000,11,0,,The Immortal Thor Vol. 1 - Annual,Marvel,1.1,2026-06-20,69,2026-06-10
+d0278cb0-2712-4ade-9693-329441650d45,0bfcebf8-89be-4602-ac7e-2789b341c1f6,The Immortal Thor Vol. 1 - Annual #12 (2023),comic,UNCOMMON,12,1000,11,0,,The Immortal Thor Vol. 1 - Annual,Marvel,2.15,2026-06-20,66,2026-06-09
 9cb7d423-9df8-4c6d-b9ca-57155641cab4,0bfcebf8-89be-4602-ac7e-2789b341c1f6,The Immortal Thor Vol. 1 - Annual #12 (2023),comic,ULTRA_RARE,12,1000,11,0,,The Immortal Thor Vol. 1 - Annual,Marvel,7.98,2026-06-04,99,2026-06-16
 ebd4456e-b2f5-4c11-b235-82ae447f855f,0bfcebf8-89be-4602-ac7e-2789b341c1f6,The Immortal Thor Vol. 1 - Annual #12 (2023),comic,SECRET_RARE,12,1000,11,0,,The Immortal Thor Vol. 1 - Annual,Marvel,7.98,2026-06-08,2500,2024-12-13
 7d04ac9d-b67a-4346-924e-def72661c6e0,62054de6-4405-482c-a4a6-f4a501cb906d,The Immortal Thor Vol. 1 - Annual #13 (2023),comic,COMMON,13,1000,11,0,,The Immortal Thor Vol. 1 - Annual,Marvel,2.99,2024-08-02,10,2024-12-13
