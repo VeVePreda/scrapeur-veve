@@ -2812,7 +2812,7 @@ aafd6cbb-b019-4312-9f50-a096b8be9943,8bd6f355-cdd9-4204-8cec-8add192c65e7,AMC Ty
 30a9f14d-f5ef-4047-bf97-c2b047190f83,441fdb5e-23e0-4fd3-9068-fd70fbb0a319,1:6 DeLorean Time Machine - Interactive,collectible,COMMON,FE,50000,41,32,,Back to the Future,Universal,1.99,2025-10-26,185,2022-01-18
 8f1cbd40-53b4-4b5b-b44b-5423bcff6bfe,3227ec9f-e36e-45f3-b126-d567808d2176,Happy New Year! 2026 - Tier 1,collectible,COMMON,,70000,26,0,,VeVe D&D,VeVe,,2026-12-31,,2026-12-31
 06215653-c578-44d4-a81b-3afff9192652,f2853426-d96c-44eb-b81e-bd84887d7f40,Tiny Jones,collectible,SECRET_RARE,FE,92072,,72,,The Feeshes,+Breadcat,1,2026-04-19,3.95,2026-06-15
-d113b6ab-9645-4942-b74c-d984d016b2b0,c9b2d5a3-f19c-4fe2-bfe6-de218281dab1,Tiny Jones Box,collectible,SECRET_RARE,FE,92072,,149,,+Breadcat Box Co.,+Breadcat,1,2026-04-17,1.5,2026-04-17
+d113b6ab-9645-4942-b74c-d984d016b2b0,c9b2d5a3-f19c-4fe2-bfe6-de218281dab1,Tiny Jones Box,collectible,COMMON,FE,92072,,149,,+Breadcat Box Co.,+Breadcat,1,2026-04-17,1.5,2026-04-17
 121f40d7-e3e6-41bc-971e-468d09af812c,2faff5b6-3b17-4629-8645-5301f735ad07,A House Without Windows (2021),comic,COMMON,,1000,,0,,A House Without Windows,Humanoids,2013,2026-01-14,2013,2026-01-14
 27b50505-36ea-4659-9a08-2c8beeed319f,1ef24009-90b9-40dd-b3ae-d079ed62d97f,Aladdin #1 (2026),comic,COMMON,1,0,,0,,Aladdin,Dynamite Entertainment,,2026-07-08,,2026-07-08
 27cb2785-e236-4a14-96c4-88c0db3aaff4,491da442-d71c-4e67-a229-63f24312b6c1,Aladdin #2 (2026),comic,COMMON,2,0,,0,,Aladdin,Dynamite Entertainment,,2026-08-19,,2026-08-19
@@ -13278,7 +13278,7 @@ d62a8d5c-1794-4911-ba10-fcf949267c26,f8ff0b48-df28-480d-93d0-e7032fa4211e,The Am
 08f6250b-b637-45bb-a7b1-45951a3d8ae9,358fbaa4-4294-492d-90c4-4b427669e5d1,The Amazing Spider-Man Vol. 8 #13 (2025),comic,COMMON,13,1000,11,0,,The Amazing Spider-Man Vol. 8,Marvel,2.99,2025-11-25,75,2026-01-19
 819e79b5-f69c-437e-a370-75c50f9d5fff,358fbaa4-4294-492d-90c4-4b427669e5d1,The Amazing Spider-Man #13 (2025),comic,UNCOMMON,13,1000,11,0,,The Amazing Spider-Man,Marvel,3,2025-10-03,9,2026-03-04
 0f404364-cf08-4507-b37b-7ffb0ee742f7,358fbaa4-4294-492d-90c4-4b427669e5d1,The Amazing Spider-Man Vol. 8 #13 (2025),comic,RARE,13,1000,11,0,,The Amazing Spider-Man Vol. 8,Marvel,5.99,2025-10-03,15,2026-06-05
-84fc3448-a0a3-4fde-9714-883336b10de5,358fbaa4-4294-492d-90c4-4b427669e5d1,The Amazing Spider-Man #13 (2025),comic,ULTRA_RARE,13,1000,11,0,,The Amazing Spider-Man,Marvel,7.98,2026-06-22,99,2025-10-01
+84fc3448-a0a3-4fde-9714-883336b10de5,358fbaa4-4294-492d-90c4-4b427669e5d1,The Amazing Spider-Man Vol. 8 #13 (2025),comic,ULTRA_RARE,13,1000,11,0,,The Amazing Spider-Man Vol. 8,Marvel,7.98,2026-06-22,99,2025-10-01
 d4314cf9-87af-4e1c-91d1-3afe3321f7cf,358fbaa4-4294-492d-90c4-4b427669e5d1,The Amazing Spider-Man Vol. 8 #13 (2025),comic,SECRET_RARE,13,1000,11,0,,The Amazing Spider-Man Vol. 8,Marvel,299,2025-10-08,650,2025-10-08
 2cfdcb13-a0f8-4e7a-af55-77b3a7cad3a6,f6092c1f-c9a6-48df-b769-7f6c77354de8,The Amazing Spider-Man Vol. 8 #17 (2025),comic,COMMON,17,1000,11,0,,The Amazing Spider-Man Vol. 8,Marvel,3,2026-01-07,9,2025-12-11
 3470e3f9-1278-40ad-8937-70f942e7cf98,f6092c1f-c9a6-48df-b769-7f6c77354de8,The Amazing Spider-Man Vol. 8 #17 (2025),comic,UNCOMMON,17,1000,11,0,,The Amazing Spider-Man Vol. 8,Marvel,3,2026-02-28,7.98,2025-12-10
