@@ -2812,7 +2812,7 @@ aafd6cbb-b019-4312-9f50-a096b8be9943,8bd6f355-cdd9-4204-8cec-8add192c65e7,AMC Ty
 30a9f14d-f5ef-4047-bf97-c2b047190f83,441fdb5e-23e0-4fd3-9068-fd70fbb0a319,1:6 DeLorean Time Machine - Interactive,collectible,COMMON,FE,50000,41,32,,Back to the Future,Universal,1.99,2025-10-26,185,2022-01-18
 8f1cbd40-53b4-4b5b-b44b-5423bcff6bfe,3227ec9f-e36e-45f3-b126-d567808d2176,Happy New Year! 2026 - Tier 1,collectible,COMMON,,70000,26,0,,VeVe D&D,VeVe,,2026-12-31,,2026-12-31
 06215653-c578-44d4-a81b-3afff9192652,f2853426-d96c-44eb-b81e-bd84887d7f40,Tiny Jones,collectible,SECRET_RARE,FE,92072,,72,,The Feeshes,+Breadcat,1,2026-04-19,3.95,2026-06-15
-d113b6ab-9645-4942-b74c-d984d016b2b0,c9b2d5a3-f19c-4fe2-bfe6-de218281dab1,Tiny Jones Box,collectible,COMMON,FE,92072,,149,,+Breadcat Box Co.,+Breadcat,1,2026-04-17,1.5,2026-04-17
+d113b6ab-9645-4942-b74c-d984d016b2b0,c9b2d5a3-f19c-4fe2-bfe6-de218281dab1,Tiny Jones Box,collectible,SECRET_RARE,FE,92072,,149,,+Breadcat Box Co.,+Breadcat,1,2026-04-17,1.5,2026-04-17
 121f40d7-e3e6-41bc-971e-468d09af812c,2faff5b6-3b17-4629-8645-5301f735ad07,A House Without Windows (2021),comic,COMMON,,1000,,0,,A House Without Windows,Humanoids,2013,2026-01-14,2013,2026-01-14
 27b50505-36ea-4659-9a08-2c8beeed319f,1ef24009-90b9-40dd-b3ae-d079ed62d97f,Aladdin #1 (2026),comic,COMMON,1,0,,0,,Aladdin,Dynamite Entertainment,,2026-07-08,,2026-07-08
 27cb2785-e236-4a14-96c4-88c0db3aaff4,491da442-d71c-4e67-a229-63f24312b6c1,Aladdin #2 (2026),comic,COMMON,2,0,,0,,Aladdin,Dynamite Entertainment,,2026-08-19,,2026-08-19
@@ -7507,7 +7507,7 @@ d2fdbb30-2e87-4b5c-9a1b-6b2328d0c725,d87886bc-0acc-4136-9ff0-4d25c488f844,Ignite
 5ad4c987-e749-4afb-9eeb-f73bc54fb718,fc70f09f-1db5-4acb-b8f9-b6c7803226ac,Ignited #7 (2019),comic,COMMON,7,1000,11,0,,Ignited,Humanoids,162.99,2025-11-10,162.99,2025-11-10
 0ac8a036-f5ba-49c3-b07f-096df761689a,bd8c4933-2f85-44d3-892e-c04fd9581cbd,Ignited #8 (2019),comic,COMMON,8,1000,11,0,,Ignited,Humanoids,168.99,2025-11-10,168.99,2025-11-10
 936fb0a9-e158-4fec-94fa-be0b4d5e7c4b,caef2c75-c07b-4cb6-a9be-591c5e032e92,Ignited #9 (2019),comic,COMMON,9,1000,11,0,,Ignited,Humanoids,349.99,2025-11-10,349.99,2025-11-10
-c6507586-24ee-4762-91f1-2f736f713205,04057bc3-1361-401f-b9d4-b15f3fcac2a3,The Immortal Thor Vol. 1 - Annual #1 (2023),comic,COMMON,1,1000,11,0,,The Immortal Thor Vol. 1 - Annual,Marvel,1.09,2025-08-27,900,2025-09-25
+c6507586-24ee-4762-91f1-2f736f713205,04057bc3-1361-401f-b9d4-b15f3fcac2a3,The Immortal Thor Vol. 1 #1 (2023),comic,COMMON,1,1000,11,0,,The Immortal Thor Vol. 1,Marvel,1.09,2025-08-27,900,2025-09-25
 95aad43d-2a7c-4422-b7be-b41c8be4a5da,04057bc3-1361-401f-b9d4-b15f3fcac2a3,The Immortal Thor Vol. 1 - Annual #1 (2023),comic,UNCOMMON,1,1000,11,0,,The Immortal Thor Vol. 1 - Annual,Marvel,2,2025-01-07,67,2025-12-30
 8aa8484e-1dfa-44e3-9c6f-737161b3d496,04057bc3-1361-401f-b9d4-b15f3fcac2a3,The Immortal Thor Vol. 1 - Annual #1 (2023),comic,RARE,1,1000,11,0,,The Immortal Thor Vol. 1 - Annual,Marvel,3.5,2025-10-18,200,2025-11-09
 0c74bb6e-bc2f-4795-a801-8f497c477b4a,04057bc3-1361-401f-b9d4-b15f3fcac2a3,The Immortal Thor Vol. 1 - Annual #1 (2023),comic,ULTRA_RARE,1,1000,11,0,,The Immortal Thor Vol. 1 - Annual,Marvel,3.95,2025-10-18,119,2026-07-15
@@ -15540,10 +15540,10 @@ c73688ba-f8cf-40bb-925b-97f81e3f08be,1279a661-1b7c-4d09-a34a-8cc62bb96de2,The X-
 954333c1-5bf8-455b-bd56-aa2069b425ee,2c434f5a-2fa8-4054-a0c3-975c6ec7d585,Uncanny X-Men Vol. 1 #125 (1963),comic,RARE,125,1000,100,0,B,Uncanny X-Men Vol. 1,Marvel,2.6,2026-04-05,20,2026-09-06
 9eeda836-fbc3-4478-8d5e-1d6060d06f12,2c434f5a-2fa8-4054-a0c3-975c6ec7d585,Uncanny X-Men Vol. 1 #125 (1963),comic,ULTRA_RARE,125,1000,100,0,B,Uncanny X-Men Vol. 1,Marvel,5,2026-04-17,12.99,2026-09-26
 fb58d78d-c1e4-4f1c-b6c9-c86b35bc49b8,2c434f5a-2fa8-4054-a0c3-975c6ec7d585,Uncanny X-Men Vol. 1 #125 (1963),comic,SECRET_RARE,125,1000,100,0,B,Uncanny X-Men Vol. 1,Marvel,6.99,2026-05-27,500000,2026-09-05
-056df928-91bd-4611-b144-2c2bf7e30936,ce33b280-66fc-403c-aa6e-9f7887752744,Uncanny X-Men Vol. 1 #131 (1963),comic,COMMON,131,1000,100,0,BBB,Uncanny X-Men Vol. 1,Marvel,2.5,2026-06-27,9.99,2026-08-01
+056df928-91bd-4611-b144-2c2bf7e30936,ce33b280-66fc-403c-aa6e-9f7887752744,The X-Men Vol. 1 #131 (1963),comic,COMMON,131,1000,100,0,BBB,The X-Men Vol. 1,Marvel,2.5,2026-06-27,9.99,2026-08-01
 2090a138-713d-4516-a8f8-625a4f24c3a6,ce33b280-66fc-403c-aa6e-9f7887752744,The X-Men Vol. 1 #131 (1963),comic,UNCOMMON,131,1000,100,0,BBB,The X-Men Vol. 1,Marvel,1.5,2026-07-05,10,2026-07-29
 ea12c6f6-6bf8-49e4-b5c2-4c3a6c5d6609,ce33b280-66fc-403c-aa6e-9f7887752744,The X-Men Vol. 1 #131 (1963),comic,RARE,131,1000,100,0,BBB,The X-Men Vol. 1,Marvel,3,2026-07-22,11.99,2026-08-01
-5c6e15e5-8608-4414-a42d-1238700a06ca,ce33b280-66fc-403c-aa6e-9f7887752744,Uncanny X-Men Vol. 1 #131 (1963),comic,ULTRA_RARE,131,1000,100,0,BBB,Uncanny X-Men Vol. 1,Marvel,7.75,2026-06-30,30,2026-06-25
+5c6e15e5-8608-4414-a42d-1238700a06ca,ce33b280-66fc-403c-aa6e-9f7887752744,The X-Men Vol. 1 #131 (1963),comic,ULTRA_RARE,131,1000,100,0,BBB,The X-Men Vol. 1,Marvel,7.75,2026-06-30,30,2026-06-25
 cfc77e73-c03c-4607-944d-c6e62c0dfff9,ce33b280-66fc-403c-aa6e-9f7887752744,Uncanny X-Men Vol. 1 #131 (1963),comic,SECRET_RARE,131,1000,100,0,BBB,Uncanny X-Men Vol. 1,Marvel,6.99,2026-07-28,155,2026-06-25
 83b93838-1d87-4d1c-979a-765f8aa4871c,995d97cb-b06e-45a9-bb2d-5d4bee26e57e,Uncanny X-Men Vol. 1 #158 (1963),comic,COMMON,158,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,1.75,2026-03-26,25,2026-08-24
 c66c2dac-dc08-455a-bd36-befc27298187,995d97cb-b06e-45a9-bb2d-5d4bee26e57e,Uncanny X-Men Vol. 1 #158 (1963),comic,UNCOMMON,158,1000,100,0,,Uncanny X-Men Vol. 1,Marvel,1.85,2026-03-20,6.99,2026-03-19
