@@ -2812,7 +2812,7 @@ aafd6cbb-b019-4312-9f50-a096b8be9943,8bd6f355-cdd9-4204-8cec-8add192c65e7,AMC Ty
 30a9f14d-f5ef-4047-bf97-c2b047190f83,441fdb5e-23e0-4fd3-9068-fd70fbb0a319,1:6 DeLorean Time Machine - Interactive,collectible,COMMON,FE,50000,41,32,,Back to the Future,Universal,1.99,2025-10-26,185,2022-01-18
 8f1cbd40-53b4-4b5b-b44b-5423bcff6bfe,3227ec9f-e36e-45f3-b126-d567808d2176,Happy New Year! 2026 - Tier 1,collectible,COMMON,,70000,26,0,,VeVe D&D,VeVe,,2026-12-31,,2026-12-31
 06215653-c578-44d4-a81b-3afff9192652,f2853426-d96c-44eb-b81e-bd84887d7f40,Tiny Jones,collectible,SECRET_RARE,FE,92072,,72,,The Feeshes,+Breadcat,1,2026-04-19,3.95,2026-06-15
-d113b6ab-9645-4942-b74c-d984d016b2b0,c9b2d5a3-f19c-4fe2-bfe6-de218281dab1,Tiny Jones Box,collectible,SECRET_RARE,FE,92072,,149,,+Breadcat Box Co.,+Breadcat,1,2026-04-17,1.5,2026-04-17
+d113b6ab-9645-4942-b74c-d984d016b2b0,c9b2d5a3-f19c-4fe2-bfe6-de218281dab1,Tiny Jones Box,collectible,COMMON,FE,92072,,149,,+Breadcat Box Co.,+Breadcat,1,2026-04-17,1.5,2026-04-17
 121f40d7-e3e6-41bc-971e-468d09af812c,2faff5b6-3b17-4629-8645-5301f735ad07,A House Without Windows (2021),comic,COMMON,,1000,,0,,A House Without Windows,Humanoids,2013,2026-01-14,2013,2026-01-14
 27b50505-36ea-4659-9a08-2c8beeed319f,1ef24009-90b9-40dd-b3ae-d079ed62d97f,Aladdin #1 (2026),comic,COMMON,1,0,,0,,Aladdin,Dynamite Entertainment,,2026-07-08,,2026-07-08
 27cb2785-e236-4a14-96c4-88c0db3aaff4,491da442-d71c-4e67-a229-63f24312b6c1,Aladdin #2 (2026),comic,COMMON,2,0,,0,,Aladdin,Dynamite Entertainment,,2026-08-19,,2026-08-19
@@ -6576,7 +6576,7 @@ a9204847-3c3a-4b2e-8899-29163756030a,d83610c4-07f8-4a70-a1e3-3a9447fd7061,Fantas
 24cb607d-9967-4b2f-b178-9b34e2f8b4a7,7696a530-1ca8-4723-b652-70d27df9ff73,Fantastic Four Vol. 7 #13 (2022),comic,SECRET_RARE,13,1000,11,1,,Fantastic Four Vol. 7,Marvel,175,2024-04-26,549,2024-04-28
 1026a015-2e98-45d7-9077-dcca46883896,10d9ff3a-27f2-4fb2-9bc4-be2f768d394a,Fantastic Four Vol. 8 #13 (2025),comic,COMMON,13,1000,11,0,,Fantastic Four Vol. 8,Marvel,1.5,2026-09-12,8,2026-07-22
 d19d32e5-e0a8-43ce-816a-cc31c015b26a,10d9ff3a-27f2-4fb2-9bc4-be2f768d394a,Fantastic Four Vol. 8 #13 (2025),comic,UNCOMMON,13,1000,11,0,,Fantastic Four Vol. 8,Marvel,7.98,2026-07-03,29,2026-07-03
-7a37c864-ee66-4e20-84e9-28a056e3a01e,10d9ff3a-27f2-4fb2-9bc4-be2f768d394a,Fantastic Four Vol. 8 #13 (2025),comic,RARE,13,1000,11,0,,Fantastic Four Vol. 8,Marvel,7.98,2026-08-01,10,2026-07-02
+7a37c864-ee66-4e20-84e9-28a056e3a01e,10d9ff3a-27f2-4fb2-9bc4-be2f768d394a,Fantastic Four #13 (2025),comic,RARE,13,1000,11,0,,Fantastic Four,Marvel,7.98,2026-08-01,10,2026-07-02
 0d3d7d2e-e9d0-4a40-a7fd-7ed27e4b8956,10d9ff3a-27f2-4fb2-9bc4-be2f768d394a,Fantastic Four Vol. 8 #13 (2025),comic,ULTRA_RARE,13,1000,11,0,,Fantastic Four Vol. 8,Marvel,60,2026-08-10,99,2026-07-01
 36feff06-729e-4b26-9ceb-f5f091de6f68,10d9ff3a-27f2-4fb2-9bc4-be2f768d394a,Fantastic Four Vol. 8 #13 (2025),comic,SECRET_RARE,13,1000,11,0,,Fantastic Four Vol. 8,Marvel,7.98,2026-07-01,7.98,2026-07-01
 5d73c124-d7c7-4f9f-b6b2-1611f0233157,3c67db8d-e061-4043-81b4-720ab5aad4bf,Fantastic Four Vol. 7 #14 (2022),comic,COMMON,14,1000,11,0,,Fantastic Four Vol. 7,Marvel,1.9,2024-05-13,14,2024-03-30
@@ -8010,7 +8010,7 @@ a67d9dd1-b17d-4a8d-b0ed-d30dc128be62,26026e6c-9fd9-41dc-a5b8-b3ed55f42066,Iron M
 490ac211-37aa-4266-90ff-a0eeaf7b3137,26026e6c-9fd9-41dc-a5b8-b3ed55f42066,Iron Man Vol. 7 #3 (2026),comic,SECRET_RARE,3,1000,11,0,,Iron Man Vol. 7,Marvel,7.98,2026-04-27,195,2026-03-25
 782dae9e-efa6-4042-aaae-8be6bf426557,59996d9e-0884-4ced-9316-9a8a7944fcc0,Iron Man Vol. 7 #4 (2026),comic,COMMON,4,1000,11,0,,Iron Man Vol. 7,Marvel,1,2026-06-03,7.98,2026-04-08
 c54f4f1f-e468-4d7e-a3de-b63471facfdf,59996d9e-0884-4ced-9316-9a8a7944fcc0,Iron Man Vol. 7 #4 (2026),comic,UNCOMMON,4,1000,11,0,,Iron Man Vol. 7,Marvel,1.69,2026-04-29,30,2026-04-08
-6d772d3d-1652-4b8f-8d88-064dd92a74bf,59996d9e-0884-4ced-9316-9a8a7944fcc0,Iron Man Vol. 6 #4 (2026),comic,RARE,4,1000,11,0,,Iron Man Vol. 6,Marvel,2.88,2026-05-19,8,2026-06-01
+6d772d3d-1652-4b8f-8d88-064dd92a74bf,59996d9e-0884-4ced-9316-9a8a7944fcc0,Iron Man Vol. 7 #4 (2026),comic,RARE,4,1000,11,0,,Iron Man Vol. 7,Marvel,2.88,2026-05-19,8,2026-06-01
 8302d1ee-45db-43e0-bc83-e09b77409ba6,59996d9e-0884-4ced-9316-9a8a7944fcc0,Iron Man Vol. 7 #4 (2026),comic,ULTRA_RARE,4,1000,11,0,,Iron Man Vol. 7,Marvel,5.67,2026-06-07,35,2026-04-11
 4f046b13-3577-46dd-927f-a18cd1326373,59996d9e-0884-4ced-9316-9a8a7944fcc0,Iron Man Vol. 7 #4 (2026),comic,SECRET_RARE,4,1000,11,0,,Iron Man Vol. 7,Marvel,7.98,2026-05-20,7.98,2026-04-08
 4fe3eb64-0f59-4a89-a58a-051b21586878,388ce0d1-3aa7-4952-8d2a-79ca07d9a1c8,Iron Man Vol. 7 #5 (2026),comic,COMMON,5,1000,11,0,,Iron Man Vol. 7,Marvel,7.98,2026-05-13,7.98,2026-05-13
@@ -8761,9 +8761,9 @@ e7af9de0-80f7-4e7d-a222-7561f26d573d,f0ff779a-ff9e-4838-9824-36b385ece5a1,Magik 
 ce583fb5-94e5-4228-b9c8-ad06035be512,26652049-d058-4c6e-94d4-8e5cab337b2d,Magik #7 (2025),comic,COMMON,7,1000,11,0,,Magik,Marvel,2.5,2025-11-03,15,2025-07-09
 0c82b71e-b678-4902-9e3b-cdc8fbf84ef9,26652049-d058-4c6e-94d4-8e5cab337b2d,Magik #7 (2025),comic,RARE,7,1000,11,1,,Magik,Marvel,39,2025-07-10,39,2025-07-10
 77d3ff0f-55b6-4c35-b9b9-6678e9e18a7e,26652049-d058-4c6e-94d4-8e5cab337b2d,Magik #7 (2025),comic,SECRET_RARE,7,1000,11,0,,Magik,Marvel,6.98,2025-07-09,6.98,2025-07-09
-65cf38ee-f9d8-45be-b4ef-7edb7094c991,674e96d2-c182-4ae3-9930-6559ef2fb9b4,Magik #8 (2025),comic,COMMON,8,1000,11,0,,Magik,Marvel,1.45,2025-08-20,50,2026-03-08
-453d4740-f915-43b3-a6db-22e92f290a9f,674e96d2-c182-4ae3-9930-6559ef2fb9b4,Magik #8 (2025),comic,UNCOMMON,8,1000,11,0,,Magik,Marvel,2.5,2025-08-24,7,2025-08-14
-c6339e6f-3a61-4769-99f4-ca0a3c531172,674e96d2-c182-4ae3-9930-6559ef2fb9b4,Magik #8 (2025),comic,RARE,8,1000,11,0,,Magik,Marvel,5.5,2025-09-24,24,2025-10-28
+65cf38ee-f9d8-45be-b4ef-7edb7094c991,674e96d2-c182-4ae3-9930-6559ef2fb9b4,Magik Vol. 1 #8 (2025),comic,COMMON,8,1000,11,0,,Magik Vol. 1,Marvel,1.45,2025-08-20,50,2026-03-08
+453d4740-f915-43b3-a6db-22e92f290a9f,674e96d2-c182-4ae3-9930-6559ef2fb9b4,Magik Vol. 1 #8 (2025),comic,UNCOMMON,8,1000,11,0,,Magik Vol. 1,Marvel,2.5,2025-08-24,7,2025-08-14
+c6339e6f-3a61-4769-99f4-ca0a3c531172,674e96d2-c182-4ae3-9930-6559ef2fb9b4,Magik Vol. 1 #8 (2025),comic,RARE,8,1000,11,0,,Magik Vol. 1,Marvel,5.5,2025-09-24,24,2025-10-28
 c42ee6e3-3e4d-4c18-8678-026c50db51d0,674e96d2-c182-4ae3-9930-6559ef2fb9b4,Magik #8 (2025),comic,ULTRA_RARE,8,1000,11,0,,Magik,Marvel,6.98,2025-09-02,100,2025-08-17
 d2a26f18-7c41-4433-817e-f7a99b84a9d8,674e96d2-c182-4ae3-9930-6559ef2fb9b4,Magik #8 (2025),comic,SECRET_RARE,8,1000,11,0,,Magik,Marvel,6.98,2025-10-27,3500,2025-08-14
 f19602b2-951c-44f8-aba6-40611b07d1f8,72c8be37-3b73-4e30-8e65-4879c0803a21,Magik #9 (2025),comic,COMMON,9,1000,11,0,,Magik,Marvel,5.99,2026-08-28,8,2026-09-15
@@ -15540,7 +15540,7 @@ c73688ba-f8cf-40bb-925b-97f81e3f08be,1279a661-1b7c-4d09-a34a-8cc62bb96de2,The X-
 954333c1-5bf8-455b-bd56-aa2069b425ee,2c434f5a-2fa8-4054-a0c3-975c6ec7d585,Uncanny X-Men Vol. 1 #125 (1963),comic,RARE,125,1000,100,0,B,Uncanny X-Men Vol. 1,Marvel,2.6,2026-04-05,20,2026-09-06
 9eeda836-fbc3-4478-8d5e-1d6060d06f12,2c434f5a-2fa8-4054-a0c3-975c6ec7d585,Uncanny X-Men Vol. 1 #125 (1963),comic,ULTRA_RARE,125,1000,100,0,B,Uncanny X-Men Vol. 1,Marvel,5,2026-04-17,12.99,2026-09-26
 fb58d78d-c1e4-4f1c-b6c9-c86b35bc49b8,2c434f5a-2fa8-4054-a0c3-975c6ec7d585,Uncanny X-Men Vol. 1 #125 (1963),comic,SECRET_RARE,125,1000,100,0,B,Uncanny X-Men Vol. 1,Marvel,6.99,2026-05-27,500000,2026-09-05
-056df928-91bd-4611-b144-2c2bf7e30936,ce33b280-66fc-403c-aa6e-9f7887752744,The X-Men Vol. 1 #131 (1963),comic,COMMON,131,1000,100,0,BBB,The X-Men Vol. 1,Marvel,2.5,2026-06-27,9.99,2026-08-01
+056df928-91bd-4611-b144-2c2bf7e30936,ce33b280-66fc-403c-aa6e-9f7887752744,Uncanny X-Men Vol. 1 #131 (1963),comic,COMMON,131,1000,100,0,BBB,Uncanny X-Men Vol. 1,Marvel,2.5,2026-06-27,9.99,2026-08-01
 2090a138-713d-4516-a8f8-625a4f24c3a6,ce33b280-66fc-403c-aa6e-9f7887752744,Uncanny X-Men Vol. 1 #131 (1963),comic,UNCOMMON,131,1000,100,0,BBB,Uncanny X-Men Vol. 1,Marvel,1.5,2026-07-05,10,2026-07-29
 ea12c6f6-6bf8-49e4-b5c2-4c3a6c5d6609,ce33b280-66fc-403c-aa6e-9f7887752744,Uncanny X-Men Vol. 1 #131 (1963),comic,RARE,131,1000,100,0,BBB,Uncanny X-Men Vol. 1,Marvel,3,2026-07-22,11.99,2026-08-01
 5c6e15e5-8608-4414-a42d-1238700a06ca,ce33b280-66fc-403c-aa6e-9f7887752744,The X-Men Vol. 1 #131 (1963),comic,ULTRA_RARE,131,1000,100,0,BBB,The X-Men Vol. 1,Marvel,7.75,2026-06-30,30,2026-06-25
