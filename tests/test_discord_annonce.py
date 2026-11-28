@@ -1269,3 +1269,13 @@ def test_sans_banniere_le_bandeau_reste_sombre_et_le_DIT(monkeypatch, capsys):
 def test_le_module_est_bien_dans_le_hub():
     from scraper import discord_hub
     assert discord_hub.MODULES.get("annonce") is A.run
+
+
+import pytest as _pytest_min_drops
+
+
+@_pytest_min_drops.fixture(autouse=True)
+def _seuil_min_drops_a_zero(monkeypatch):
+    """Hub v2 (Predabot fe106ad) : l'annonce ne part pas sous 10 drops. Les cas
+    de ce fichier ont moins de 10 drops : seuil a 0 pour eux (demande du Bot, 28/11/2026)."""
+    monkeypatch.setenv("DISCORD_ANNONCE_MIN_DROPS", "0")
